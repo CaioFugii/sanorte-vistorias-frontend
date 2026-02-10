@@ -1,0 +1,10 @@
+export { LoginPage } from './LoginPage';
+export { DashboardPage } from './DashboardPage';
+export { TeamsPage } from './TeamsPage';
+export { CollaboratorsPage } from './CollaboratorsPage';
+export { ChecklistsPage } from './ChecklistsPage';
+export { InspectionsPage } from './InspectionsPage';
+export { NewInspectionPage } from './NewInspectionPage';
+export { InspectionDetailPage } from './InspectionDetailPage';
+export { FillInspectionPage } from './FillInspectionPage';
+export { PendingsPage } from './PendingsPage';
