@@ -23,3 +23,8 @@ export enum InspectionStatus {
   PENDENTE_AJUSTE = 'PENDENTE_AJUSTE',
   RESOLVIDA = 'RESOLVIDA',
 }
+
+export enum PendingStatus {
+  PENDENTE = 'PENDENTE',
+  RESOLVIDA = 'RESOLVIDA',
+}

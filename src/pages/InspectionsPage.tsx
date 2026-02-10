@@ -44,13 +44,13 @@ export const InspectionsPage = () => {
   const loadInspections = async () => {
     try {
       setLoading(true);
-      let data: Inspection[];
-      if (hasRole('FISCAL' as any) && user) {
-        data = await repository.getInspectionsByUser(user.id);
+      let response;
+      if (hasRole('FISCAL' as any)) {
+        response = await repository.getInspectionsByUser();
       } else {
-        data = await repository.getInspections();
+        response = await repository.getInspections();
       }
-      setInspections(data);
+      setInspections(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar vistorias', 'error');
     } finally {

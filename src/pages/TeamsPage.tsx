@@ -41,8 +41,8 @@ export const TeamsPage = () => {
   const loadTeams = async () => {
     try {
       setLoading(true);
-      const data = await repository.getTeams();
-      setTeams(data);
+      const response = await repository.getTeams({ limit: 100 }); // Buscar até 100 equipes
+      setTeams(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar equipes', 'error');
     } finally {

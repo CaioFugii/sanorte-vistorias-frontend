@@ -46,7 +46,7 @@ export const FillInspectionPage = () => {
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
   const [evidences, setEvidences] = useState<Evidence[]>([]);
-  const [generalEvidences, setGeneralEvidences] = useState<string[]>([]);
+  const [generalEvidences, setGeneralEvidences] = useState<Array<{ file?: File; preview: string; evidenceId?: string }>>([]);
   const [signature, setSignature] = useState<Signature | null>(null);
   const [signerName, setSignerName] = useState('');
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
@@ -94,16 +94,32 @@ export const FillInspectionPage = () => {
       });
       setInspectionItems(allItems);
 
-      const itemEvidences = evids.filter((e) => e.inspectionItemId);
-      setEvidences(itemEvidences);
+      setEvidences(evids);
+      // Para evidências gerais, construir PhotoFile[] a partir das evidências
       const general = evids
         .filter((e) => !e.inspectionItemId)
-        .map((e) => e.dataUrl);
+        .map((e) => ({
+          preview: e.filePath.startsWith('http') 
+            ? e.filePath 
+            : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${e.filePath}`,
+          evidenceId: e.id,
+        }));
       setGeneralEvidences(general);
 
       if (sig) {
         setSignature(sig);
         setSignerName(sig.signerName);
+        // Converter imagePath para dataUrl para exibição
+        if (sig.imagePath) {
+          const imageUrl = sig.imagePath.startsWith('http')
+            ? sig.imagePath
+            : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${sig.imagePath}`;
+          // Criar um objeto temporário com imageDataUrl para o componente
+          setSignature({
+            ...sig,
+            imageDataUrl: imageUrl, // Temporário para exibição
+          } as any);
+        }
       }
 
       // Verificar permissões de edição
@@ -184,76 +200,77 @@ export const FillInspectionPage = () => {
 
   const handleEvidencesChange = async (
     inspectionItemId: string,
-    photos: string[]
+    photos: Array<{ file?: File; preview: string; evidenceId?: string }>
   ) => {
     if (!id) return;
 
-    // Remover evidências antigas do item
+    // Remover evidências que não estão mais na lista
     const oldEvidences = evidences.filter(
       (e) => e.inspectionItemId === inspectionItemId
     );
+    const currentEvidenceIds = photos
+      .map((p) => p.evidenceId)
+      .filter((id): id is string => !!id);
+    
     for (const old of oldEvidences) {
-      if (!photos.includes(old.dataUrl)) {
+      if (!currentEvidenceIds.includes(old.id)) {
         try {
           await repository.deleteEvidence(old.id);
+          setEvidences(evidences.filter((e) => e.id !== old.id));
         } catch (error) {
           console.error('Error deleting evidence:', error);
         }
       }
     }
 
-    // Adicionar novas evidências
-    const existingUrls = oldEvidences.map((e) => e.dataUrl);
-    const newPhotos = photos.filter((url) => !existingUrls.includes(url));
-    for (const photo of newPhotos) {
-      try {
-        const evidence = await repository.createEvidence({
-          inspectionId: id,
-          inspectionItemId,
-          fileName: `photo-${Date.now()}.jpg`,
-          dataUrl: photo,
-        });
-        setEvidences([...evidences, evidence]);
-      } catch (error) {
-        console.error('Error creating evidence:', error);
+    // Adicionar novas evidências (que têm file mas não evidenceId)
+    for (const photo of photos) {
+      if (photo.file && !photo.evidenceId) {
+        try {
+          const evidence = await repository.createEvidence(id, photo.file, inspectionItemId);
+          setEvidences([...evidences, evidence]);
+          // Atualizar a foto com o evidenceId
+          photo.evidenceId = evidence.id;
+        } catch (error) {
+          console.error('Error creating evidence:', error);
+        }
       }
     }
-
-    // Atualizar lista de evidências
-    const updated = evidences.filter(
-      (e) => e.inspectionItemId !== inspectionItemId || photos.includes(e.dataUrl)
-    );
-    setEvidences(updated);
   };
 
-  const handleGeneralEvidencesChange = async (photos: string[]) => {
+  const handleGeneralEvidencesChange = async (
+    photos: Array<{ file?: File; preview: string; evidenceId?: string }>
+  ) => {
     if (!id) return;
 
-    // Remover evidências gerais antigas
+    // Remover evidências que não estão mais na lista
     const oldGeneral = evidences.filter((e) => !e.inspectionItemId);
+    const currentEvidenceIds = photos
+      .map((p) => p.evidenceId)
+      .filter((id): id is string => !!id);
+    
     for (const old of oldGeneral) {
-      if (!photos.includes(old.dataUrl)) {
+      if (!currentEvidenceIds.includes(old.id)) {
         try {
           await repository.deleteEvidence(old.id);
+          setEvidences(evidences.filter((e) => e.id !== old.id));
         } catch (error) {
           console.error('Error deleting evidence:', error);
         }
       }
     }
 
-    // Adicionar novas evidências gerais
-    const existingUrls = oldGeneral.map((e) => e.dataUrl);
-    const newPhotos = photos.filter((url) => !existingUrls.includes(url));
-    for (const photo of newPhotos) {
-      try {
-        const evidence = await repository.createEvidence({
-          inspectionId: id,
-          fileName: `general-${Date.now()}.jpg`,
-          dataUrl: photo,
-        });
-        setEvidences([...evidences, evidence]);
-      } catch (error) {
-        console.error('Error creating evidence:', error);
+    // Adicionar novas evidências (que têm file mas não evidenceId)
+    for (const photo of photos) {
+      if (photo.file && !photo.evidenceId) {
+        try {
+          const evidence = await repository.createEvidence(id, photo.file);
+          setEvidences([...evidences, evidence]);
+          // Atualizar a foto com o evidenceId
+          photo.evidenceId = evidence.id;
+        } catch (error) {
+          console.error('Error creating evidence:', error);
+        }
       }
     }
 
@@ -264,10 +281,23 @@ export const FillInspectionPage = () => {
     if (!id || !inspection) return;
     try {
       setSaving(true);
-      // Recalcular percentual
-      const percent = calcularPercentual(inspectionItems, checklistItems);
-      await repository.updateInspection(id, { scorePercent: percent });
-      setInspection({ ...inspection, scorePercent: percent });
+      
+      // Atualizar itens em lote
+      const itemsToUpdate = inspectionItems
+        .filter((item) => !item.id.startsWith('temp-'))
+        .map((item) => ({
+          inspectionItemId: item.id,
+          answer: item.answer || undefined,
+          notes: item.notes,
+        }));
+
+      if (itemsToUpdate.length > 0) {
+        await repository.updateInspectionItems(id, itemsToUpdate);
+        // Recarregar itens atualizados
+        const updatedItems = await repository.getInspectionItems(id);
+        setInspectionItems(updatedItems);
+      }
+
       showSnackbar('Vistoria salva com sucesso', 'success');
     } catch (error) {
       showSnackbar('Erro ao salvar vistoria', 'error');
@@ -301,21 +331,32 @@ export const FillInspectionPage = () => {
       const percent = calcularPercentual(inspectionItems, checklistItems);
       const status = determinarStatusAoFinalizar(inspectionItems);
 
-      await repository.updateInspection(id, {
-        status,
-        scorePercent: percent,
-        finalizedAt: new Date().toISOString(),
-      });
+      // Atualizar itens em lote antes de finalizar
+      const itemsToUpdate = inspectionItems
+        .filter((item) => !item.id.startsWith('temp-'))
+        .map((item) => ({
+          inspectionItemId: item.id,
+          answer: item.answer || undefined,
+          notes: item.notes,
+        }));
+
+      if (itemsToUpdate.length > 0) {
+        await repository.updateInspectionItems(id, itemsToUpdate);
+      }
 
       // Salvar assinatura se ainda não foi salva
-      if (signature && !signature.id) {
-        await repository.createSignature({
-          inspectionId: id,
+      if (signature && !signature.id && signerName) {
+        // Converter dataUrl para base64 sem prefixo
+        const base64 = signature.imageDataUrl.split(',')[1] || signature.imageDataUrl;
+        await repository.createSignature(id, {
           signerName,
-          signerRoleLabel: 'Líder/Encarregado',
-          imageDataUrl: signature.imageDataUrl,
+          imageBase64: base64,
         });
       }
+
+      // Finalizar usando o endpoint correto
+      const finalized = await repository.finalizeInspection(id);
+      setInspection(finalized);
 
       showSnackbar('Vistoria finalizada com sucesso', 'success');
       navigate(`/inspections/${id}`);
@@ -453,17 +494,24 @@ export const FillInspectionPage = () => {
 
       <Paper sx={{ p: 3 }}>
         <SignaturePad
-          value={signature?.imageDataUrl || null}
+          value={signature ? ((signature as any).imageDataUrl || (signature.imagePath ? 
+            (signature.imagePath.startsWith('http') 
+              ? signature.imagePath 
+              : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${signature.imagePath}`) 
+            : null)) : null}
           onChange={(dataUrl) => {
             if (dataUrl) {
+              // Armazenar temporariamente como imageDataUrl para o componente
+              // Será convertido para base64 ao salvar
               setSignature({
                 id: signature?.id || '',
                 inspectionId: id || '',
                 signerName,
                 signerRoleLabel: 'Líder/Encarregado',
-                imageDataUrl: dataUrl,
+                imagePath: '', // Será preenchido ao salvar
+                imageDataUrl: dataUrl, // Temporário
                 signedAt: new Date().toISOString(),
-              });
+              } as any);
             } else {
               setSignature(null);
             }

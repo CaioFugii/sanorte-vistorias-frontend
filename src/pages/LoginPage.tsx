@@ -5,25 +5,20 @@ import {
   Button,
   Typography,
   Box,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
-import { useRepository } from '@/app/RepositoryProvider';
-import { User } from '@/domain';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuthStore();
-  const repository = useRepository();
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -31,28 +26,23 @@ export const LoginPage = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      const allUsers = await repository.getUsers();
-      setUsers(allUsers);
-    };
-    loadUsers();
-  }, [repository]);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Preencha email e senha');
+      return;
+    }
 
-  const handleLogin = () => {
-    if (selectedUserId) {
-      const user = users.find((u) => u.id === selectedUserId);
-      if (user) {
-        login(user);
-        navigate('/');
-      }
-    } else if (email) {
-      // Login por email (mock - aceita qualquer senha)
-      const user = users.find((u) => u.email === email);
-      if (user) {
-        login(user);
-        navigate('/');
-      }
+    setLoading(true);
+    setError(null);
+
+    try {
+      await login(email, password);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erro ao fazer login. Verifique suas credenciais.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,25 +64,12 @@ export const LoginPage = () => {
             Sistema de Gestão de Vistorias
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Selecionar Usuário (Mock)</InputLabel>
-              <Select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                label="Selecionar Usuário (Mock)"
-              >
-                {users.map((user) => (
-                  <MenuItem key={user.id} value={user.id}>
-                    {user.name} ({user.email}) - {user.role}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Typography variant="body2" align="center" sx={{ my: 2 }}>
-              OU
-            </Typography>
+          <form onSubmit={handleLogin}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
             <TextField
               fullWidth
@@ -100,7 +77,10 @@ export const LoginPage = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              required
               sx={{ mb: 2 }}
+              autoComplete="email"
             />
             <TextField
               fullWidth
@@ -108,19 +88,22 @@ export const LoginPage = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              sx={{ mb: 2 }}
+              disabled={loading}
+              required
+              sx={{ mb: 3 }}
+              autoComplete="current-password"
             />
-          </Box>
 
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handleLogin}
-            disabled={!selectedUserId && !email}
-            size="large"
-          >
-            Entrar
-          </Button>
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              disabled={loading || !email || !password}
+              size="large"
+            >
+              {loading ? <CircularProgress size={24} /> : 'Entrar'}
+            </Button>
+          </form>
         </Paper>
       </Box>
     </Container>

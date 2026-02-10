@@ -1,19 +1,23 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000/api',
+  baseURL: (import.meta.env?.VITE_API_BASE_URL as string) || 'http://localhost:3000',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor para adicionar token de autenticação
+// Request interceptor para adicionar token de autenticação e tratar FormData
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Para FormData, remover Content-Type para o browser definir automaticamente com boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
     return config;
   },

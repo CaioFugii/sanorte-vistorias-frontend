@@ -11,80 +11,119 @@ import {
   Signature,
   PendingAdjustment,
   ModuleType,
+  InspectionStatus,
 } from '@/domain';
+import { PaginatedResponse, PaginationParams } from '@/domain/pagination';
 import apiClient from '@/services/apiClient';
 
-/**
- * Implementação futura do repositório que fará chamadas à API real
- * Por enquanto, apenas estrutura com métodos stub e comentários dos endpoints
- */
 class ApiAppRepository implements IAppRepository {
   // Users
-  async getUsers(): Promise<User[]> {
-    // GET /api/users
-    const response = await apiClient.get<User[]>('/users');
+  async getUsers(params?: PaginationParams): Promise<PaginatedResponse<User>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<User>>(
+      `/users?${queryParams.toString()}`
+    );
     return response.data;
   }
 
   async getUserById(id: string): Promise<User | null> {
-    // GET /api/users/:id
-    const response = await apiClient.get<User>(`/users/${id}`);
-    return response.data;
+    try {
+      const response = await apiClient.get<User>(`/users/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
-    // GET /api/users?email=:email
-    const response = await apiClient.get<User>(`/users?email=${email}`);
+    try {
+      const response = await apiClient.get<User>(`/users?email=${email}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async createUser(user: Omit<User, 'id' | 'createdAt' | 'updatedAt'> & { password: string }): Promise<User> {
+    const response = await apiClient.post<User>('/users', user);
     return response.data;
   }
 
+  async updateUser(id: string, user: Partial<User> & { password?: string }): Promise<User> {
+    const response = await apiClient.put<User>(`/users/${id}`, user);
+    return response.data;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await apiClient.delete(`/users/${id}`);
+  }
+
   // Teams
-  async getTeams(): Promise<Team[]> {
-    // GET /api/teams
-    const response = await apiClient.get<Team[]>('/teams');
+  async getTeams(params?: PaginationParams): Promise<PaginatedResponse<Team>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<Team>>(
+      `/teams?${queryParams.toString()}`
+    );
     return response.data;
   }
 
   async getTeamById(id: string): Promise<Team | null> {
-    // GET /api/teams/:id
-    const response = await apiClient.get<Team>(`/teams/${id}`);
-    return response.data;
+    try {
+      const response = await apiClient.get<Team>(`/teams/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
-  async createTeam(team: Omit<Team, 'id'>): Promise<Team> {
-    // POST /api/teams
+  async createTeam(team: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<Team> {
     const response = await apiClient.post<Team>('/teams', team);
     return response.data;
   }
 
   async updateTeam(id: string, team: Partial<Team>): Promise<Team> {
-    // PUT /api/teams/:id
     const response = await apiClient.put<Team>(`/teams/${id}`, team);
     return response.data;
   }
 
   async deleteTeam(id: string): Promise<void> {
-    // DELETE /api/teams/:id
     await apiClient.delete(`/teams/${id}`);
   }
 
   // Collaborators
-  async getCollaborators(): Promise<Collaborator[]> {
-    // GET /api/collaborators
-    const response = await apiClient.get<Collaborator[]>('/collaborators');
+  async getCollaborators(params?: PaginationParams): Promise<PaginatedResponse<Collaborator>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<Collaborator>>(
+      `/collaborators?${queryParams.toString()}`
+    );
     return response.data;
   }
 
   async getCollaboratorById(id: string): Promise<Collaborator | null> {
-    // GET /api/collaborators/:id
-    const response = await apiClient.get<Collaborator>(`/collaborators/${id}`);
-    return response.data;
+    try {
+      const response = await apiClient.get<Collaborator>(`/collaborators/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   async createCollaborator(
-    collaborator: Omit<Collaborator, 'id'>
+    collaborator: Omit<Collaborator, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Collaborator> {
-    // POST /api/collaborators
     const response = await apiClient.post<Collaborator>(
       '/collaborators',
       collaborator
@@ -96,7 +135,6 @@ class ApiAppRepository implements IAppRepository {
     id: string,
     collaborator: Partial<Collaborator>
   ): Promise<Collaborator> {
-    // PUT /api/collaborators/:id
     const response = await apiClient.put<Collaborator>(
       `/collaborators/${id}`,
       collaborator
@@ -105,35 +143,35 @@ class ApiAppRepository implements IAppRepository {
   }
 
   async deleteCollaborator(id: string): Promise<void> {
-    // DELETE /api/collaborators/:id
     await apiClient.delete(`/collaborators/${id}`);
   }
 
   // Checklists
-  async getChecklists(): Promise<Checklist[]> {
-    // GET /api/checklists
-    const response = await apiClient.get<Checklist[]>('/checklists');
-    return response.data;
-  }
-
-  async getChecklistsByModule(module: ModuleType): Promise<Checklist[]> {
-    // GET /api/checklists?module=:module
-    const response = await apiClient.get<Checklist[]>(
-      `/checklists?module=${module}`
+  async getChecklists(params?: PaginationParams & { module?: ModuleType }): Promise<PaginatedResponse<Checklist>> {
+    const queryParams = new URLSearchParams();
+    if (params?.module) queryParams.append('module', params.module);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<Checklist>>(
+      `/checklists?${queryParams.toString()}`
     );
     return response.data;
   }
 
   async getChecklistById(id: string): Promise<Checklist | null> {
-    // GET /api/checklists/:id
-    const response = await apiClient.get<Checklist>(`/checklists/${id}`);
-    return response.data;
+    try {
+      const response = await apiClient.get<Checklist>(`/checklists/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   async createChecklist(
-    checklist: Omit<Checklist, 'id'>
+    checklist: Omit<Checklist, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Checklist> {
-    // POST /api/checklists
     const response = await apiClient.post<Checklist>('/checklists', checklist);
     return response.data;
   }
@@ -142,7 +180,6 @@ class ApiAppRepository implements IAppRepository {
     id: string,
     checklist: Partial<Checklist>
   ): Promise<Checklist> {
-    // PUT /api/checklists/:id
     const response = await apiClient.put<Checklist>(
       `/checklists/${id}`,
       checklist
@@ -151,94 +188,98 @@ class ApiAppRepository implements IAppRepository {
   }
 
   async deleteChecklist(id: string): Promise<void> {
-    // DELETE /api/checklists/:id
     await apiClient.delete(`/checklists/${id}`);
   }
 
   // Checklist Items
   async getChecklistItems(checklistId: string): Promise<ChecklistItem[]> {
-    // GET /api/checklists/:checklistId/items
-    const response = await apiClient.get<ChecklistItem[]>(
-      `/checklists/${checklistId}/items`
-    );
-    return response.data;
+    const checklist = await this.getChecklistById(checklistId);
+    return checklist?.items || [];
   }
 
   async getChecklistItemById(id: string): Promise<ChecklistItem | null> {
-    // GET /api/checklist-items/:id
-    const response = await apiClient.get<ChecklistItem>(
-      `/checklist-items/${id}`
-    );
-    return response.data;
+    // A API não tem endpoint direto, precisamos buscar pelo checklist
+    // Por enquanto retornamos null, pode ser implementado se necessário
+    return null;
   }
 
   async createChecklistItem(
-    item: Omit<ChecklistItem, 'id'>
+    checklistId: string,
+    item: Omit<ChecklistItem, 'id' | 'checklistId'>
   ): Promise<ChecklistItem> {
-    // POST /api/checklist-items
     const response = await apiClient.post<ChecklistItem>(
-      '/checklist-items',
+      `/checklists/${checklistId}/items`,
       item
     );
     return response.data;
   }
 
   async updateChecklistItem(
-    id: string,
+    checklistId: string,
+    itemId: string,
     item: Partial<ChecklistItem>
   ): Promise<ChecklistItem> {
-    // PUT /api/checklist-items/:id
     const response = await apiClient.put<ChecklistItem>(
-      `/checklist-items/${id}`,
+      `/checklists/${checklistId}/items/${itemId}`,
       item
     );
     return response.data;
   }
 
-  async deleteChecklistItem(id: string): Promise<void> {
-    // DELETE /api/checklist-items/:id
-    await apiClient.delete(`/checklist-items/${id}`);
-  }
-
-  async reorderChecklistItems(
-    checklistId: string,
-    itemIds: string[]
-  ): Promise<void> {
-    // PUT /api/checklists/:checklistId/items/reorder
-    await apiClient.put(`/checklists/${checklistId}/items/reorder`, {
-      itemIds,
-    });
+  async deleteChecklistItem(checklistId: string, itemId: string): Promise<void> {
+    await apiClient.delete(`/checklists/${checklistId}/items/${itemId}`);
   }
 
   // Inspections
-  async getInspections(): Promise<Inspection[]> {
-    // GET /api/inspections
-    const response = await apiClient.get<Inspection[]>('/inspections');
+  async getInspections(params?: PaginationParams & {
+    periodFrom?: string;
+    periodTo?: string;
+    module?: ModuleType;
+    teamId?: string;
+    status?: InspectionStatus;
+  }): Promise<PaginatedResponse<Inspection>> {
+    const queryParams = new URLSearchParams();
+    if (params?.periodFrom) queryParams.append('periodFrom', params.periodFrom);
+    if (params?.periodTo) queryParams.append('periodTo', params.periodTo);
+    if (params?.module) queryParams.append('module', params.module);
+    if (params?.teamId) queryParams.append('teamId', params.teamId);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<Inspection>>(
+      `/inspections?${queryParams.toString()}`
+    );
     return response.data;
   }
 
-  async getInspectionsByUser(userId: string): Promise<Inspection[]> {
-    // GET /api/inspections?userId=:userId
-    const response = await apiClient.get<Inspection[]>(
-      `/inspections?userId=${userId}`
+  async getInspectionsByUser(params?: PaginationParams): Promise<PaginatedResponse<Inspection>> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const response = await apiClient.get<PaginatedResponse<Inspection>>(
+      `/inspections/mine?${queryParams.toString()}`
     );
     return response.data;
   }
 
   async getInspectionById(id: string): Promise<Inspection | null> {
-    // GET /api/inspections/:id
-    const response = await apiClient.get<Inspection>(`/inspections/${id}`);
-    return response.data;
+    try {
+      const response = await apiClient.get<Inspection>(`/inspections/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   async createInspection(
-    inspection: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt'>
+    inspection: Omit<Inspection, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'scorePercent' | 'createdByUserId'> & {
+      collaboratorIds?: string[];
+    }
   ): Promise<Inspection> {
-    // POST /api/inspections
-    const response = await apiClient.post<Inspection>(
-      '/inspections',
-      inspection
-    );
+    const response = await apiClient.post<Inspection>('/inspections', inspection);
     return response.data;
   }
 
@@ -246,7 +287,6 @@ class ApiAppRepository implements IAppRepository {
     id: string,
     inspection: Partial<Inspection>
   ): Promise<Inspection> {
-    // PUT /api/inspections/:id
     const response = await apiClient.put<Inspection>(
       `/inspections/${id}`,
       inspection
@@ -255,97 +295,127 @@ class ApiAppRepository implements IAppRepository {
   }
 
   async deleteInspection(id: string): Promise<void> {
-    // DELETE /api/inspections/:id
     await apiClient.delete(`/inspections/${id}`);
+  }
+
+  async finalizeInspection(id: string): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(
+      `/inspections/${id}/finalize`
+    );
+    return response.data;
+  }
+
+  async resolveInspection(id: string, data: {
+    resolutionNotes?: string;
+    resolutionEvidence?: string;
+  }): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(
+      `/inspections/${id}/resolve`,
+      data
+    );
+    return response.data;
   }
 
   // Inspection Items
   async getInspectionItems(inspectionId: string): Promise<InspectionItem[]> {
-    // GET /api/inspections/:inspectionId/items
-    const response = await apiClient.get<InspectionItem[]>(
-      `/inspections/${inspectionId}/items`
-    );
-    return response.data;
+    const inspection = await this.getInspectionById(inspectionId);
+    return inspection?.items || [];
   }
 
   async getInspectionItemById(id: string): Promise<InspectionItem | null> {
-    // GET /api/inspection-items/:id
-    const response = await apiClient.get<InspectionItem>(
-      `/inspection-items/${id}`
-    );
-    return response.data;
+    // A API não tem endpoint direto, precisamos buscar pela vistoria
+    return null;
   }
 
-  async createInspectionItem(
-    item: Omit<InspectionItem, 'id'>
-  ): Promise<InspectionItem> {
-    // POST /api/inspection-items
-    const response = await apiClient.post<InspectionItem>(
-      '/inspection-items',
-      item
-    );
-    return response.data;
-  }
-
-  async updateInspectionItem(
-    id: string,
-    item: Partial<InspectionItem>
-  ): Promise<InspectionItem> {
-    // PUT /api/inspection-items/:id
-    const response = await apiClient.put<InspectionItem>(
-      `/inspection-items/${id}`,
-      item
+  async updateInspectionItems(
+    inspectionId: string,
+    items: Array<{
+      inspectionItemId: string;
+      answer?: string;
+      notes?: string;
+    }>
+  ): Promise<InspectionItem[]> {
+    const response = await apiClient.put<InspectionItem[]>(
+      `/inspections/${inspectionId}/items`,
+      items
     );
     return response.data;
   }
 
   async deleteInspectionItem(id: string): Promise<void> {
-    // DELETE /api/inspection-items/:id
-    await apiClient.delete(`/inspection-items/${id}`);
+    // A API não tem endpoint para deletar item individual
+    throw new Error('Deleting inspection items is not supported by the API');
   }
 
   // Evidences
   async getEvidences(inspectionId: string): Promise<Evidence[]> {
-    // GET /api/inspections/:inspectionId/evidences
-    const response = await apiClient.get<Evidence[]>(
-      `/inspections/${inspectionId}/evidences`
+    const inspection = await this.getInspectionById(inspectionId);
+    return inspection?.evidences || [];
+  }
+
+  async getEvidenceById(id: string): Promise<Evidence | null> {
+    try {
+      const response = await apiClient.get<Evidence>(`/evidences/${id}`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async createEvidence(
+    inspectionId: string,
+    file: File,
+    inspectionItemId?: string
+  ): Promise<Evidence> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (inspectionItemId) {
+      formData.append('inspectionItemId', inspectionItemId);
+    }
+
+    // Para multipart/form-data, não definir Content-Type manualmente
+    // O browser define automaticamente com o boundary correto
+    const response = await apiClient.post<Evidence>(
+      `/inspections/${inspectionId}/evidences`,
+      formData,
+      {
+        headers: {
+          'Content-Type': undefined, // Deixa o axios definir automaticamente
+        },
+      }
     );
     return response.data;
   }
 
-  async getEvidenceById(id: string): Promise<Evidence | null> {
-    // GET /api/evidences/:id
-    const response = await apiClient.get<Evidence>(`/evidences/${id}`);
-    return response.data;
-  }
-
-  async createEvidence(
-    evidence: Omit<Evidence, 'id' | 'createdAt'>
-  ): Promise<Evidence> {
-    // POST /api/evidences
-    const response = await apiClient.post<Evidence>('/evidences', evidence);
-    return response.data;
-  }
-
   async deleteEvidence(id: string): Promise<void> {
-    // DELETE /api/evidences/:id
     await apiClient.delete(`/evidences/${id}`);
   }
 
   // Signatures
   async getSignature(inspectionId: string): Promise<Signature | null> {
-    // GET /api/inspections/:inspectionId/signature
-    const response = await apiClient.get<Signature>(
-      `/inspections/${inspectionId}/signature`
-    );
-    return response.data;
+    try {
+      const response = await apiClient.get<Signature>(
+        `/inspections/${inspectionId}/signature`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   async createSignature(
-    signature: Omit<Signature, 'id' | 'signedAt'>
+    inspectionId: string,
+    data: {
+      signerName: string;
+      imageBase64: string;
+    }
   ): Promise<Signature> {
-    // POST /api/signatures
-    const response = await apiClient.post<Signature>('/signatures', signature);
+    const response = await apiClient.post<Signature>(
+      `/inspections/${inspectionId}/signature`,
+      data
+    );
     return response.data;
   }
 
@@ -353,7 +423,6 @@ class ApiAppRepository implements IAppRepository {
     id: string,
     signature: Partial<Signature>
   ): Promise<Signature> {
-    // PUT /api/signatures/:id
     const response = await apiClient.put<Signature>(
       `/signatures/${id}`,
       signature
@@ -363,62 +432,67 @@ class ApiAppRepository implements IAppRepository {
 
   // Pending Adjustments
   async getPendingAdjustments(): Promise<PendingAdjustment[]> {
-    // GET /api/pending-adjustments
-    const response = await apiClient.get<PendingAdjustment[]>(
-      '/pending-adjustments'
-    );
-    return response.data;
+    const response = await this.getInspections({ status: InspectionStatus.PENDENTE_AJUSTE });
+    const inspections = response.data;
+    const adjustments: PendingAdjustment[] = [];
+    
+    for (const inspection of inspections) {
+      if (inspection.pendingAdjustments && inspection.pendingAdjustments.length > 0) {
+        adjustments.push(...inspection.pendingAdjustments);
+      }
+    }
+    
+    return adjustments;
   }
 
   async getPendingAdjustment(
     inspectionId: string
   ): Promise<PendingAdjustment | null> {
-    // GET /api/pending-adjustments/:inspectionId
-    const response = await apiClient.get<PendingAdjustment>(
-      `/pending-adjustments/${inspectionId}`
-    );
-    return response.data;
-  }
-
-  async updatePendingAdjustment(
-    inspectionId: string,
-    adjustment: Partial<PendingAdjustment>
-  ): Promise<PendingAdjustment> {
-    // PUT /api/pending-adjustments/:inspectionId
-    const response = await apiClient.put<PendingAdjustment>(
-      `/pending-adjustments/${inspectionId}`,
-      adjustment
-    );
-    return response.data;
+    const inspection = await this.getInspectionById(inspectionId);
+    return inspection?.pendingAdjustments?.[0] || null;
   }
 
   // Dashboard
-  async getDashboardData(filters: {
+  async getDashboardSummary(filters: {
     from?: string;
     to?: string;
     module?: ModuleType;
     teamId?: string;
   }): Promise<{
-    averageScore: number;
-    totalInspections: number;
+    averagePercent: number;
+    inspectionsCount: number;
     pendingCount: number;
-    teamRanking: Array<{
-      teamId: string;
-      teamName: string;
-      averageScore: number;
-      totalInspections: number;
-      pendingCount: number;
-    }>;
   }> {
-    // GET /api/dashboard?from=:from&to=:to&module=:module&teamId=:teamId
-    const params = new URLSearchParams();
-    if (filters.from) params.append('from', filters.from);
-    if (filters.to) params.append('to', filters.to);
-    if (filters.module) params.append('module', filters.module);
-    if (filters.teamId) params.append('teamId', filters.teamId);
+    const queryParams = new URLSearchParams();
+    if (filters.from) queryParams.append('from', filters.from);
+    if (filters.to) queryParams.append('to', filters.to);
+    if (filters.module) queryParams.append('module', filters.module);
+    if (filters.teamId) queryParams.append('teamId', filters.teamId);
 
     const response = await apiClient.get(
-      `/dashboard?${params.toString()}`
+      `/dashboards/summary?${queryParams.toString()}`
+    );
+    return response.data;
+  }
+
+  async getTeamRanking(filters: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+  }): Promise<Array<{
+    teamId: string;
+    teamName: string;
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+  }>> {
+    const queryParams = new URLSearchParams();
+    if (filters.from) queryParams.append('from', filters.from);
+    if (filters.to) queryParams.append('to', filters.to);
+    if (filters.module) queryParams.append('module', filters.module);
+
+    const response = await apiClient.get(
+      `/dashboards/ranking/teams?${queryParams.toString()}`
     );
     return response.data;
   }

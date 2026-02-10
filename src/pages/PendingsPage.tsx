@@ -40,7 +40,7 @@ export const PendingsPage = () => {
   const [selectedInspection, setSelectedInspection] =
     useState<Inspection | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
-  const [resolutionEvidence, setResolutionEvidence] = useState<string>('');
+  const [resolutionEvidence, setResolutionEvidence] = useState<Array<{ file?: File; preview: string; evidenceId?: string }>>([]);
 
   useEffect(() => {
     loadPendings();
@@ -49,11 +49,10 @@ export const PendingsPage = () => {
   const loadPendings = async () => {
     try {
       setLoading(true);
-      const allInspections = await repository.getInspections();
-      const pendings = allInspections.filter(
-        (i) => i.status === InspectionStatus.PENDENTE_AJUSTE
-      );
-      setInspections(pendings);
+      const response = await repository.getInspections({
+        status: InspectionStatus.PENDENTE_AJUSTE,
+      });
+      setInspections(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar pendências', 'error');
     } finally {
@@ -64,7 +63,7 @@ export const PendingsPage = () => {
   const handleOpenDialog = (inspection: Inspection) => {
     setSelectedInspection(inspection);
     setResolutionNotes('');
-    setResolutionEvidence('');
+    setResolutionEvidence([]);
     setDialogOpen(true);
   };
 
@@ -77,23 +76,26 @@ export const PendingsPage = () => {
     if (!selectedInspection) return;
 
     try {
-      // Atualizar vistoria
-      await repository.updateInspection(selectedInspection.id, {
-        status: InspectionStatus.RESOLVIDA,
-      });
-
-      // Atualizar pending adjustment
-      const adjustment = await repository.getPendingAdjustment(
-        selectedInspection.id
-      );
-      if (adjustment) {
-        await repository.updatePendingAdjustment(selectedInspection.id, {
-          status: InspectionStatus.RESOLVIDA,
-          resolvedAt: new Date().toISOString(),
-          resolutionNotes: resolutionNotes || undefined,
-          resolutionEvidenceDataUrl: resolutionEvidence || undefined,
+      // Converter evidência de File para base64 se necessário
+      let evidenceBase64: string | undefined;
+      if (resolutionEvidence.length > 0 && resolutionEvidence[0].file) {
+        // Converter File para base64
+        const file = resolutionEvidence[0].file;
+        evidenceBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // Remove prefixo
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
         });
       }
+
+      await repository.resolveInspection(selectedInspection.id, {
+        resolutionNotes: resolutionNotes || undefined,
+        resolutionEvidence: evidenceBase64,
+      });
 
       showSnackbar('Pendência resolvida com sucesso', 'success');
       handleCloseDialog();
@@ -195,10 +197,8 @@ export const PendingsPage = () => {
                   Evidência de Correção (opcional)
                 </Typography>
                 <PhotoUploader
-                  photos={resolutionEvidence ? [resolutionEvidence] : []}
-                  onChange={(photos) =>
-                    setResolutionEvidence(photos.length > 0 ? photos[0] : '')
-                  }
+                  photos={resolutionEvidence}
+                  onChange={(photos) => setResolutionEvidence(photos)}
                   maxPhotos={1}
                 />
               </Box>

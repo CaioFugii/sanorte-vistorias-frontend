@@ -68,8 +68,10 @@ export const ChecklistsPage = () => {
   });
   const [itemFormData, setItemFormData] = useState({
     title: '',
+    description: '',
     order: 1,
     requiresPhotoOnNonConformity: true,
+    active: true,
   });
 
   useEffect(() => {
@@ -85,8 +87,8 @@ export const ChecklistsPage = () => {
   const loadChecklists = async () => {
     try {
       setLoading(true);
-      const data = await repository.getChecklists();
-      setChecklists(data);
+      const response = await repository.getChecklists({ limit: 100 }); // Buscar até 100 checklists
+      setChecklists(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar checklists', 'error');
     } finally {
@@ -173,13 +175,10 @@ export const ChecklistsPage = () => {
     if (!selectedChecklist) return;
     try {
       if (editingItem) {
-        await repository.updateChecklistItem(editingItem.id, itemFormData);
+        await repository.updateChecklistItem(selectedChecklist, editingItem.id, itemFormData);
         showSnackbar('Item atualizado com sucesso', 'success');
       } else {
-        await repository.createChecklistItem({
-          ...itemFormData,
-          checklistId: selectedChecklist,
-        });
+        await repository.createChecklistItem(selectedChecklist, itemFormData);
         showSnackbar('Item criado com sucesso', 'success');
       }
       handleCloseItemDialog();
@@ -189,14 +188,13 @@ export const ChecklistsPage = () => {
     }
   };
 
-  const handleDeleteItem = async (id: string) => {
+  const handleDeleteItem = async (itemId: string) => {
+    if (!selectedChecklist) return;
     if (window.confirm('Tem certeza que deseja excluir este item?')) {
       try {
-        await repository.deleteChecklistItem(id);
+        await repository.deleteChecklistItem(selectedChecklist, itemId);
         showSnackbar('Item excluído com sucesso', 'success');
-        if (selectedChecklist) {
-          loadChecklistItems(selectedChecklist);
-        }
+        loadChecklistItems(selectedChecklist);
       } catch (error) {
         showSnackbar('Erro ao excluir item', 'error');
       }

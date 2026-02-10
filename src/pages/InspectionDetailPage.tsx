@@ -230,15 +230,20 @@ export const InspectionDetailPage = () => {
                 Evidências
               </Typography>
               <ImageList cols={3} gap={8}>
-                {evidences.map((evidence) => (
-                  <ImageListItem key={evidence.id}>
-                    <img
-                      src={evidence.dataUrl}
-                      alt={evidence.fileName}
-                      style={{ width: '100%', height: 'auto', borderRadius: 4 }}
-                    />
-                  </ImageListItem>
-                ))}
+                {evidences.map((evidence) => {
+                  const imageUrl = evidence.filePath.startsWith('http')
+                    ? evidence.filePath
+                    : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${evidence.filePath}`;
+                  return (
+                    <ImageListItem key={evidence.id}>
+                      <img
+                        src={imageUrl}
+                        alt={evidence.fileName}
+                        style={{ width: '100%', height: 'auto', borderRadius: 4 }}
+                      />
+                    </ImageListItem>
+                  );
+                })}
               </ImageList>
             </Paper>
           </Grid>
@@ -262,7 +267,9 @@ export const InspectionDetailPage = () => {
               </Typography>
               <Box sx={{ mt: 2 }}>
                 <img
-                  src={signature.imageDataUrl}
+                  src={signature.imagePath.startsWith('http')
+                    ? signature.imagePath
+                    : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${signature.imagePath}`}
                   alt="Assinatura"
                   style={{ maxWidth: '100%', border: '1px solid #ccc' }}
                 />

@@ -33,18 +33,18 @@ export const DashboardPage = () => {
     module?: ModuleType;
     teamId?: string;
   }>({});
-  const [data, setData] = useState<{
-    averageScore: number;
-    totalInspections: number;
+  const [summary, setSummary] = useState<{
+    averagePercent: number;
+    inspectionsCount: number;
     pendingCount: number;
-    teamRanking: Array<{
-      teamId: string;
-      teamName: string;
-      averageScore: number;
-      totalInspections: number;
-      pendingCount: number;
-    }>;
   } | null>(null);
+  const [teamRanking, setTeamRanking] = useState<Array<{
+    teamId: string;
+    teamName: string;
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+  }>>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -53,8 +53,12 @@ export const DashboardPage = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const dashboardData = await repository.getDashboardData(filters);
-      setData(dashboardData);
+      const [summaryData, rankingData] = await Promise.all([
+        repository.getDashboardSummary(filters),
+        repository.getTeamRanking(filters),
+      ]);
+      setSummary(summaryData);
+      setTeamRanking(rankingData);
     } catch (error) {
       showSnackbar('Erro ao carregar dados do dashboard', 'error');
     } finally {
@@ -135,7 +139,7 @@ export const DashboardPage = () => {
         </Grid>
       </Paper>
 
-      {data && (
+      {summary && (
         <>
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={4}>
@@ -143,7 +147,7 @@ export const DashboardPage = () => {
                 <Typography variant="h6" gutterBottom>
                   Média Geral
                 </Typography>
-                <PercentBadge percent={data.averageScore} size="large" />
+                <PercentBadge percent={summary.averagePercent} size="large" />
               </Paper>
             </Grid>
             <Grid item xs={12} md={4}>
@@ -151,7 +155,7 @@ export const DashboardPage = () => {
                 <Typography variant="h6" gutterBottom>
                   Serviços Avaliados
                 </Typography>
-                <Typography variant="h3">{data.totalInspections}</Typography>
+                <Typography variant="h3">{summary.inspectionsCount}</Typography>
               </Paper>
             </Grid>
             <Grid item xs={12} md={4}>
@@ -160,7 +164,7 @@ export const DashboardPage = () => {
                   Pendentes
                 </Typography>
                 <Typography variant="h3" color="warning.main">
-                  {data.pendingCount}
+                  {summary.pendingCount}
                 </Typography>
               </Paper>
             </Grid>
@@ -181,14 +185,14 @@ export const DashboardPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.teamRanking.map((team) => (
+                  {teamRanking.map((team) => (
                     <TableRow key={team.teamId}>
                       <TableCell>{team.teamName}</TableCell>
                       <TableCell align="center">
-                        <PercentBadge percent={team.averageScore} size="small" />
+                        <PercentBadge percent={team.averagePercent} size="small" />
                       </TableCell>
                       <TableCell align="center">
-                        {team.totalInspections}
+                        {team.inspectionsCount}
                       </TableCell>
                       <TableCell align="center">
                         <Chip

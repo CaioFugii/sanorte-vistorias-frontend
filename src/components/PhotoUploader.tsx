@@ -1,10 +1,16 @@
 import { Button, Box, ImageList, ImageListItem, IconButton } from '@mui/material';
 import { PhotoCamera, Delete } from '@mui/icons-material';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+
+interface PhotoFile {
+  file?: File; // File se for novo upload
+  preview: string; // URL ou dataUrl para preview
+  evidenceId?: string; // ID da evidência se já foi salva na API
+}
 
 interface PhotoUploaderProps {
-  photos: string[]; // dataUrls
-  onChange: (photos: string[]) => void;
+  photos: PhotoFile[];
+  onChange: (photos: PhotoFile[]) => void;
   maxPhotos?: number;
   disabled?: boolean;
 }
@@ -21,17 +27,30 @@ export const PhotoUploader = ({
     const files = event.target.files;
     if (!files) return;
 
-    const newPhotos: string[] = [];
+    const newPhotos: PhotoFile[] = [];
     const remainingSlots = maxPhotos - photos.length;
 
     Array.from(files)
       .slice(0, remainingSlots)
       .forEach((file) => {
         if (file.type.startsWith('image/')) {
+          // Validar tamanho (5MB máximo)
+          if (file.size > 5 * 1024 * 1024) {
+            alert(`Arquivo ${file.name} é muito grande. Máximo: 5MB`);
+            return;
+          }
+          
+          // Validar formato
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+          if (!allowedTypes.includes(file.type)) {
+            alert(`Formato não suportado: ${file.name}. Use: JPG, PNG ou WEBP`);
+            return;
+          }
+
           const reader = new FileReader();
           reader.onload = (e) => {
-            const dataUrl = e.target?.result as string;
-            newPhotos.push(dataUrl);
+            const preview = e.target?.result as string;
+            newPhotos.push({ file, preview });
             if (newPhotos.length === Math.min(files.length, remainingSlots)) {
               const updated = [...photos, ...newPhotos];
               onChange(updated);
@@ -56,7 +75,7 @@ export const PhotoUploader = ({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
         multiple
         style={{ display: 'none' }}
         onChange={handleFileSelect}
@@ -77,7 +96,7 @@ export const PhotoUploader = ({
           {photos.map((photo, index) => (
             <ImageListItem key={index}>
               <img
-                src={photo}
+                src={photo.preview}
                 alt={`Preview ${index + 1}`}
                 style={{ width: '100%', height: 'auto', borderRadius: 4 }}
               />

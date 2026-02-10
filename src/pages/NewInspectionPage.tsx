@@ -14,7 +14,6 @@ import {
   Checklist,
 } from '@/domain';
 import { useRepository } from '@/app/RepositoryProvider';
-import { useAuthStore } from '@/stores';
 import { useSnackbar } from '@/utils/useSnackbar';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { TeamSelect } from '@/components/TeamSelect';
@@ -29,7 +28,6 @@ import {
 export const NewInspectionPage = () => {
   const navigate = useNavigate();
   const repository = useRepository();
-  const { user } = useAuthStore();
   const { showSnackbar } = useSnackbar();
   const [loading, setLoading] = useState(false);
   const [module, setModule] = useState<ModuleType | ''>('');
@@ -60,7 +58,6 @@ export const NewInspectionPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
     if (!module || !checklistId || !teamId || !serviceDescription.trim()) {
       showSnackbar('Preencha todos os campos obrigatórios', 'error');
@@ -76,9 +73,6 @@ export const NewInspectionPage = () => {
         serviceDescription,
         locationDescription: locationDescription || undefined,
         collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
-        status: InspectionStatus.RASCUNHO,
-        scorePercent: 0,
-        createdByUserId: user.id,
       });
 
       showSnackbar('Vistoria criada com sucesso', 'success');

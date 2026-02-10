@@ -13,12 +13,18 @@ import {
 import { ChecklistItem, InspectionItem, ChecklistAnswer, Evidence } from '@/domain';
 import { PhotoUploader } from './PhotoUploader';
 
+interface PhotoFile {
+  file?: File;
+  preview: string;
+  evidenceId?: string;
+}
+
 interface ChecklistRendererProps {
   checklistItems: ChecklistItem[];
   inspectionItems: InspectionItem[];
   evidences: Evidence[];
   onItemChange: (itemId: string, updates: Partial<InspectionItem> | InspectionItem) => void;
-  onEvidencesChange: (itemId: string, photos: string[]) => void;
+  onEvidencesChange: (itemId: string, photos: PhotoFile[]) => void;
   disabled?: boolean;
   inspectionId?: string;
 }
@@ -39,10 +45,15 @@ export const ChecklistRenderer = ({
     );
   };
 
-  const getItemEvidences = (inspectionItemId: string): string[] => {
+  const getItemEvidences = (inspectionItemId: string): PhotoFile[] => {
     return evidences
       .filter((e) => e.inspectionItemId === inspectionItemId)
-      .map((e) => e.dataUrl);
+      .map((e) => ({
+        preview: e.filePath.startsWith('http') 
+          ? e.filePath 
+          : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${e.filePath}`,
+        evidenceId: e.id,
+      }));
   };
 
   const handleAnswerChange = (checklistItemId: string, answer: ChecklistAnswer) => {

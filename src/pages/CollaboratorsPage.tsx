@@ -42,8 +42,8 @@ export const CollaboratorsPage = () => {
   const loadCollaborators = async () => {
     try {
       setLoading(true);
-      const data = await repository.getCollaborators();
-      setCollaborators(data);
+      const response = await repository.getCollaborators({ limit: 100 }); // Buscar até 100 colaboradores
+      setCollaborators(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar colaboradores', 'error');
     } finally {
