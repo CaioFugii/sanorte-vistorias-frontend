@@ -28,8 +28,6 @@ import { ChecklistRenderer } from '@/components/ChecklistRenderer';
 import { SignaturePad } from '@/components/SignaturePad';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import {
-  calcularPercentual,
-  determinarStatusAoFinalizar,
   validarFinalizacao,
 } from '@/domain/rules';
 import jsPDF from 'jspdf';
@@ -82,6 +80,7 @@ export const FillInspectionPage = () => {
       const existingItemMap = new Map(
         items.map((item) => [item.checklistItemId, item])
       );
+      const now = new Date().toISOString();
       const allItems: InspectionItem[] = checklistItemsData.map((ci) => {
         const existing = existingItemMap.get(ci.id);
         if (existing) return existing;
@@ -89,7 +88,9 @@ export const FillInspectionPage = () => {
           id: `temp-${ci.id}`,
           inspectionId: id,
           checklistItemId: ci.id,
-          answer: null,
+          answer: undefined,
+          createdAt: now,
+          updatedAt: now,
         };
       });
       setInspectionItems(allItems);
@@ -157,19 +158,18 @@ export const FillInspectionPage = () => {
       );
       if (!checklistItem) return;
 
-      const newItemData = {
+      // Criar item temporário localmente
+      const now = new Date().toISOString();
+      const newItem: InspectionItem = {
+        id: `temp-${checklistItem.id}-${Date.now()}`,
         inspectionId: id,
         checklistItemId: checklistItem.id,
-        answer: (updates as InspectionItem).answer || null,
+        answer: (updates as InspectionItem).answer,
         notes: (updates as InspectionItem).notes,
+        createdAt: now,
+        updatedAt: now,
       };
-
-      try {
-        const saved = await repository.createInspectionItem(newItemData);
-        setInspectionItems([...inspectionItems, saved]);
-      } catch (error) {
-        console.error('Error creating item:', error);
-      }
+      setInspectionItems([...inspectionItems, newItem]);
       return;
     }
 
@@ -178,24 +178,8 @@ export const FillInspectionPage = () => {
       inspectionItems.map((i) => (i.id === item.id ? updated : i))
     );
 
-    // Salvar no repositório
-    try {
-      if (item.id.startsWith('temp-')) {
-        const saved = await repository.createInspectionItem({
-          inspectionId: id,
-          checklistItemId: item.checklistItemId,
-          answer: updated.answer || null,
-          notes: updated.notes,
-        });
-        setInspectionItems(
-          inspectionItems.map((i) => (i.id === item.id ? saved : i))
-        );
-      } else {
-        await repository.updateInspectionItem(item.id, updates);
-      }
-    } catch (error) {
-      console.error('Error saving item:', error);
-    }
+    // Salvar no repositório usando updateInspectionItems em lote
+    // Os itens serão salvos quando o usuário clicar em "Salvar" ou "Finalizar"
   };
 
   const handleEvidencesChange = async (
@@ -328,9 +312,6 @@ export const FillInspectionPage = () => {
 
     try {
       setSaving(true);
-      const percent = calcularPercentual(inspectionItems, checklistItems);
-      const status = determinarStatusAoFinalizar(inspectionItems);
-
       // Atualizar itens em lote antes de finalizar
       const itemsToUpdate = inspectionItems
         .filter((item) => !item.id.startsWith('temp-'))
@@ -347,11 +328,17 @@ export const FillInspectionPage = () => {
       // Salvar assinatura se ainda não foi salva
       if (signature && !signature.id && signerName) {
         // Converter dataUrl para base64 sem prefixo
-        const base64 = signature.imageDataUrl.split(',')[1] || signature.imageDataUrl;
-        await repository.createSignature(id, {
-          signerName,
-          imageBase64: base64,
-        });
+        // A assinatura pode ter imageDataUrl temporário ou imagePath
+        const imageData = (signature as any).imageDataUrl || signature.imagePath;
+        if (imageData) {
+          const base64 = imageData.includes(',') 
+            ? imageData.split(',')[1] 
+            : imageData;
+          await repository.createSignature(id, {
+            signerName,
+            imageBase64: base64,
+          });
+        }
       }
 
       // Finalizar usando o endpoint correto

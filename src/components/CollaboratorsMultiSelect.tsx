@@ -36,7 +36,7 @@ export const CollaboratorsMultiSelect = ({
       try {
         const all = await repository.getCollaborators();
         setCollaborators(
-          onlyActive ? all.filter((c) => c.active) : all
+          onlyActive ? all.data.filter((c) => c.active) : all.data
         );
       } catch (error) {
         console.error('Error loading collaborators:', error);

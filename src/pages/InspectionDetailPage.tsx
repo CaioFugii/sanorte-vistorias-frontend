@@ -180,7 +180,11 @@ export const InspectionDetailPage = () => {
             </Typography>
             <Typography variant="body2" gutterBottom>
               <strong>Percentual:</strong>{' '}
-              <PercentBadge percent={inspection.scorePercent} />
+              {inspection.scorePercent !== undefined && inspection.scorePercent !== null ? (
+                <PercentBadge percent={inspection.scorePercent} />
+              ) : (
+                'N/A'
+              )}
             </Typography>
             <Typography variant="body2" gutterBottom>
               <strong>Data de Criação:</strong>{' '}

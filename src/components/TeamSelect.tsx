@@ -28,7 +28,7 @@ export const TeamSelect = ({
     const loadTeams = async () => {
       try {
         const allTeams = await repository.getTeams();
-        setTeams(onlyActive ? allTeams.filter((t) => t.active) : allTeams);
+        setTeams(onlyActive ? allTeams.data.filter((t) => t.active) : allTeams.data);
       } catch (error) {
         console.error('Error loading teams:', error);
       } finally {

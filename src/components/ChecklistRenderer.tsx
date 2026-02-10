@@ -62,11 +62,14 @@ export const ChecklistRenderer = ({
       onItemChange(existing.id, { answer });
     } else {
       // Criar novo item se não existir
+      const now = new Date().toISOString();
       const newItem: InspectionItem = {
         id: `temp-${Date.now()}`,
         inspectionId: inspectionId || '',
         checklistItemId,
         answer,
+        createdAt: now,
+        updatedAt: now,
       };
       onItemChange(checklistItemId, newItem);
     }

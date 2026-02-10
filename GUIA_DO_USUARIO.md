@@ -2,6 +2,8 @@
 
 Bem-vindo ao Sistema de Vistorias em Campo da Sanorte! Este guia irá te ajudar a entender e utilizar todas as funcionalidades da plataforma de acordo com o seu perfil de acesso.
 
+> **Nota**: Este sistema está integrado com a API e requer conexão com a internet para funcionar. Todas as operações são realizadas em tempo real através do servidor.
+
 ## 📋 Índice
 
 - [Primeiros Passos](#primeiros-passos)
@@ -17,16 +19,15 @@ Bem-vindo ao Sistema de Vistorias em Campo da Sanorte! Este guia irá te ajudar 
 ### Como Fazer Login
 
 1. Acesse a plataforma no navegador
-2. Na tela de login, você verá duas opções:
-   - **Opção 1**: Selecione seu usuário na lista suspensa "Selecionar Usuário (Mock)"
-   - **Opção 2**: Digite seu email e qualquer senha (sistema mock)
-3. Clique em "Entrar"
+2. Na tela de login, preencha:
+   - **Email**: Digite seu email cadastrado no sistema
+   - **Senha**: Digite sua senha
+3. Clique em **"Entrar"**
 
-### Usuários Disponíveis
-
-- **Admin**: `admin@sanorte.com` (qualquer senha)
-- **Gestor**: `gestor@sanorte.com` (qualquer senha)
-- **Fiscal**: `fiscal@sanorte.com` (qualquer senha)
+**⚠️ Importante**: 
+- Use as credenciais fornecidas pelo administrador do sistema
+- Se você esqueceu sua senha, entre em contato com o suporte técnico
+- O sistema utiliza autenticação segura via API
 
 ### Entendendo a Interface
 
@@ -95,7 +96,8 @@ Para cada item do checklist:
 3. **Anexe fotos quando necessário**:
    - Se você marcou um item como **"Não Conforme"** e ele requer foto obrigatória, você verá um alerta amarelo
    - Clique em **"Adicionar Foto"** no item
-   - Selecione a foto do seu dispositivo
+   - Selecione a foto do seu dispositivo (formatos aceitos: JPG, PNG, WEBP, máximo 5MB por arquivo)
+   - A foto será enviada para o servidor automaticamente
    - Você pode adicionar múltiplas fotos por item
    - Para remover uma foto, clique no ícone de lixeira
 
@@ -106,7 +108,11 @@ Para cada item do checklist:
 1. Role a página até a seção **"Fotos Gerais"**
 2. Clique em **"Adicionar Foto"**
 3. Selecione fotos do seu dispositivo que sejam relevantes para a vistoria (não vinculadas a um item específico)
+   - Formatos aceitos: JPG, PNG, WEBP
+   - Tamanho máximo: 5MB por arquivo
 4. Você pode adicionar até 10 fotos gerais
+5. As fotos são enviadas para o servidor automaticamente ao serem selecionadas
+5. As fotos são enviadas para o servidor automaticamente ao serem selecionadas
 
 #### 4. Assinatura Digital
 
@@ -163,7 +169,7 @@ Para finalizar:
 
 1. Abra uma vistoria (criando nova ou visualizando existente)
 2. Clique no botão **"Gerar PDF"** no topo da página
-3. O PDF será baixado automaticamente com as informações da vistoria
+3. O PDF será gerado pela API e baixado automaticamente com todas as informações da vistoria, incluindo fotos e assinatura
 
 ---
 
@@ -257,8 +263,11 @@ Vistorias com status "Pendente Ajuste" precisam ser resolvidas após os ajustes 
 4. Ao clicar em resolver, uma janela será aberta onde você deve:
    - **Notas de Resolução** (obrigatório): Descreva o que foi feito para resolver a pendência
    - **Evidência de Correção** (opcional): Anexe uma foto comprovando que o problema foi corrigido
+     - Formatos aceitos: JPG, PNG, WEBP
+     - Tamanho máximo: 5MB
 5. Clique em **"Marcar como Resolvida"**
 6. A vistoria terá seu status alterado para "Resolvida" e será removida da lista de pendências
+7. Os dados são salvos na API e sincronizados em tempo real
 
 **📝 Dica**: Sempre anexe evidências fotográficas quando possível, pois isso comprova que os ajustes foram realizados.
 
@@ -269,7 +278,7 @@ Vistorias com status "Pendente Ajuste" precisam ser resolvidas após os ajustes 
 Você pode gerar PDF de qualquer vistoria:
 1. Abra os detalhes da vistoria
 2. Clique em **"Gerar PDF"**
-3. O PDF será baixado automaticamente
+3. O PDF será gerado pela API e baixado automaticamente com todas as informações, fotos e assinatura
 
 ---
 
@@ -476,7 +485,10 @@ R: Clique em "Sair" no menu lateral (ou no menu hambúrguer no mobile).
 R: Sim! O sistema é mobile-first e funciona perfeitamente em smartphones e tablets.
 
 **P: Os dados são salvos automaticamente?**
-R: Sim, quando você clica em "Salvar" na vistoria, os dados são salvos. Mas para finalizar, você precisa clicar em "Finalizar".
+R: Não, os dados são salvos apenas quando você clica em "Salvar" na vistoria. Para finalizar, você precisa clicar em "Finalizar". Recomendamos salvar frequentemente para não perder informações. Os dados são salvos diretamente na API.
+
+**P: O que acontece se eu perder a conexão com a internet?**
+R: O sistema requer conexão com a internet para funcionar, pois todas as operações são realizadas através da API. Se você perder a conexão, salve seu trabalho antes e aguarde a conexão ser restaurada.
 
 **P: Posso editar uma vistoria depois de finalizada?**
 R: 
@@ -495,10 +507,13 @@ R: O percentual é calculado automaticamente: (Itens Conformes / Itens Avaliados
 R: Isso acontece quando há pelo menos um item marcado como "Não Conforme". O sistema automaticamente define como "Pendente Ajuste" para que os problemas sejam corrigidos.
 
 **P: Posso adicionar mais de uma foto por item?**
-R: Sim! Você pode adicionar múltiplas fotos por item e também fotos gerais da vistoria.
+R: Sim! Você pode adicionar múltiplas fotos por item e também fotos gerais da vistoria. As fotos são enviadas para o servidor automaticamente e têm limite de 5MB cada.
+
+**P: Quais formatos de imagem são aceitos?**
+R: O sistema aceita imagens nos formatos JPG, PNG e WEBP, com tamanho máximo de 5MB por arquivo.
 
 **P: Como funciona a assinatura digital?**
-R: Você desenha sua assinatura no canvas usando o mouse ou o dedo (em touchscreen). É obrigatório preencher o nome e a assinatura para finalizar.
+R: Você desenha sua assinatura no canvas usando o mouse ou o dedo (em touchscreen). A assinatura é convertida para formato digital e enviada para o servidor. É obrigatório preencher o nome e a assinatura para finalizar.
 
 ### Checklists
 
@@ -525,7 +540,7 @@ R: O ranking ordena as equipes pela média de percentual de conformidade, da mai
 R: Apenas gestores e admins podem resolver pendências.
 
 **P: É obrigatório anexar evidência ao resolver uma pendência?**
-R: Não, a evidência é opcional, mas é altamente recomendado para comprovar que o problema foi corrigido.
+R: Não, a evidência é opcional, mas é altamente recomendado para comprovar que o problema foi corrigido. A evidência é enviada para o servidor e fica vinculada à resolução da pendência.
 
 **P: O que acontece após resolver uma pendência?**
 R: A vistoria terá seu status alterado para "Resolvida" e será removida da lista de pendências.
@@ -538,4 +553,4 @@ Se você encontrar problemas ou tiver dúvidas que não foram respondidas neste 
 
 ---
 
-**Última atualização**: Versão 1.0 - Sistema de Vistorias em Campo
+**Última atualização**: Versão 2.0 - Sistema de Vistorias em Campo (Integrado com API)

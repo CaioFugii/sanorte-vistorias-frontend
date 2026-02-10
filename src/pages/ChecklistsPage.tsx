@@ -152,15 +152,19 @@ export const ChecklistsPage = () => {
       setEditingItem(item);
       setItemFormData({
         title: item.title,
+        description: item.description || '',
         order: item.order,
         requiresPhotoOnNonConformity: item.requiresPhotoOnNonConformity,
+        active: item.active,
       });
     } else {
       setEditingItem(null);
       setItemFormData({
         title: '',
+        description: '',
         order: checklistItems.length + 1,
         requiresPhotoOnNonConformity: true,
+        active: true,
       });
     }
     setItemDialogOpen(true);

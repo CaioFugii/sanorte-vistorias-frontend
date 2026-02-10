@@ -74,7 +74,7 @@ export const DashboardPage = () => {
     loadDashboardData();
   };
 
-  if (loading && !data) {
+  if (loading && !summary) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />

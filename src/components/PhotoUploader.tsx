@@ -1,6 +1,6 @@
 import { Button, Box, ImageList, ImageListItem, IconButton } from '@mui/material';
 import { PhotoCamera, Delete } from '@mui/icons-material';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 interface PhotoFile {
   file?: File; // File se for novo upload

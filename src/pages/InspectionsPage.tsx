@@ -102,7 +102,11 @@ export const InspectionsPage = () => {
                   <StatusChip status={inspection.status} />
                 </TableCell>
                 <TableCell>
-                  <PercentBadge percent={inspection.scorePercent} size="small" />
+                  {inspection.scorePercent !== undefined && inspection.scorePercent !== null ? (
+                    <PercentBadge percent={inspection.scorePercent} size="small" />
+                  ) : (
+                    'N/A'
+                  )}
                 </TableCell>
                 <TableCell>
                   {inspection.finalizedAt

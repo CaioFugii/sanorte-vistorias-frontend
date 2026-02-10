@@ -49,8 +49,8 @@ export const NewInspectionPage = () => {
 
   const loadChecklists = async () => {
     try {
-      const data = await repository.getChecklistsByModule(module as ModuleType);
-      setChecklists(data);
+      const response = await repository.getChecklists({ module: module as ModuleType, limit: 100 });
+      setChecklists(response.data);
     } catch (error) {
       showSnackbar('Erro ao carregar checklists', 'error');
     }

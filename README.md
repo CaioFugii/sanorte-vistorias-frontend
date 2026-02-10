@@ -21,9 +21,10 @@ Sistema web para gestão de vistorias em campo, desenvolvido com React + TypeScr
 ## 📋 Funcionalidades
 
 ### Autenticação
-- Login com seleção de usuário mock
+- Login via API com JWT
 - Controle de acesso baseado em roles (ADMIN, GESTOR, FISCAL)
 - Guard de rotas
+- Gerenciamento automático de tokens
 
 ### Cadastros (ADMIN)
 - **Equipes**: CRUD completo
@@ -45,7 +46,7 @@ Sistema web para gestão de vistorias em campo, desenvolvido com React + TypeScr
   - Validação antes de finalizar
 - **Lista de Vistorias**: Visualização filtrada por role
 - **Detalhes**: Visualização completa com evidências e assinatura
-- **Geração de PDF**: Exportação de relatório (mock local)
+- **Geração de PDF**: Exportação de relatório via API
 
 ### Dashboard (GESTOR/ADMIN)
 - KPIs: Média geral, serviços avaliados, pendentes
@@ -68,27 +69,17 @@ O projeto segue uma arquitetura preparada para integração futura com API:
   /stores         # Stores Zustand
   /domain         # Types, enums, regras de negócio
   /data
-    /mocks        # Dados mockados iniciais
-    /repositories # Interface e implementações (Mock/Api)
+    /repositories # Interface e implementação da API
   /services       # apiClient (Axios configurado)
   /utils          # Utilitários
 ```
 
 ### Repository Pattern
 
-- **IAppRepository**: Interface comum
-- **MockAppRepository**: Implementação atual com localStorage
-- **ApiAppRepository**: Skeleton preparado para futura integração
+- **IAppRepository**: Interface comum para acesso a dados
+- **ApiAppRepository**: Implementação que faz chamadas à API real
 
-Para trocar de mock para API, basta alterar o `RepositoryProvider.tsx`:
-
-```typescript
-// Atual (Mock)
-const repository = new MockAppRepository();
-
-// Futuro (API)
-const repository = new ApiAppRepository();
-```
+O projeto utiliza o padrão Repository para abstrair o acesso a dados, facilitando manutenção e testes.
 
 ## 📦 Instalação
 
@@ -103,7 +94,16 @@ cd sanorte-vistorias
 npm install
 ```
 
-3. Inicie o servidor de desenvolvimento:
+3. Configure as variáveis de ambiente:
+```bash
+# Copie o arquivo de exemplo
+cp .env.example .env
+
+# Edite o arquivo .env e configure a URL da API
+# Para desenvolvimento local, geralmente: http://localhost:3000
+```
+
+4. Inicie o servidor de desenvolvimento:
 ```bash
 npm run dev
 ```
@@ -113,30 +113,20 @@ npm run dev
 http://localhost:5173
 ```
 
-## 🔐 Usuários Mock
+## 🔐 Autenticação
 
-O sistema vem com 3 usuários pré-configurados:
+O sistema utiliza autenticação via API com JWT (JSON Web Tokens). 
 
-- **Admin**: `admin@sanorte.com` (qualquer senha)
-- **Gestor**: `gestor@sanorte.com` (qualquer senha)
-- **Fiscal**: `fiscal@sanorte.com` (qualquer senha)
-
-Ou selecione diretamente na tela de login.
+- Faça login com suas credenciais fornecidas pelo administrador
+- O token de autenticação é armazenado no localStorage e enviado automaticamente em todas as requisições
+- Em caso de token expirado ou inválido, você será redirecionado para a tela de login
 
 ## 💾 Persistência
 
-Todos os dados são persistidos no **localStorage** do navegador. As chaves utilizadas são:
+Todos os dados são persistidos na **API backend**. O frontend armazena apenas:
 
-- `sanorte_teams`
-- `sanorte_collaborators`
-- `sanorte_checklists`
-- `sanorte_checklist_items`
-- `sanorte_inspections`
-- `sanorte_inspection_items`
-- `sanorte_evidences`
-- `sanorte_signatures`
-- `sanorte_pending_adjustments`
-- `auth_user` (sessão)
+- `auth_token`: Token JWT de autenticação
+- `auth_user`: Dados do usuário logado (cache local)
 
 ## 📝 Regras de Negócio
 
@@ -166,23 +156,24 @@ Percentual = (CONFORME / avaliados) * 100
 - `TeamSelect`: Seleção de equipe
 - `CollaboratorsMultiSelect`: Seleção múltipla de colaboradores
 - `ChecklistRenderer`: Renderização do checklist com avaliação
-- `PhotoUploader`: Upload de fotos (gera dataUrl)
+- `PhotoUploader`: Upload de fotos (envia para API via FormData)
 - `SignaturePad`: Canvas para assinatura digital
 - `StatusChip`: Badge de status
 - `PercentBadge`: Badge de percentual com cores
 
 ## 📄 Geração de PDF
 
-Atualmente, a geração de PDF é feita localmente usando `jsPDF`. O PDF gerado contém informações básicas da vistoria.
+A geração de PDF é feita via API através do endpoint `/inspections/:id/pdf`. O PDF gerado contém todas as informações da vistoria, incluindo fotos e assinatura.
 
-**Futuro**: A geração será feita via API, apenas trocar a implementação no componente.
+## ⚙️ Variáveis de Ambiente
 
-## 🚧 Próximos Passos (Integração com API)
+O projeto utiliza as seguintes variáveis de ambiente (definidas no arquivo `.env`):
 
-1. Configurar variável de ambiente `VITE_API_BASE_URL`
-2. Trocar `MockAppRepository` por `ApiAppRepository` no `RepositoryProvider`
-3. Implementar endpoints conforme comentários em `ApiAppRepository.ts`
-4. Ajustar tratamento de autenticação (tokens JWT)
+- `VITE_API_BASE_URL`: URL base da API backend
+  - Desenvolvimento: `http://localhost:3000`
+  - Produção: URL do servidor de produção
+
+Para configurar, copie o arquivo `.env.example` para `.env` e ajuste os valores conforme necessário.
 
 ## 📚 Scripts Disponíveis
 
@@ -194,8 +185,10 @@ Atualmente, a geração de PDF é feita localmente usando `jsPDF`. O PDF gerado 
 ## 🐛 Troubleshooting
 
 ### Erro ao carregar dados
-- Limpe o localStorage: `localStorage.clear()` no console do navegador
-- Recarregue a página
+- Verifique se a API está rodando e acessível
+- Confirme se a variável `VITE_API_BASE_URL` está configurada corretamente no arquivo `.env`
+- Verifique o console do navegador para erros de rede ou autenticação
+- Se o token expirou, faça logout e login novamente
 
 ### Problemas com assinatura
 - Certifique-se de que o canvas está renderizado antes de desenhar
@@ -207,4 +200,4 @@ Ver arquivo LICENSE.
 
 ## 👥 Desenvolvimento
 
-Sistema desenvolvido seguindo as especificações fornecidas, com arquitetura preparada para evolução e integração futura com API backend.
+Sistema desenvolvido seguindo as especificações fornecidas, com arquitetura baseada em Repository Pattern e totalmente integrado com a API backend.
