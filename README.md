@@ -2,6 +2,11 @@
 
 Sistema web para gestão de vistorias em campo, desenvolvido com React + TypeScript e Material UI.
 
+## 📚 Documentação
+
+- **[Guia do Usuário](./GUIA_DO_USUARIO.md)**: Guia completo e detalhado para cada perfil de usuário (FISCAL, GESTOR, ADMIN)
+- Este README: Documentação técnica e de desenvolvimento
+
 ## 🚀 Tecnologias
 
 - **React 18** - Biblioteca para construção de interfaces
