@@ -1,7 +1,7 @@
-import { Box, Button, Paper, Typography } from '@mui/material';
-import { Clear } from '@mui/icons-material';
-import { useRef, useEffect } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
+import { Clear } from "@mui/icons-material";
+import { Box, Button, Paper, TextField, Typography } from "@mui/material";
+import { useEffect, useRef } from "react";
+import SignatureCanvas from "react-signature-canvas";
 
 interface SignaturePadProps {
   value: string | null; // dataUrl
@@ -17,7 +17,7 @@ export const SignaturePad = ({
   disabled = false,
   signerName = '',
   onSignerNameChange,
-}: SignaturePadProps) => {
+}: SignaturePadProps): JSX.Element => {
   const canvasRef = useRef<SignatureCanvas>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,6 +84,7 @@ export const SignaturePad = ({
               className: 'signature-canvas',
             }}
             onEnd={handleEnd}
+            penColor={disabled ? "#9e9e9e" : "#000"}
           />
         </Box>
         <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -97,21 +98,14 @@ export const SignaturePad = ({
             Limpar
           </Button>
           {onSignerNameChange && (
-            <Box sx={{ flex: 1 }}>
-              <input
-                type="text"
-                placeholder="Nome do líder/encarregado"
-                value={signerName}
-                onChange={(e) => onSignerNameChange(e.target.value)}
-                disabled={disabled}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                }}
-              />
-            </Box>
+            <TextField
+              sx={{ flex: 1 }}
+              label="Nome do líder/encarregado"
+              value={signerName}
+              onChange={(event) => onSignerNameChange(event.target.value)}
+              disabled={disabled}
+              size="small"
+            />
           )}
         </Box>
       </Paper>

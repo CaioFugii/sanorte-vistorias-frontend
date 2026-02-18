@@ -1,11 +1,60 @@
-import { Button, Box, ImageList, ImageListItem, IconButton } from '@mui/material';
-import { PhotoCamera, Delete } from '@mui/icons-material';
-import { useRef } from 'react';
+import { Box, Button, IconButton, ImageList, ImageListItem } from "@mui/material";
+import { Delete, PhotoCamera } from "@mui/icons-material";
+import { useRef } from "react";
 
-interface PhotoFile {
-  file?: File; // File se for novo upload
-  preview: string; // URL ou dataUrl para preview
-  evidenceId?: string; // ID da evidência se já foi salva na API
+export interface PhotoFile {
+  id: string;
+  /** Preview local (base64); quando há upload no Cloudinary use `url`. */
+  dataUrl?: string;
+  /** URL do Cloudinary após upload. */
+  url?: string;
+  fileName: string;
+  mimeType: string;
+  evidenceId?: string;
+  inspectionItemId?: string;
+  cloudinaryPublicId?: string;
+  size?: number;
+  bytes?: number;
+  format?: string;
+  width?: number;
+  height?: number;
+}
+
+/** Retorna a URL para exibição da imagem (Cloudinary ou dataUrl). */
+export function getPhotoDisplayUrl(photo: PhotoFile): string {
+  return photo.url ?? photo.dataUrl ?? "";
+}
+
+/** Converte Evidence (do store/offline) em PhotoFile para o PhotoUploader. */
+export function evidenceToPhotoFile(evidence: {
+  id: string;
+  inspectionItemId?: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl?: string;
+  url?: string;
+  cloudinaryPublicId?: string;
+  size?: number;
+  bytes?: number;
+  format?: string;
+  width?: number;
+  height?: number;
+}): PhotoFile {
+  return {
+    id: evidence.id,
+    dataUrl: evidence.dataUrl,
+    url: evidence.url,
+    fileName: evidence.fileName,
+    mimeType: evidence.mimeType,
+    evidenceId: evidence.id,
+    inspectionItemId: evidence.inspectionItemId,
+    cloudinaryPublicId: evidence.cloudinaryPublicId,
+    size: evidence.size ?? evidence.bytes,
+    bytes: evidence.bytes,
+    format: evidence.format,
+    width: evidence.width,
+    height: evidence.height,
+  };
 }
 
 interface PhotoUploaderProps {
@@ -13,55 +62,95 @@ interface PhotoUploaderProps {
   onChange: (photos: PhotoFile[]) => void;
   maxPhotos?: number;
   disabled?: boolean;
+  /** Quando informado e online, faz upload no Cloudinary antes de adicionar a foto. */
+  onUpload?: (file: File) => Promise<{
+    publicId: string;
+    url: string;
+    bytes: number;
+    format: string;
+    width: number;
+    height: number;
+  } | null>;
 }
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (limite da API Cloudinary)
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const PhotoUploader = ({
   photos,
   onChange,
   maxPhotos = 10,
   disabled = false,
-}: PhotoUploaderProps) => {
+  onUpload,
+}: PhotoUploaderProps): JSX.Element => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const readFileAsDataUrl = (file: File): Promise<PhotoFile> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = (e.target?.result as string) || "";
+        resolve({
+          id: crypto.randomUUID(),
+          dataUrl,
+          fileName: file.name,
+          mimeType: file.type,
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    const newPhotos: PhotoFile[] = [];
     const remainingSlots = maxPhotos - photos.length;
+    const toProcess = Array.from(files)
+      .filter(
+        (f) =>
+          f.type.startsWith("image/") &&
+          ALLOWED_TYPES.includes(f.type) &&
+          f.size <= MAX_FILE_SIZE
+      )
+      .slice(0, remainingSlots);
 
-    Array.from(files)
-      .slice(0, remainingSlots)
-      .forEach((file) => {
-        if (file.type.startsWith('image/')) {
-          // Validar tamanho (5MB máximo)
-          if (file.size > 5 * 1024 * 1024) {
-            alert(`Arquivo ${file.name} é muito grande. Máximo: 5MB`);
-            return;
-          }
-          
-          // Validar formato
-          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-          if (!allowedTypes.includes(file.type)) {
-            alert(`Formato não suportado: ${file.name}. Use: JPG, PNG ou WEBP`);
-            return;
-          }
+    const newPhotos: PhotoFile[] = [];
 
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const preview = e.target?.result as string;
-            newPhotos.push({ file, preview });
-            if (newPhotos.length === Math.min(files.length, remainingSlots)) {
-              const updated = [...photos, ...newPhotos];
-              onChange(updated);
-            }
-          };
-          reader.readAsDataURL(file);
+    for (const file of toProcess) {
+      if (onUpload && navigator.onLine) {
+        try {
+          const result = await onUpload(file);
+          if (result) {
+            newPhotos.push({
+              id: crypto.randomUUID(),
+              url: result.url,
+              fileName: file.name,
+              mimeType: file.type,
+              cloudinaryPublicId: result.publicId,
+              size: result.bytes,
+              bytes: result.bytes,
+              format: result.format,
+              width: result.width,
+              height: result.height,
+            });
+          }
+        } catch {
+          const fallback = await readFileAsDataUrl(file);
+          newPhotos.push(fallback);
         }
-      });
+      } else {
+        const local = await readFileAsDataUrl(file);
+        newPhotos.push(local);
+      }
+    }
+
+    if (newPhotos.length > 0) {
+      onChange([...photos, ...newPhotos]);
+    }
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -89,14 +178,14 @@ export const PhotoUploader = ({
         fullWidth
         sx={{ mb: 2 }}
       >
-        Adicionar Foto {photos.length > 0 && `(${photos.length}/${maxPhotos})`}
+        Adicionar foto {photos.length > 0 && `(${photos.length}/${maxPhotos})`}
       </Button>
       {photos.length > 0 && (
         <ImageList cols={3} gap={8}>
           {photos.map((photo, index) => (
-            <ImageListItem key={index}>
+            <ImageListItem key={photo.id}>
               <img
-                src={photo.preview}
+                src={getPhotoDisplayUrl(photo)}
                 alt={`Preview ${index + 1}`}
                 style={{ width: '100%', height: 'auto', borderRadius: 4 }}
               />

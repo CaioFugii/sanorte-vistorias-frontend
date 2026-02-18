@@ -1,84 +1,65 @@
 import {
   Box,
+  Button,
+  CircularProgress,
   Paper,
   TextField,
-  Button,
   Typography,
-  CircularProgress,
-} from '@mui/material';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ModuleType,
-  InspectionStatus,
-  Checklist,
-} from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useSnackbar } from '@/utils/useSnackbar';
-import { ModuleSelect } from '@/components/ModuleSelect';
-import { TeamSelect } from '@/components/TeamSelect';
-import { CollaboratorsMultiSelect } from '@/components/CollaboratorsMultiSelect';
-import {
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-} from '@mui/material';
+} from "@mui/material";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChecklistSelect } from "@/components/ChecklistSelect";
+import { TeamSelect } from "@/components/TeamSelect";
+import { appRepository } from "@/repositories/AppRepository";
+import { useAuthStore } from "@/stores/authStore";
+import { Collaborator, ModuleType } from "@/domain";
+import { ModuleSelect } from "@/components/ModuleSelect";
+import { CollaboratorMultiSelect } from "@/components/CollaboratorMultiSelect";
+import { useEffect } from "react";
 
-export const NewInspectionPage = () => {
+export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
-  const repository = useRepository();
-  const { showSnackbar } = useSnackbar();
+  const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(false);
-  const [module, setModule] = useState<ModuleType | ''>('');
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [checklistId, setChecklistId] = useState('');
-  const [teamId, setTeamId] = useState('');
+  const [loadingCollaborators, setLoadingCollaborators] = useState(true);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [module, setModule] = useState<ModuleType>(ModuleType.QUALIDADE);
+  const [checklistId, setChecklistId] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
-  const [serviceDescription, setServiceDescription] = useState('');
-  const [locationDescription, setLocationDescription] = useState('');
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [locationDescription, setLocationDescription] = useState("");
 
   useEffect(() => {
-    if (module) {
-      loadChecklists();
-    } else {
-      setChecklists([]);
-      setChecklistId('');
-    }
-  }, [module]);
+    const loadCollaborators = async () => {
+      setLoadingCollaborators(true);
+      try {
+        const response = await appRepository.getCollaborators({ page: 1, limit: 100 });
+        setCollaborators(response.data.filter((collaborator) => collaborator.active));
+      } finally {
+        setLoadingCollaborators(false);
+      }
+    };
+    loadCollaborators();
+  }, []);
 
-  const loadChecklists = async () => {
-    try {
-      const response = await repository.getChecklists({ module: module as ModuleType, limit: 100 });
-      setChecklists(response.data);
-    } catch (error) {
-      showSnackbar('Erro ao carregar checklists', 'error');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!module || !checklistId || !teamId || !serviceDescription.trim()) {
-      showSnackbar('Preencha todos os campos obrigatórios', 'error');
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!user || !checklistId || !teamId || !serviceDescription.trim()) {
       return;
     }
-
+    setLoading(true);
     try {
-      setLoading(true);
-      const inspection = await repository.createInspection({
-        module: module as ModuleType,
+      const inspection = await appRepository.createInspection({
+        module,
         checklistId,
         teamId,
+        collaboratorIds,
         serviceDescription,
-        locationDescription: locationDescription || undefined,
-        collaboratorIds: collaboratorIds.length > 0 ? collaboratorIds : undefined,
+        locationDescription,
+        createdByUserId: user.id,
       });
-
-      showSnackbar('Vistoria criada com sucesso', 'success');
-      navigate(`/inspections/${inspection.id}/fill`);
-    } catch (error) {
-      showSnackbar('Erro ao criar vistoria', 'error');
+      navigate(`/inspections/${inspection.externalId}/fill`);
     } finally {
       setLoading(false);
     }
@@ -89,86 +70,53 @@ export const NewInspectionPage = () => {
       <Typography variant="h4" gutterBottom>
         Nova Vistoria
       </Typography>
-
       <Paper sx={{ p: 3, maxWidth: 800 }}>
         <form onSubmit={handleSubmit}>
           <ModuleSelect
             value={module}
-            onChange={(m) => {
-              setModule(m);
-              setChecklistId('');
+            onChange={(value) => {
+              setModule(value);
+              setChecklistId("");
             }}
             required
-            disabled={loading}
           />
-
-          <FormControl fullWidth required disabled={loading || !module} sx={{ mt: 2 }}>
-            <InputLabel>Checklist</InputLabel>
-            <Select
-              value={checklistId}
-              onChange={(e) => setChecklistId(e.target.value)}
-              label="Checklist"
-            >
-              {checklists.map((checklist) => (
-                <MenuItem key={checklist.id} value={checklist.id}>
-                  {checklist.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           <Box sx={{ mt: 2 }}>
-            <TeamSelect
-              value={teamId}
-              onChange={setTeamId}
-              required
-              disabled={loading}
-            />
+            <ChecklistSelect value={checklistId} onChange={setChecklistId} module={module} required />
           </Box>
-
           <Box sx={{ mt: 2 }}>
-            <CollaboratorsMultiSelect
+            <TeamSelect value={teamId} onChange={setTeamId} required />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <CollaboratorMultiSelect
               value={collaboratorIds}
               onChange={setCollaboratorIds}
-              disabled={loading}
+              collaborators={collaborators}
+              disabled={loadingCollaborators}
             />
           </Box>
-
           <TextField
             fullWidth
-            label="Descrição do Serviço"
+            label="Descrição do serviço"
             required
             value={serviceDescription}
-            onChange={(e) => setServiceDescription(e.target.value)}
-            disabled={loading}
+            onChange={(event) => setServiceDescription(event.target.value)}
             margin="normal"
             multiline
             rows={3}
           />
-
           <TextField
             fullWidth
-            label="Localização (opcional)"
+            label="Localização"
             value={locationDescription}
-            onChange={(e) => setLocationDescription(e.target.value)}
-            disabled={loading}
+            onChange={(event) => setLocationDescription(event.target.value)}
             margin="normal"
           />
-
-          <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/inspections')}
-              disabled={loading}
-            >
+          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            <Button variant="outlined" onClick={() => navigate("/inspections")}>
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Criar Vistoria'}
+            <Button type="submit" variant="contained" disabled={loading}>
+              {loading ? <CircularProgress size={20} /> : "Criar"}
             </Button>
           </Box>
         </form>

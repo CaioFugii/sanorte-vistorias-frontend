@@ -2,6 +2,7 @@ export { LoginPage } from './LoginPage';
 export { DashboardPage } from './DashboardPage';
 export { TeamsPage } from './TeamsPage';
 export { CollaboratorsPage } from './CollaboratorsPage';
+export { UsersPage } from './UsersPage';
 export { ChecklistsPage } from './ChecklistsPage';
 export { InspectionsPage } from './InspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';

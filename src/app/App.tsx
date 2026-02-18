@@ -1,19 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { RepositoryProvider } from './RepositoryProvider';
-import { AppShell } from '@/components/AppShell';
-import { useAuthStore } from '@/stores';
-import { LoginPage } from '@/pages/LoginPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { TeamsPage } from '@/pages/TeamsPage';
-import { CollaboratorsPage } from '@/pages/CollaboratorsPage';
-import { ChecklistsPage } from '@/pages/ChecklistsPage';
-import { InspectionsPage } from '@/pages/InspectionsPage';
-import { NewInspectionPage } from '@/pages/NewInspectionPage';
-import { InspectionDetailPage } from '@/pages/InspectionDetailPage';
-import { FillInspectionPage } from '@/pages/FillInspectionPage';
-import { PendingsPage } from '@/pages/PendingsPage';
-import { useSnackbar } from '@/utils/useSnackbar';
+import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { RouterProvider } from "react-router-dom";
+import { useEffect } from "react";
+import { router } from "./router";
+import { useNetworkStatus } from "./useNetworkStatus";
+import { useReferenceStore } from "@/stores/referenceStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useUiStore } from "@/stores/uiStore";
+import { appRepository } from "@/repositories/AppRepository";
 
 const theme = createTheme({
   palette: {
@@ -26,135 +19,36 @@ const theme = createTheme({
   },
 });
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+function App(): JSX.Element {
+  const loadCache = useReferenceStore((state) => state.loadCache);
+  const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
+  const loadMe = useAuthStore((state) => state.loadMe);
+  const setPendingSyncCount = useUiStore((state) => state.setPendingSyncCount);
+  useNetworkStatus();
 
-function App() {
-  const { SnackbarComponent } = useSnackbar();
+  useEffect(() => {
+    const bootstrap = async () => {
+      await loadCache();
+      if (navigator.onLine) {
+        await refreshFromApi();
+      }
+      if (localStorage.getItem("auth_token")) {
+        try {
+          await loadMe();
+        } catch {
+          useAuthStore.getState().logout();
+        }
+      }
+      const count = await appRepository.countPendingSync();
+      setPendingSyncCount(count);
+    };
+    bootstrap();
+  }, [loadCache, loadMe, refreshFromApi, setPendingSyncCount]);
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <RepositoryProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <Navigate to="/dashboard" replace />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <DashboardPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teams"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <TeamsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/collaborators"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <CollaboratorsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/checklists"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <ChecklistsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inspections"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <InspectionsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inspections/mine"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <InspectionsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inspections/new"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <NewInspectionPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inspections/:id"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <InspectionDetailPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inspections/:id/fill"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <FillInspectionPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/pendings"
-              element={
-                <ProtectedRoute>
-                  <AppShell>
-                    <PendingsPage />
-                  </AppShell>
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-        <SnackbarComponent />
-      </RepositoryProvider>
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
 }

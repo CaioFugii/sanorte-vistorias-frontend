@@ -6,10 +6,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControlLabel,
   IconButton,
+  MenuItem,
   Paper,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -21,21 +20,24 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Collaborator } from "@/domain";
+import { User } from "@/domain";
+import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 
-export const CollaboratorsPage = (): JSX.Element => {
+export const UsersPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Collaborator | null>(null);
+  const [editing, setEditing] = useState<User | null>(null);
   const [name, setName] = useState("");
-  const [active, setActive] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>(UserRole.FISCAL);
 
   const load = async () => {
     setLoading(true);
-    const response = await appRepository.getCollaborators({ page: 1, limit: 100 });
-    setCollaborators(response.data);
+    const result = await appRepository.getUsers({ page: 1, limit: 100 });
+    setUsers(result.data);
     setLoading(false);
   };
 
@@ -54,18 +56,20 @@ export const CollaboratorsPage = (): JSX.Element => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Colaboradores</Typography>
+        <Typography variant="h4">Usuários</Typography>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => {
             setEditing(null);
             setName("");
-            setActive(true);
+            setEmail("");
+            setPassword("");
+            setRole(UserRole.FISCAL);
             setDialogOpen(true);
           }}
         >
-          Novo colaborador
+          Novo usuário
         </Button>
       </Box>
 
@@ -74,21 +78,25 @@ export const CollaboratorsPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Role</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {collaborators.map((collaborator) => (
-              <TableRow key={collaborator.id}>
-                <TableCell>{collaborator.name}</TableCell>
-                <TableCell>{collaborator.active ? "Ativo" : "Inativo"}</TableCell>
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>{user.name}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{user.role}</TableCell>
                 <TableCell align="right">
                   <IconButton
                     onClick={() => {
-                      setEditing(collaborator);
-                      setName(collaborator.name);
-                      setActive(collaborator.active);
+                      setEditing(user);
+                      setName(user.name);
+                      setEmail(user.email);
+                      setPassword("");
+                      setRole(user.role);
                       setDialogOpen(true);
                     }}
                   >
@@ -97,8 +105,8 @@ export const CollaboratorsPage = (): JSX.Element => {
                   <IconButton
                     color="error"
                     onClick={async () => {
-                      if (!window.confirm("Deseja excluir este colaborador?")) return;
-                      await appRepository.deleteCollaborator(collaborator.id);
+                      if (!window.confirm("Deseja excluir este usuário?")) return;
+                      await appRepository.deleteUser(user.id);
                       await load();
                     }}
                   >
@@ -112,7 +120,7 @@ export const CollaboratorsPage = (): JSX.Element => {
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>{editing ? "Editar colaborador" : "Novo colaborador"}</DialogTitle>
+        <DialogTitle>{editing ? "Editar usuário" : "Novo usuário"}</DialogTitle>
         <DialogContent>
           <TextField
             margin="normal"
@@ -121,21 +129,50 @@ export const CollaboratorsPage = (): JSX.Element => {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <FormControlLabel
-            control={<Switch checked={active} onChange={(event) => setActive(event.target.checked)} />}
-            label="Ativo"
+          <TextField
+            margin="normal"
+            fullWidth
+            type="email"
+            label="Email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
+          <TextField
+            margin="normal"
+            fullWidth
+            type="password"
+            label={editing ? "Nova senha (opcional)" : "Senha"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            select
+            label="Perfil"
+            value={role}
+            onChange={(event) => setRole(event.target.value as UserRole)}
+          >
+            <MenuItem value={UserRole.ADMIN}>ADMIN</MenuItem>
+            <MenuItem value={UserRole.GESTOR}>GESTOR</MenuItem>
+            <MenuItem value={UserRole.FISCAL}>FISCAL</MenuItem>
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!name.trim()}
+            disabled={!name.trim() || !email.trim() || (!editing && !password.trim())}
             onClick={async () => {
               if (editing) {
-                await appRepository.updateCollaborator(editing.id, { name, active });
+                await appRepository.updateUser(editing.id, {
+                  name,
+                  email,
+                  role,
+                  password: password.trim() ? password : undefined,
+                });
               } else {
-                await appRepository.createCollaborator({ name, active });
+                await appRepository.createUser({ name, email, password, role });
               }
               setDialogOpen(false);
               await load();

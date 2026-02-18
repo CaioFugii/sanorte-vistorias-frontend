@@ -1,98 +1,53 @@
 import {
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  Switch,
-  FormControlLabel,
   Typography,
   CircularProgress,
 } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
+import { Add, Delete, Edit, Refresh } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { Team } from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useSnackbar } from '@/utils/useSnackbar';
+import { useReferenceStore } from '@/stores/referenceStore';
+import { Collaborator, Team } from '@/domain';
+import { appRepository } from '@/repositories/AppRepository';
+import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 
-export const TeamsPage = () => {
-  const repository = useRepository();
-  const { showSnackbar } = useSnackbar();
-  const [teams, setTeams] = useState<Team[]>([]);
+export const TeamsPage = (): JSX.Element => {
+  const teams = useReferenceStore((state) => state.teams);
+  const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
+  const loadCache = useReferenceStore((state) => state.loadCache);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [formData, setFormData] = useState({ name: '', active: true });
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
+  const [name, setName] = useState("");
+  const [active, setActive] = useState(true);
 
   useEffect(() => {
-    loadTeams();
-  }, []);
-
-  const loadTeams = async () => {
-    try {
-      setLoading(true);
-      const response = await repository.getTeams({ limit: 100 }); // Buscar até 100 equipes
-      setTeams(response.data);
-    } catch (error) {
-      showSnackbar('Erro ao carregar equipes', 'error');
-    } finally {
+    const run = async () => {
+      await loadCache();
+      const collaboratorsResponse = await appRepository.getCollaborators({ page: 1, limit: 100 });
+      setCollaborators(collaboratorsResponse.data.filter((collaborator) => collaborator.active));
       setLoading(false);
-    }
   };
-
-  const handleOpenDialog = (team?: Team) => {
-    if (team) {
-      setEditingTeam(team);
-      setFormData({ name: team.name, active: team.active });
-    } else {
-      setEditingTeam(null);
-      setFormData({ name: '', active: true });
-    }
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingTeam(null);
-  };
-
-  const handleSave = async () => {
-    try {
-      if (editingTeam) {
-        await repository.updateTeam(editingTeam.id, formData);
-        showSnackbar('Equipe atualizada com sucesso', 'success');
-      } else {
-        await repository.createTeam(formData);
-        showSnackbar('Equipe criada com sucesso', 'success');
-      }
-      handleCloseDialog();
-      loadTeams();
-    } catch (error) {
-      showSnackbar('Erro ao salvar equipe', 'error');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta equipe?')) {
-      try {
-        await repository.deleteTeam(id);
-        showSnackbar('Equipe excluída com sucesso', 'success');
-        loadTeams();
-      } catch (error) {
-        showSnackbar('Erro ao excluir equipe', 'error');
-      }
-    }
-  };
+    run();
+  }, []);
 
   if (loading) {
     return (
@@ -106,13 +61,28 @@ export const TeamsPage = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Equipes</Typography>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={() => refreshFromApi()}
+          >
+            Atualizar catálogo
+          </Button>
         <Button
           variant="contained"
           startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
+            onClick={() => {
+              setEditingTeam(null);
+              setName("");
+              setActive(true);
+              setSelectedCollaboratorIds([]);
+              setDialogOpen(true);
+            }}
         >
-          Nova Equipe
+            Nova equipe
         </Button>
+        </Box>
       </Box>
 
       <TableContainer component={Paper}>
@@ -120,6 +90,7 @@ export const TeamsPage = () => {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
+              <TableCell>Colaboradores</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
@@ -128,18 +99,31 @@ export const TeamsPage = () => {
             {teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
+                <TableCell>
+                  {(team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
+                </TableCell>
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
                 <TableCell align="right">
                   <IconButton
-                    size="small"
-                    onClick={() => handleOpenDialog(team)}
+                    onClick={() => {
+                      setEditingTeam(team);
+                      setName(team.name);
+                      setActive(team.active);
+                      setSelectedCollaboratorIds(
+                        team.collaboratorIds ?? team.collaborators?.map((collaborator) => collaborator.id) ?? []
+                      );
+                      setDialogOpen(true);
+                    }}
                   >
                     <Edit />
                   </IconButton>
                   <IconButton
-                    size="small"
                     color="error"
-                    onClick={() => handleDelete(team.id)}
+                    onClick={async () => {
+                      if (!window.confirm("Deseja remover esta equipe?")) return;
+                      await appRepository.deleteTeam(team.id);
+                      await refreshFromApi();
+                    }}
                   >
                     <Delete />
                   </IconButton>
@@ -150,37 +134,58 @@ export const TeamsPage = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingTeam ? 'Editar Equipe' : 'Nova Equipe'}
-        </DialogTitle>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{editingTeam ? "Editar equipe" : "Nova equipe"}</DialogTitle>
         <DialogContent>
           <TextField
+            margin="normal"
             fullWidth
             label="Nome"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            margin="normal"
-            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
           <FormControlLabel
             control={
-              <Switch
-                checked={formData.active}
-                onChange={(e) =>
-                  setFormData({ ...formData, active: e.target.checked })
-                }
-              />
+              <Switch checked={active} onChange={(e) => setActive(e.target.checked)} />
             }
             label="Ativa"
           />
+          <Box sx={{ mt: 2 }}>
+            <CollaboratorMultiSelect
+              value={selectedCollaboratorIds}
+              onChange={setSelectedCollaboratorIds}
+              collaborators={collaborators}
+              label="Colaboradores da equipe"
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
+          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
-            onClick={handleSave}
             variant="contained"
-            disabled={!formData.name.trim()}
+            disabled={!name.trim() || saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                if (editingTeam) {
+                  await appRepository.updateTeam(editingTeam.id, {
+                    name,
+                    active,
+                    collaboratorIds: selectedCollaboratorIds,
+                  });
+                } else {
+                  await appRepository.createTeam({
+                    name,
+                    active,
+                    collaboratorIds: selectedCollaboratorIds,
+                  });
+                }
+                setDialogOpen(false);
+                await refreshFromApi();
+              } finally {
+                setSaving(false);
+              }
+            }}
           >
             Salvar
           </Button>

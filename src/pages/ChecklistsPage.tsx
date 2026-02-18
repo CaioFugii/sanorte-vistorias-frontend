@@ -1,21 +1,16 @@
 import {
   Box,
   Button,
-  Paper,
-  Typography,
-  Tabs,
-  Tab,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
-  TextField,
-  Switch,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
+  IconButton,
+  Paper,
+  Switch,
+  TextField,
+  Typography,
   CircularProgress,
   Accordion,
   AccordionSummary,
@@ -24,190 +19,50 @@ import {
 } from '@mui/material';
 import {
   Add,
-  Edit,
   Delete,
+  Edit,
+  Refresh,
   ExpandMore,
-  DragIndicator,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { Checklist, ChecklistItem, ModuleType } from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useSnackbar } from '@/utils/useSnackbar';
+import { Checklist } from '@/domain';
+import { useReferenceStore } from '@/stores/referenceStore';
 import { ModuleSelect } from '@/components/ModuleSelect';
+import { ModuleType } from '@/domain/enums';
+import { appRepository } from '@/repositories/AppRepository';
 
-const moduleLabels: Record<ModuleType, string> = {
-  [ModuleType.SEGURANCA_TRABALHO]: 'Segurança do Trabalho',
-  [ModuleType.OBRAS_INVESTIMENTO]: 'Obras de Investimento',
-  [ModuleType.OBRAS_GLOBAL]: 'Obras Globais',
-  [ModuleType.CANTEIRO]: 'Canteiro',
-};
-
-export const ChecklistsPage = () => {
-  const repository = useRepository();
-  const { showSnackbar } = useSnackbar();
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+export const ChecklistsPage = (): JSX.Element => {
+  const checklists = useReferenceStore((state) => state.checklists);
+  const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
+  const loadCache = useReferenceStore((state) => state.loadCache);
   const [loading, setLoading] = useState(true);
-  const [selectedModule, setSelectedModule] = useState<ModuleType>(
-    ModuleType.SEGURANCA_TRABALHO
-  );
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
+  const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
-  const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(
-    null
-  );
-  const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
-  const [selectedChecklist, setSelectedChecklist] = useState<string | null>(
-    null
-  );
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    module: ModuleType.SEGURANCA_TRABALHO,
-    active: true,
-  });
-  const [itemFormData, setItemFormData] = useState({
-    title: '',
-    description: '',
-    order: 1,
-    requiresPhotoOnNonConformity: true,
-    active: true,
-  });
+  const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
+  const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("");
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [checklistModule, setChecklistModule] = useState<ModuleType | ''>(ModuleType.QUALIDADE);
+  const [checklistName, setChecklistName] = useState("");
+  const [checklistDescription, setChecklistDescription] = useState("");
+  const [checklistActive, setChecklistActive] = useState(true);
+  const [sectionName, setSectionName] = useState("");
+  const [sectionOrder, setSectionOrder] = useState(1);
+  const [sectionActive, setSectionActive] = useState(true);
+  const [itemTitle, setItemTitle] = useState("");
+  const [itemDescription, setItemDescription] = useState("");
+  const [itemOrder, setItemOrder] = useState(1);
+  const [itemRequiresPhoto, setItemRequiresPhoto] = useState(true);
+  const [itemActive, setItemActive] = useState(true);
 
   useEffect(() => {
-    loadChecklists();
-  }, []);
-
-  useEffect(() => {
-    if (selectedChecklist) {
-      loadChecklistItems(selectedChecklist);
-    }
-  }, [selectedChecklist]);
-
-  const loadChecklists = async () => {
-    try {
-      setLoading(true);
-      const response = await repository.getChecklists({ limit: 100 }); // Buscar até 100 checklists
-      setChecklists(response.data);
-    } catch (error) {
-      showSnackbar('Erro ao carregar checklists', 'error');
-    } finally {
+    const run = async () => {
+      await loadCache();
       setLoading(false);
-    }
-  };
-
-  const loadChecklistItems = async (checklistId: string) => {
-    try {
-      const items = await repository.getChecklistItems(checklistId);
-      setChecklistItems(items);
-    } catch (error) {
-      showSnackbar('Erro ao carregar itens', 'error');
-    }
-  };
-
-  const handleOpenDialog = (checklist?: Checklist) => {
-    if (checklist) {
-      setEditingChecklist(checklist);
-      setFormData({
-        name: checklist.name,
-        description: checklist.description || '',
-        module: checklist.module,
-        active: checklist.active,
-      });
-    } else {
-      setEditingChecklist(null);
-      setFormData({
-        name: '',
-        description: '',
-        module: selectedModule,
-        active: true,
-      });
-    }
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingChecklist(null);
-  };
-
-  const handleSave = async () => {
-    try {
-      if (editingChecklist) {
-        await repository.updateChecklist(editingChecklist.id, formData);
-        showSnackbar('Checklist atualizado com sucesso', 'success');
-      } else {
-        await repository.createChecklist(formData);
-        showSnackbar('Checklist criado com sucesso', 'success');
-      }
-      handleCloseDialog();
-      loadChecklists();
-    } catch (error) {
-      showSnackbar('Erro ao salvar checklist', 'error');
-    }
-  };
-
-  const handleOpenItemDialog = (item?: ChecklistItem) => {
-    if (item) {
-      setEditingItem(item);
-      setItemFormData({
-        title: item.title,
-        description: item.description || '',
-        order: item.order,
-        requiresPhotoOnNonConformity: item.requiresPhotoOnNonConformity,
-        active: item.active,
-      });
-    } else {
-      setEditingItem(null);
-      setItemFormData({
-        title: '',
-        description: '',
-        order: checklistItems.length + 1,
-        requiresPhotoOnNonConformity: true,
-        active: true,
-      });
-    }
-    setItemDialogOpen(true);
-  };
-
-  const handleCloseItemDialog = () => {
-    setItemDialogOpen(false);
-    setEditingItem(null);
-  };
-
-  const handleSaveItem = async () => {
-    if (!selectedChecklist) return;
-    try {
-      if (editingItem) {
-        await repository.updateChecklistItem(selectedChecklist, editingItem.id, itemFormData);
-        showSnackbar('Item atualizado com sucesso', 'success');
-      } else {
-        await repository.createChecklistItem(selectedChecklist, itemFormData);
-        showSnackbar('Item criado com sucesso', 'success');
-      }
-      handleCloseItemDialog();
-      loadChecklistItems(selectedChecklist);
-    } catch (error) {
-      showSnackbar('Erro ao salvar item', 'error');
-    }
-  };
-
-  const handleDeleteItem = async (itemId: string) => {
-    if (!selectedChecklist) return;
-    if (window.confirm('Tem certeza que deseja excluir este item?')) {
-      try {
-        await repository.deleteChecklistItem(selectedChecklist, itemId);
-        showSnackbar('Item excluído com sucesso', 'success');
-        loadChecklistItems(selectedChecklist);
-      } catch (error) {
-        showSnackbar('Erro ao excluir item', 'error');
-      }
-    }
-  };
-
-  const filteredChecklists = checklists.filter(
-    (c) => c.module === selectedModule
-  );
+    };
+    run();
+  }, []);
 
   if (loading) {
     return (
@@ -221,41 +76,33 @@ export const ChecklistsPage = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Checklists</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
-        >
-          Novo Checklist
-        </Button>
-      </Box>
-
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={selectedModule}
-          onChange={(_, newValue) => setSelectedModule(newValue)}
-        >
-          {Object.values(ModuleType).map((module) => (
-            <Tab
-              key={module}
-              label={moduleLabels[module]}
-              value={module}
-            />
-          ))}
-        </Tabs>
-      </Paper>
-
-      <List>
-        {filteredChecklists.map((checklist) => (
-          <Accordion
-            key={checklist.id}
-            sx={{ mb: 1 }}
-            onChange={(_, expanded) => {
-              if (expanded) {
-                setSelectedChecklist(checklist.id);
-              }
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={() => refreshFromApi()}
+          >
+            Atualizar catálogo
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              setEditingChecklist(null);
+              setChecklistModule(ModuleType.QUALIDADE);
+              setChecklistName("");
+              setChecklistDescription("");
+              setChecklistActive(true);
+              setChecklistDialogOpen(true);
             }}
           >
+            Novo checklist
+          </Button>
+        </Box>
+      </Box>
+
+      {checklists.map((checklist: Checklist) => (
+        <Accordion key={checklist.id} sx={{ mb: 1 }}>
             <AccordionSummary expandIcon={<ExpandMore />}>
               <Box
                 sx={{
@@ -266,199 +113,319 @@ export const ChecklistsPage = () => {
                   mr: 2,
                 }}
               >
-                <Typography variant="h6">{checklist.name}</Typography>
+                <Typography variant="h6">{checklist.name} ({checklist.module})</Typography>
                 <Box>
                   <Chip
                     label={checklist.active ? 'Ativo' : 'Inativo'}
                     size="small"
                     color={checklist.active ? 'success' : 'default'}
-                    sx={{ mr: 1 }}
                   />
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDialog(checklist);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditingChecklist(checklist);
+                      setChecklistModule(checklist.module);
+                      setChecklistName(checklist.name);
+                      setChecklistDescription(checklist.description || "");
+                      setChecklistActive(checklist.active);
+                      setChecklistDialogOpen(true);
                     }}
                   >
                     <Edit />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      if (!window.confirm("Deseja excluir o checklist?")) return;
+                      await appRepository.deleteChecklist(checklist.id);
+                      await refreshFromApi();
+                    }}
+                  >
+                    <Delete />
                   </IconButton>
                 </Box>
               </Box>
             </AccordionSummary>
             <AccordionDetails>
-              <Box>
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  mb={2}
+              <Box display="flex" justifyContent="flex-end" mb={2}>
+                <Button
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setSelectedChecklist(checklist);
+                    setSectionName("");
+                    setSectionOrder(
+                      (checklist.sections.reduce((max, section) => Math.max(max, section.order), 0) || 0) + 1
+                    );
+                    setSectionActive(true);
+                    setSectionDialogOpen(true);
+                  }}
                 >
-                  <Typography variant="body2" color="text.secondary">
-                    {checklist.description}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<Add />}
-                    onClick={() => {
-                      setSelectedChecklist(checklist.id);
-                      handleOpenItemDialog();
-                    }}
-                  >
-                    Adicionar Item
-                  </Button>
-                </Box>
-                {selectedChecklist === checklist.id && (
-                  <List>
-                    {checklistItems.map((item) => (
-                      <ListItem
-                        key={item.id}
-                        secondaryAction={
-                          <Box>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenItemDialog(item)}
-                            >
-                              <Edit />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteItem(item.id)}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Box>
-                        }
-                      >
-                        <DragIndicator sx={{ mr: 1, color: 'text.secondary' }} />
-                        <ListItemText
-                          primary={item.title}
-                          secondary={`Ordem: ${item.order} | Foto obrigatória: ${
-                            item.requiresPhotoOnNonConformity ? 'Sim' : 'Não'
-                          }`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
+                  Nova seção
+                </Button>
               </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {checklist.description}
+              </Typography>
+              {checklist.sections.map((section) => (
+                <Paper key={section.id} sx={{ p: 2, mb: 1 }} variant="outlined">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography fontWeight={600}>{section.title ?? section.name}</Typography>
+                    <Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedChecklist(checklist);
+                          setSelectedSectionId(section.id);
+                          setSectionName(section.title ?? section.name);
+                          setSectionOrder(section.order);
+                          setSectionActive(section.active ?? true);
+                          setSectionDialogOpen(true);
+                        }}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSelectedChecklist(checklist);
+                          setSelectedSectionId(section.id);
+                          setEditingItemId(null);
+                          setItemTitle("");
+                          setItemDescription("");
+                          setItemOrder(
+                            (section.items.reduce((max, item) => Math.max(max, item.order), 0) || 0) + 1
+                          );
+                          setItemRequiresPhoto(true);
+                          setItemActive(true);
+                          setItemDialogOpen(true);
+                        }}
+                      >
+                        <Add />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  {section.items
+                    .sort((a, b) => a.order - b.order)
+                    .map((item) => (
+                      <Box key={item.id} display="flex" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2">
+                          - {item.order}. {item.title}
+                        </Typography>
+                        <Box>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setSelectedChecklist(checklist);
+                              setSelectedSectionId(section.id);
+                              setEditingItemId(item.id);
+                              setItemTitle(item.title);
+                              setItemDescription(item.description || "");
+                              setItemOrder(item.order);
+                              setItemRequiresPhoto(item.requiresPhotoOnNonConformity);
+                              setItemActive(item.active);
+                              setItemDialogOpen(true);
+                            }}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={async () => {
+                              await appRepository.deleteChecklistItem(checklist.id, item.id);
+                              await refreshFromApi();
+                            }}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    ))}
+                </Paper>
+              ))}
             </AccordionDetails>
           </Accordion>
-        ))}
-      </List>
+      ))}
 
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingChecklist ? 'Editar Checklist' : 'Novo Checklist'}
-        </DialogTitle>
+      <Dialog open={checklistDialogOpen} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{editingChecklist ? "Editar checklist" : "Novo checklist"}</DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <ModuleSelect
-              value={formData.module}
-              onChange={(module) => setFormData({ ...formData, module })}
-              disabled={!!editingChecklist}
-            />
+          <Box mt={2}>
+            <ModuleSelect value={checklistModule} onChange={(value) => setChecklistModule(value)} />
           </Box>
           <TextField
+            margin="normal"
             fullWidth
             label="Nome"
-            value={formData.name}
-            onChange={(e) =>
-              setFormData({ ...formData, name: e.target.value })
-            }
-            margin="normal"
-            required
+            value={checklistName}
+            onChange={(e) => setChecklistName(e.target.value)}
           />
           <TextField
+            margin="normal"
             fullWidth
             label="Descrição"
-            value={formData.description}
-            onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
-            }
-            margin="normal"
-            multiline
-            rows={3}
+            value={checklistDescription}
+            onChange={(e) => setChecklistDescription(e.target.value)}
           />
           <FormControlLabel
-            control={
-              <Switch
-                checked={formData.active}
-                onChange={(e) =>
-                  setFormData({ ...formData, active: e.target.checked })
-                }
-              />
-            }
+            control={<Switch checked={checklistActive} onChange={(e) => setChecklistActive(e.target.checked)} />}
             label="Ativo"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
+          <Button onClick={() => setChecklistDialogOpen(false)}>Cancelar</Button>
           <Button
-            onClick={handleSave}
             variant="contained"
-            disabled={!formData.name.trim()}
+            disabled={!checklistName.trim() || !checklistModule}
+            onClick={async () => {
+              if (!checklistModule) return;
+              if (editingChecklist) {
+                await appRepository.updateChecklist(editingChecklist.id, {
+                  name: checklistName,
+                  description: checklistDescription || undefined,
+                  active: checklistActive,
+                });
+              } else {
+                await appRepository.createChecklist({
+                  module: checklistModule,
+                  name: checklistName,
+                  description: checklistDescription || undefined,
+                  active: checklistActive,
+                });
+              }
+              setChecklistDialogOpen(false);
+              await refreshFromApi();
+            }}
           >
             Salvar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={itemDialogOpen}
-        onClose={handleCloseItemDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {editingItem ? 'Editar Item' : 'Novo Item'}
-        </DialogTitle>
+      <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{selectedSectionId ? "Editar seção" : "Nova seção"}</DialogTitle>
         <DialogContent>
           <TextField
-            fullWidth
-            label="Título"
-            value={itemFormData.title}
-            onChange={(e) =>
-              setItemFormData({ ...itemFormData, title: e.target.value })
-            }
             margin="normal"
-            required
+            fullWidth
+            label="Nome"
+            value={sectionName}
+            onChange={(e) => setSectionName(e.target.value)}
           />
           <TextField
+            margin="normal"
             fullWidth
             label="Ordem"
             type="number"
-            value={itemFormData.order}
-            onChange={(e) =>
-              setItemFormData({
-                ...itemFormData,
-                order: parseInt(e.target.value) || 1,
-              })
-            }
+            value={sectionOrder}
+            onChange={(e) => setSectionOrder(Number(e.target.value || 1))}
+          />
+          <FormControlLabel
+            control={<Switch checked={sectionActive} onChange={(e) => setSectionActive(e.target.checked)} />}
+            label="Ativa"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSectionDialogOpen(false)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={!selectedChecklist || !sectionName.trim()}
+            onClick={async () => {
+              if (!selectedChecklist) return;
+              if (selectedSectionId) {
+                await appRepository.updateChecklistSection(selectedChecklist.id, selectedSectionId, {
+                  name: sectionName,
+                  order: sectionOrder,
+                  active: sectionActive,
+                });
+              } else {
+                await appRepository.createChecklistSection(selectedChecklist.id, {
+                  name: sectionName,
+                  order: sectionOrder,
+                  active: sectionActive,
+                });
+              }
+              setSectionDialogOpen(false);
+              setSelectedSectionId("");
+              await refreshFromApi();
+            }}
+          >
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={itemDialogOpen} onClose={() => setItemDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{editingItemId ? "Editar item" : "Novo item"}</DialogTitle>
+        <DialogContent>
+          <TextField
             margin="normal"
+            fullWidth
+            label="Título"
+            value={itemTitle}
+            onChange={(e) => setItemTitle(e.target.value)}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            label="Descrição"
+            value={itemDescription}
+            onChange={(e) => setItemDescription(e.target.value)}
+          />
+          <TextField
+            margin="normal"
+            fullWidth
+            label="Ordem"
+            type="number"
+            value={itemOrder}
+            onChange={(e) => setItemOrder(Number(e.target.value || 1))}
           />
           <FormControlLabel
             control={
               <Switch
-                checked={itemFormData.requiresPhotoOnNonConformity}
-                onChange={(e) =>
-                  setItemFormData({
-                    ...itemFormData,
-                    requiresPhotoOnNonConformity: e.target.checked,
-                  })
-                }
+                checked={itemRequiresPhoto}
+                onChange={(e) => setItemRequiresPhoto(e.target.checked)}
               />
             }
             label="Requer foto em não conformidade"
           />
+          <FormControlLabel
+            control={<Switch checked={itemActive} onChange={(e) => setItemActive(e.target.checked)} />}
+            label="Ativo"
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseItemDialog}>Cancelar</Button>
+          <Button onClick={() => setItemDialogOpen(false)}>Cancelar</Button>
           <Button
-            onClick={handleSaveItem}
             variant="contained"
-            disabled={!itemFormData.title.trim()}
+            disabled={!selectedChecklist || !selectedSectionId || !itemTitle.trim()}
+            onClick={async () => {
+              if (!selectedChecklist || !selectedSectionId) return;
+              if (editingItemId) {
+                await appRepository.updateChecklistItem(selectedChecklist.id, editingItemId, {
+                  title: itemTitle,
+                  description: itemDescription || undefined,
+                  order: itemOrder,
+                  requiresPhotoOnNonConformity: itemRequiresPhoto,
+                  active: itemActive,
+                });
+              } else {
+                await appRepository.createChecklistItem(selectedChecklist.id, {
+                  title: itemTitle,
+                  description: itemDescription || undefined,
+                  order: itemOrder,
+                  sectionId: selectedSectionId,
+                  requiresPhotoOnNonConformity: itemRequiresPhoto,
+                  active: itemActive,
+                });
+              }
+              setItemDialogOpen(false);
+              setEditingItemId(null);
+              await refreshFromApi();
+            }}
           >
             Salvar
           </Button>

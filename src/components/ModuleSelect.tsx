@@ -10,9 +10,10 @@ interface ModuleSelectProps {
 }
 
 const moduleLabels: Record<ModuleType, string> = {
+  [ModuleType.QUALIDADE]: 'Qualidade',
   [ModuleType.SEGURANCA_TRABALHO]: 'Segurança do Trabalho',
   [ModuleType.OBRAS_INVESTIMENTO]: 'Obras de Investimento',
-  [ModuleType.OBRAS_GLOBAL]: 'Obras Globais',
+  [ModuleType.OBRAS_GLOBAL]: 'Obras Global',
   [ModuleType.CANTEIRO]: 'Canteiro',
 };
 

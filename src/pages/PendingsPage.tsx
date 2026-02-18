@@ -1,109 +1,46 @@
 import {
   Box,
+  Button,
+  CircularProgress,
   Paper,
-  Typography,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
-} from '@mui/material';
-import { Visibility, CheckCircle } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Inspection,
-  InspectionStatus,
-} from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useSnackbar } from '@/utils/useSnackbar';
-import { StatusChip } from '@/components/StatusChip';
-import { PercentBadge } from '@/components/PercentBadge';
-import { PhotoUploader } from '@/components/PhotoUploader';
+  Typography,
+} from "@mui/material";
+import { Visibility } from "@mui/icons-material";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Inspection } from "@/domain";
+import { InspectionStatus } from "@/domain/enums";
+import { appRepository } from "@/repositories/AppRepository";
+import { StatusChip } from "@/components/StatusChip";
+import { PercentBadge } from "@/components/PercentBadge";
 
-export const PendingsPage = () => {
+export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
-  const repository = useRepository();
-  const { showSnackbar } = useSnackbar();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedInspection, setSelectedInspection] =
-    useState<Inspection | null>(null);
-  const [resolutionNotes, setResolutionNotes] = useState('');
-  const [resolutionEvidence, setResolutionEvidence] = useState<Array<{ file?: File; preview: string; evidenceId?: string }>>([]);
+
+  const loadPendings = async () => {
+    setLoading(true);
+    const data = navigator.onLine
+      ? (await appRepository.getInspections({
+          status: InspectionStatus.PENDENTE_AJUSTE,
+          page: 1,
+          limit: 100,
+        })).data
+      : await appRepository.listPendingAdjustments();
+    setInspections(data);
+    setLoading(false);
+  };
 
   useEffect(() => {
     loadPendings();
   }, []);
-
-  const loadPendings = async () => {
-    try {
-      setLoading(true);
-      const response = await repository.getInspections({
-        status: InspectionStatus.PENDENTE_AJUSTE,
-      });
-      setInspections(response.data);
-    } catch (error) {
-      showSnackbar('Erro ao carregar pendências', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpenDialog = (inspection: Inspection) => {
-    setSelectedInspection(inspection);
-    setResolutionNotes('');
-    setResolutionEvidence([]);
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setSelectedInspection(null);
-  };
-
-  const handleResolve = async () => {
-    if (!selectedInspection) return;
-
-    try {
-      // Converter evidência de File para base64 se necessário
-      let evidenceBase64: string | undefined;
-      if (resolutionEvidence.length > 0 && resolutionEvidence[0].file) {
-        // Converter File para base64
-        const file = resolutionEvidence[0].file;
-        evidenceBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]); // Remove prefixo
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      }
-
-      await repository.resolveInspection(selectedInspection.id, {
-        resolutionNotes: resolutionNotes || undefined,
-        resolutionEvidence: evidenceBase64,
-      });
-
-      showSnackbar('Pendência resolvida com sucesso', 'success');
-      handleCloseDialog();
-      loadPendings();
-    } catch (error) {
-      showSnackbar('Erro ao resolver pendência', 'error');
-    }
-  };
 
   if (loading) {
     return (
@@ -115,8 +52,11 @@ export const PendingsPage = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Pendências de Ajuste
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Resolva cada item não conforme na tela de detalhes da vistoria. Quando todos os itens estiverem resolvidos, a vistoria será marcada como resolvida.
       </Typography>
 
       <TableContainer component={Paper}>
@@ -133,89 +73,44 @@ export const PendingsPage = () => {
           </TableHead>
           <TableBody>
             {inspections.map((inspection) => (
-              <TableRow key={inspection.id}>
+              <TableRow key={inspection.externalId}>
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>
-                  {inspection.locationDescription || '-'}
+                  {inspection.locationDescription || "-"}
                 </TableCell>
                 <TableCell>
                   <StatusChip status={inspection.status} />
                 </TableCell>
                 <TableCell>
-                  {inspection.scorePercent !== undefined && inspection.scorePercent !== null ? (
+                  {inspection.scorePercent !== undefined &&
+                  inspection.scorePercent !== null ? (
                     <PercentBadge percent={inspection.scorePercent} size="small" />
                   ) : (
-                    'N/A'
+                    "N/A"
                   )}
                 </TableCell>
                 <TableCell>
                   {inspection.finalizedAt
-                    ? new Date(inspection.finalizedAt).toLocaleDateString('pt-BR')
-                    : '-'}
+                    ? new Date(inspection.finalizedAt).toLocaleDateString("pt-BR")
+                    : "-"}
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton
+                  <Button
                     size="small"
-                    onClick={() => navigate(`/inspections/${inspection.id}`)}
+                    variant="contained"
+                    startIcon={<Visibility />}
+                    onClick={() =>
+                      navigate(`/inspections/${inspection.externalId}`)
+                    }
                   >
-                    <Visibility />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="success"
-                    onClick={() => handleOpenDialog(inspection)}
-                  >
-                    <CheckCircle />
-                  </IconButton>
+                    Ver e resolver
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Dialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Resolver Pendência</DialogTitle>
-        <DialogContent>
-          {selectedInspection && (
-            <Box>
-              <Typography variant="body2" gutterBottom>
-                <strong>Serviço:</strong> {selectedInspection.serviceDescription}
-              </Typography>
-              <TextField
-                fullWidth
-                label="Notas de Resolução"
-                multiline
-                rows={4}
-                value={resolutionNotes}
-                onChange={(e) => setResolutionNotes(e.target.value)}
-                margin="normal"
-              />
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Evidência de Correção (opcional)
-                </Typography>
-                <PhotoUploader
-                  photos={resolutionEvidence}
-                  onChange={(photos) => setResolutionEvidence(photos)}
-                  maxPhotos={1}
-                />
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button onClick={handleResolve} variant="contained" color="success">
-            Marcar como Resolvida
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

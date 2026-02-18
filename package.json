@@ -9,17 +9,18 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.14.19",
+    "@mui/material": "^5.14.20",
+    "axios": "^1.6.2",
+    "dexie": "^4.3.0",
+    "jspdf": "^2.5.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
-    "@mui/material": "^5.14.20",
-    "@mui/icons-material": "^5.14.19",
-    "@emotion/react": "^11.11.1",
-    "@emotion/styled": "^11.11.0",
-    "zustand": "^4.4.7",
-    "axios": "^1.6.2",
     "react-signature-canvas": "^1.0.6",
-    "jspdf": "^2.5.1"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

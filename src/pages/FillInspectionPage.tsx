@@ -1,382 +1,96 @@
 import {
+  Alert,
   Box,
-  Paper,
-  Typography,
   Button,
   CircularProgress,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from '@mui/material';
-import { Save, CheckCircle, PictureAsPdf } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+  Paper,
+  Typography,
+} from "@mui/material";
+import { CheckCircle, PictureAsPdf, Save } from "@mui/icons-material";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import jsPDF from "jspdf";
+import { appRepository } from "@/repositories/AppRepository";
+import { useInspectionStore } from "@/stores/inspectionStore";
+import { useReferenceStore } from "@/stores/referenceStore";
+import { calculateScore, determineStatus, validateFinalize } from "@/domain/rules";
+import { ChecklistRenderer } from "@/components/ChecklistRenderer";
 import {
-  Inspection,
-  InspectionItem,
-  ChecklistItem,
-  Evidence,
-  Signature,
-  InspectionStatus,
-} from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useAuthStore } from '@/stores';
-import { useSnackbar } from '@/utils/useSnackbar';
-import { ChecklistRenderer } from '@/components/ChecklistRenderer';
-import { SignaturePad } from '@/components/SignaturePad';
-import { PhotoUploader } from '@/components/PhotoUploader';
-import {
-  validarFinalizacao,
-} from '@/domain/rules';
-import jsPDF from 'jspdf';
+  evidenceToPhotoFile,
+  PhotoFile,
+  PhotoUploader,
+} from "@/components/PhotoUploader";
+import { SignaturePad } from "@/components/SignaturePad";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { InspectionStatus, SyncState } from "@/domain/enums";
+import { InspectionItem } from "@/domain";
 
-export const FillInspectionPage = () => {
-  const { id } = useParams<{ id: string }>();
+export const FillInspectionPage = (): JSX.Element => {
+  const { externalId = "" } = useParams();
   const navigate = useNavigate();
-  const repository = useRepository();
-  const { hasRole } = useAuthStore();
-  const { showSnackbar } = useSnackbar();
+  const { checklists } = useReferenceStore();
+  const {
+    currentInspection,
+    inspectionItems,
+    evidences,
+    signature,
+    load,
+    setItemsAndAutosave,
+    addEvidence,
+    removeEvidence,
+    saveSignature,
+  } = useInspectionStore();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [inspection, setInspection] = useState<Inspection | null>(null);
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
-  const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
-  const [evidences, setEvidences] = useState<Evidence[]>([]);
-  const [generalEvidences, setGeneralEvidences] = useState<Array<{ file?: File; preview: string; evidenceId?: string }>>([]);
-  const [signature, setSignature] = useState<Signature | null>(null);
-  const [signerName, setSignerName] = useState('');
-  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
-  const [canEdit, setCanEdit] = useState(true);
+  const [finalizing, setFinalizing] = useState(false);
+  const [signerName, setSignerName] = useState("");
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      loadInspection();
-    }
-  }, [id]);
-
-  const loadInspection = async () => {
-    if (!id) return;
-    try {
-      setLoading(true);
-      const insp = await repository.getInspectionById(id);
-      if (!insp) {
-        showSnackbar('Vistoria não encontrada', 'error');
-        navigate('/inspections');
-        return;
-      }
-      const [checklistItemsData, items, evids, sig] = await Promise.all([
-        repository.getChecklistItems(insp.checklistId),
-        repository.getInspectionItems(id),
-        repository.getEvidences(id),
-        repository.getSignature(id),
-      ]);
-
-      setInspection(insp);
-      setChecklistItems(checklistItemsData);
-
-      // Criar inspection items para cada checklist item se não existir
-      const existingItemMap = new Map(
-        items.map((item) => [item.checklistItemId, item])
-      );
-      const now = new Date().toISOString();
-      const allItems: InspectionItem[] = checklistItemsData.map((ci) => {
-        const existing = existingItemMap.get(ci.id);
-        if (existing) return existing;
-        return {
-          id: `temp-${ci.id}`,
-          inspectionId: id,
-          checklistItemId: ci.id,
-          answer: undefined,
-          createdAt: now,
-          updatedAt: now,
-        };
-      });
-      setInspectionItems(allItems);
-
-      setEvidences(evids);
-      // Para evidências gerais, construir PhotoFile[] a partir das evidências
-      const general = evids
-        .filter((e) => !e.inspectionItemId)
-        .map((e) => ({
-          preview: e.filePath.startsWith('http') 
-            ? e.filePath 
-            : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${e.filePath}`,
-          evidenceId: e.id,
-        }));
-      setGeneralEvidences(general);
-
-      if (sig) {
-        setSignature(sig);
-        setSignerName(sig.signerName);
-        // Converter imagePath para dataUrl para exibição
-        if (sig.imagePath) {
-          const imageUrl = sig.imagePath.startsWith('http')
-            ? sig.imagePath
-            : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${sig.imagePath}`;
-          // Criar um objeto temporário com imageDataUrl para o componente
-          setSignature({
-            ...sig,
-            imageDataUrl: imageUrl, // Temporário para exibição
-          } as any);
-        }
-      }
-
-      // Verificar permissões de edição
-      const isFiscal = hasRole('FISCAL' as any);
-      const isFinalized =
-        insp.status !== InspectionStatus.RASCUNHO;
-      setCanEdit(!isFinalized || !isFiscal);
-    } catch (error) {
-      showSnackbar('Erro ao carregar vistoria', 'error');
-    } finally {
+    const run = async () => {
+      setSignerName("");
+      setSignatureDataUrl(null);
+      await load(externalId);
       setLoading(false);
+    };
+    run();
+  }, [externalId, load]);
+
+  const checklist = useMemo(
+    () => checklists.find((entry) => entry.id === currentInspection?.checklistId),
+    [checklists, currentInspection]
+  );
+
+  useEffect(() => {
+    if (signature) {
+      setSignerName(signature.signerName);
+      setSignatureDataUrl(signature.url ?? signature.dataUrl ?? null);
+    } else {
+      setSignerName("");
+      setSignatureDataUrl(null);
     }
-  };
+  }, [signature]);
 
-  const handleItemChange = async (
-    itemIdOrChecklistItemId: string,
-    updates: Partial<InspectionItem> | InspectionItem
-  ) => {
-    if (!id) return;
-
-    // Verificar se é um item existente ou um novo
-    let item = inspectionItems.find((i) => i.id === itemIdOrChecklistItemId);
-    
-    // Se não encontrou pelo id, pode ser checklistItemId (novo item)
-    if (!item) {
-      item = inspectionItems.find(
-        (i) => i.checklistItemId === itemIdOrChecklistItemId
-      );
-    }
-
-    if (!item) {
-      // Criar novo item
-      const checklistItem = checklistItems.find(
-        (ci) => ci.id === itemIdOrChecklistItemId || ci.id === (updates as InspectionItem).checklistItemId
-      );
-      if (!checklistItem) return;
-
-      // Criar item temporário localmente
-      const now = new Date().toISOString();
-      const newItem: InspectionItem = {
-        id: `temp-${checklistItem.id}-${Date.now()}`,
-        inspectionId: id,
-        checklistItemId: checklistItem.id,
-        answer: (updates as InspectionItem).answer,
-        notes: (updates as InspectionItem).notes,
-        createdAt: now,
+  const ensureChecklistItems = async (): Promise<void> => {
+    if (!currentInspection || !checklist) return;
+    if (inspectionItems.length > 0) return;
+    const now = new Date().toISOString();
+    const initialItems: InspectionItem[] = checklist.sections
+      .flatMap((section) => section.items)
+      .filter((item) => item.active)
+      .map((item) => ({
+        id: crypto.randomUUID(),
+        inspectionExternalId: currentInspection.externalId,
+        checklistItemId: item.id,
         updatedAt: now,
-      };
-      setInspectionItems([...inspectionItems, newItem]);
-      return;
-    }
-
-    const updated = { ...item, ...updates };
-    setInspectionItems(
-      inspectionItems.map((i) => (i.id === item.id ? updated : i))
-    );
-
-    // Salvar no repositório usando updateInspectionItems em lote
-    // Os itens serão salvos quando o usuário clicar em "Salvar" ou "Finalizar"
+      }));
+    await setItemsAndAutosave(initialItems);
   };
 
-  const handleEvidencesChange = async (
-    inspectionItemId: string,
-    photos: Array<{ file?: File; preview: string; evidenceId?: string }>
-  ) => {
-    if (!id) return;
-
-    // Remover evidências que não estão mais na lista
-    const oldEvidences = evidences.filter(
-      (e) => e.inspectionItemId === inspectionItemId
-    );
-    const currentEvidenceIds = photos
-      .map((p) => p.evidenceId)
-      .filter((id): id is string => !!id);
-    
-    for (const old of oldEvidences) {
-      if (!currentEvidenceIds.includes(old.id)) {
-        try {
-          await repository.deleteEvidence(old.id);
-          setEvidences(evidences.filter((e) => e.id !== old.id));
-        } catch (error) {
-          console.error('Error deleting evidence:', error);
-        }
-      }
-    }
-
-    // Adicionar novas evidências (que têm file mas não evidenceId)
-    for (const photo of photos) {
-      if (photo.file && !photo.evidenceId) {
-        try {
-          const evidence = await repository.createEvidence(id, photo.file, inspectionItemId);
-          setEvidences([...evidences, evidence]);
-          // Atualizar a foto com o evidenceId
-          photo.evidenceId = evidence.id;
-        } catch (error) {
-          console.error('Error creating evidence:', error);
-        }
-      }
-    }
-  };
-
-  const handleGeneralEvidencesChange = async (
-    photos: Array<{ file?: File; preview: string; evidenceId?: string }>
-  ) => {
-    if (!id) return;
-
-    // Remover evidências que não estão mais na lista
-    const oldGeneral = evidences.filter((e) => !e.inspectionItemId);
-    const currentEvidenceIds = photos
-      .map((p) => p.evidenceId)
-      .filter((id): id is string => !!id);
-    
-    for (const old of oldGeneral) {
-      if (!currentEvidenceIds.includes(old.id)) {
-        try {
-          await repository.deleteEvidence(old.id);
-          setEvidences(evidences.filter((e) => e.id !== old.id));
-        } catch (error) {
-          console.error('Error deleting evidence:', error);
-        }
-      }
-    }
-
-    // Adicionar novas evidências (que têm file mas não evidenceId)
-    for (const photo of photos) {
-      if (photo.file && !photo.evidenceId) {
-        try {
-          const evidence = await repository.createEvidence(id, photo.file);
-          setEvidences([...evidences, evidence]);
-          // Atualizar a foto com o evidenceId
-          photo.evidenceId = evidence.id;
-        } catch (error) {
-          console.error('Error creating evidence:', error);
-        }
-      }
-    }
-
-    setGeneralEvidences(photos);
-  };
-
-  const handleSave = async () => {
-    if (!id || !inspection) return;
-    try {
-      setSaving(true);
-      
-      // Atualizar itens em lote
-      const itemsToUpdate = inspectionItems
-        .filter((item) => !item.id.startsWith('temp-'))
-        .map((item) => ({
-          inspectionItemId: item.id,
-          answer: item.answer || undefined,
-          notes: item.notes,
-        }));
-
-      if (itemsToUpdate.length > 0) {
-        await repository.updateInspectionItems(id, itemsToUpdate);
-        // Recarregar itens atualizados
-        const updatedItems = await repository.getInspectionItems(id);
-        setInspectionItems(updatedItems);
-      }
-
-      showSnackbar('Vistoria salva com sucesso', 'success');
-    } catch (error) {
-      showSnackbar('Erro ao salvar vistoria', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleFinalize = async () => {
-    if (!id || !inspection) return;
-
-    // Validar
-    const validation = validarFinalizacao(
-      inspection,
-      inspectionItems,
-      evidences,
-      signature,
-      checklistItems
-    );
-
-    if (!validation.isValid) {
-      showSnackbar(
-        `Erro: ${validation.errors.join(', ')}`,
-        'error'
-      );
-      return;
-    }
-
-    try {
-      setSaving(true);
-      // Atualizar itens em lote antes de finalizar
-      const itemsToUpdate = inspectionItems
-        .filter((item) => !item.id.startsWith('temp-'))
-        .map((item) => ({
-          inspectionItemId: item.id,
-          answer: item.answer || undefined,
-          notes: item.notes,
-        }));
-
-      if (itemsToUpdate.length > 0) {
-        await repository.updateInspectionItems(id, itemsToUpdate);
-      }
-
-      // Salvar assinatura se ainda não foi salva
-      if (signature && !signature.id && signerName) {
-        // Converter dataUrl para base64 sem prefixo
-        // A assinatura pode ter imageDataUrl temporário ou imagePath
-        const imageData = (signature as any).imageDataUrl || signature.imagePath;
-        if (imageData) {
-          const base64 = imageData.includes(',') 
-            ? imageData.split(',')[1] 
-            : imageData;
-          await repository.createSignature(id, {
-            signerName,
-            imageBase64: base64,
-          });
-        }
-      }
-
-      // Finalizar usando o endpoint correto
-      const finalized = await repository.finalizeInspection(id);
-      setInspection(finalized);
-
-      showSnackbar('Vistoria finalizada com sucesso', 'success');
-      navigate(`/inspections/${id}`);
-    } catch (error) {
-      showSnackbar('Erro ao finalizar vistoria', 'error');
-    } finally {
-      setSaving(false);
-      setFinalizeDialogOpen(false);
-    }
-  };
-
-  const handleGeneratePDF = () => {
-    if (!inspection) return;
-
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text('Relatório de Vistoria', 20, 20);
-    doc.setFontSize(12);
-    doc.text(`Serviço: ${inspection.serviceDescription}`, 20, 30);
-    if (inspection.locationDescription) {
-      doc.text(`Localização: ${inspection.locationDescription}`, 20, 40);
-    }
-    doc.text(`Status: ${inspection.status}`, 20, 50);
-    doc.text(`Percentual: ${inspection.scorePercent}%`, 20, 60);
-    doc.text(
-      `Data: ${inspection.finalizedAt || inspection.createdAt}`,
-      20,
-      70
-    );
-
-    doc.save(`vistoria-${inspection.id}.pdf`);
-    showSnackbar('PDF gerado com sucesso', 'success');
-  };
+  useEffect(() => {
+    ensureChecklistItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checklist?.id, currentInspection?.externalId]);
 
   if (loading) {
     return (
@@ -385,148 +99,214 @@ export const FillInspectionPage = () => {
       </Box>
     );
   }
-
-  if (!inspection) {
-    return <Alert severity="error">Vistoria não encontrada</Alert>;
+  if (!currentInspection || !checklist) {
+    return <Alert severity="error">Vistoria não encontrada.</Alert>;
   }
+
+  const handleItemChange = async (id: string, updates: Partial<InspectionItem>) => {
+    const next = inspectionItems.map((item) =>
+      item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
+    );
+    await setItemsAndAutosave(next);
+  };
+
+  const handleUploadEvidence = async (file: File) => {
+    const result = await appRepository.uploadToCloudinary(file, "quality/evidences");
+    return {
+      publicId: result.publicId,
+      url: result.url,
+      bytes: result.bytes,
+      format: result.format,
+      width: result.width,
+      height: result.height,
+    };
+  };
+
+  const handleItemEvidencesChange = async (inspectionItemId: string, photos: PhotoFile[]) => {
+    const existing = evidences.filter((evidence) => evidence.inspectionItemId === inspectionItemId);
+    const nextIds = new Set(photos.map((photo) => photo.id));
+    for (const oldEvidence of existing) {
+      if (!nextIds.has(oldEvidence.id)) {
+        await removeEvidence(oldEvidence.id);
+      }
+    }
+    for (const photo of photos) {
+      if (!evidences.find((evidence) => evidence.id === photo.id)) {
+        await addEvidence({
+          ...photo,
+          inspectionExternalId: currentInspection.externalId,
+          inspectionItemId,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  };
+
+  const generalEvidencesList = evidences.filter((entry) => !entry.inspectionItemId);
+  const generalEvidencesPhotos = generalEvidencesList.map(evidenceToPhotoFile);
+  const handleGeneralEvidencesChange = async (photos: PhotoFile[]) => {
+    const existing = evidences.filter((entry) => !entry.inspectionItemId);
+    const nextIds = new Set(photos.map((photo) => photo.id));
+    for (const oldEvidence of existing) {
+      if (!nextIds.has(oldEvidence.id)) {
+        await removeEvidence(oldEvidence.id);
+      }
+    }
+    for (const photo of photos) {
+      if (!evidences.find((entry) => entry.id === photo.id)) {
+        await addEvidence({
+          ...photo,
+          inspectionExternalId: currentInspection.externalId,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  };
+
+  const handleSaveSignature = async (): Promise<void> => {
+    if (!signatureDataUrl || !signerName.trim()) {
+      return;
+    }
+    const base: {
+      id: string;
+      inspectionExternalId: string;
+      signerName: string;
+      signedAt: string;
+      dataUrl?: string;
+      cloudinaryPublicId?: string;
+      url?: string;
+    } = {
+      id: signature?.id ?? crypto.randomUUID(),
+      inspectionExternalId: currentInspection.externalId,
+      signerName,
+      signedAt: new Date().toISOString(),
+    };
+    if (navigator.onLine && signatureDataUrl.startsWith("data:")) {
+      try {
+        const res = await fetch(signatureDataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], "signature.png", { type: "image/png" });
+        const result = await appRepository.uploadToCloudinary(file, "quality/signatures");
+        base.cloudinaryPublicId = result.publicId;
+        base.url = result.url;
+      } catch {
+        base.dataUrl = signatureDataUrl;
+      }
+    } else {
+      base.dataUrl = signatureDataUrl;
+    }
+    await saveSignature(base as Parameters<typeof saveSignature>[0]);
+  };
+
+  const handleFinalize = async (): Promise<void> => {
+    setFinalizing(true);
+    try {
+      await handleSaveSignature();
+      const currentSignature = await appRepository.getSignature(currentInspection.externalId);
+      const validation = validateFinalize({
+        checklist,
+        inspectionItems,
+        evidences,
+        signature: currentSignature,
+      });
+      if (!validation.isValid) {
+        alert(validation.errors.join("\n"));
+        return;
+      }
+      const scorePercent = calculateScore(inspectionItems);
+      const status = determineStatus(inspectionItems);
+      await appRepository.updateInspection(currentInspection.externalId, {
+        status,
+        scorePercent,
+        finalizedAt: new Date().toISOString(),
+        syncState: SyncState.PENDING_SYNC,
+      });
+      navigate(`/inspections/${currentInspection.externalId}`);
+    } finally {
+      setFinalizing(false);
+      setFinalizeOpen(false);
+    }
+  };
+
+  const handleGeneratePdf = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Relatório de Vistoria", 14, 20);
+    doc.setFontSize(11);
+    doc.text(`Serviço: ${currentInspection.serviceDescription}`, 14, 30);
+    doc.text(`Local: ${currentInspection.locationDescription}`, 14, 38);
+    doc.text(`Status: ${currentInspection.status}`, 14, 46);
+    doc.text(`Score: ${currentInspection.scorePercent ?? 0}%`, 14, 54);
+    doc.save(`vistoria-${currentInspection.externalId}.pdf`);
+  };
+
+  const canEdit = currentInspection.status === InspectionStatus.RASCUNHO;
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Preencher Vistoria</Typography>
-        <Box display="flex" gap={2}>
-          <Button
-            variant="outlined"
-            startIcon={<PictureAsPdf />}
-            onClick={handleGeneratePDF}
-          >
-            Gerar PDF
-          </Button>
-          {canEdit && (
-            <>
-              <Button
-                variant="outlined"
-                startIcon={<Save />}
-                onClick={handleSave}
-                disabled={saving}
-              >
-                Salvar
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<CheckCircle />}
-                onClick={() => setFinalizeDialogOpen(true)}
-                disabled={saving || inspection.status !== InspectionStatus.RASCUNHO}
-              >
-                Finalizar
-              </Button>
-            </>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h5">Preencher vistoria</Typography>
+        <Box display="flex" gap={1}>
+          {!canEdit && (
+            <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={handleGeneratePdf}>
+              PDF
+            </Button>
           )}
+          <Button variant="outlined" startIcon={<Save />} onClick={handleSaveSignature}>
+            Salvar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<CheckCircle />}
+            disabled={!canEdit || finalizing}
+            onClick={() => setFinalizeOpen(true)}
+          >
+            Finalizar
+          </Button>
         </Box>
       </Box>
 
-      {!canEdit && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Esta vistoria está finalizada. Apenas gestores podem editá-la.
-        </Alert>
-      )}
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Informações da Vistoria
-        </Typography>
-        <Typography variant="body2">
-          <strong>Serviço:</strong> {inspection.serviceDescription}
-        </Typography>
-        {inspection.locationDescription && (
-          <Typography variant="body2">
-            <strong>Localização:</strong> {inspection.locationDescription}
-          </Typography>
-        )}
-        <Typography variant="body2">
-          <strong>Status:</strong> {inspection.status}
-        </Typography>
-        <Typography variant="body2">
-          <strong>Percentual:</strong> {inspection.scorePercent}%
-        </Typography>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <ChecklistRenderer
+          checklist={checklist}
+          inspectionItems={inspectionItems}
+          evidences={evidences}
+          onItemChange={handleItemChange}
+          onEvidencesChange={handleItemEvidencesChange}
+          disabled={!canEdit}
+          onUploadEvidence={canEdit ? handleUploadEvidence : undefined}
+        />
       </Paper>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Checklist
-        </Typography>
-        {inspection && (
-          <ChecklistRenderer
-            checklistItems={checklistItems}
-            inspectionItems={inspectionItems}
-            evidences={evidences}
-            onItemChange={handleItemChange}
-            onEvidencesChange={handleEvidencesChange}
-            disabled={!canEdit}
-            inspectionId={inspection.id}
-          />
-        )}
-      </Paper>
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Fotos Gerais
+          Fotos gerais
         </Typography>
         <PhotoUploader
-          photos={generalEvidences}
+          photos={generalEvidencesPhotos}
           onChange={handleGeneralEvidencesChange}
-          disabled={!canEdit}
+          onUpload={canEdit ? handleUploadEvidence : undefined}
         />
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 2 }}>
         <SignaturePad
-          value={signature ? ((signature as any).imageDataUrl || (signature.imagePath ? 
-            (signature.imagePath.startsWith('http') 
-              ? signature.imagePath 
-              : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/${signature.imagePath}`) 
-            : null)) : null}
-          onChange={(dataUrl) => {
-            if (dataUrl) {
-              // Armazenar temporariamente como imageDataUrl para o componente
-              // Será convertido para base64 ao salvar
-              setSignature({
-                id: signature?.id || '',
-                inspectionId: id || '',
-                signerName,
-                signerRoleLabel: 'Líder/Encarregado',
-                imagePath: '', // Será preenchido ao salvar
-                imageDataUrl: dataUrl, // Temporário
-                signedAt: new Date().toISOString(),
-              } as any);
-            } else {
-              setSignature(null);
-            }
-          }}
-          disabled={!canEdit}
+          value={signatureDataUrl}
+          onChange={setSignatureDataUrl}
           signerName={signerName}
           onSignerNameChange={setSignerName}
+          disabled={!canEdit}
         />
       </Paper>
 
-      <Dialog
-        open={finalizeDialogOpen}
-        onClose={() => setFinalizeDialogOpen(false)}
-      >
-        <DialogTitle>Finalizar Vistoria</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Tem certeza que deseja finalizar esta vistoria? Após finalizar,
-            não será possível editar (exceto para gestores).
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFinalizeDialogOpen(false)}>Cancelar</Button>
-          <Button onClick={handleFinalize} variant="contained" disabled={saving}>
-            {saving ? <CircularProgress size={24} /> : 'Finalizar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={finalizeOpen}
+        onClose={() => setFinalizeOpen(false)}
+        onConfirm={handleFinalize}
+        title="Finalizar vistoria"
+        description="Confirma a finalização? Isso marcará a inspeção para sincronização."
+        confirmLabel={finalizing ? "Finalizando..." : "Finalizar"}
+      />
     </Box>
   );
 };

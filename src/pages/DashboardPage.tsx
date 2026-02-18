@@ -1,10 +1,10 @@
 import {
   Box,
+  Button,
   Paper,
   Typography,
   Grid,
   TextField,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -16,28 +16,23 @@ import {
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { ModuleType } from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
-import { useSnackbar } from '@/utils/useSnackbar';
-import { ModuleSelect } from '@/components/ModuleSelect';
-import { TeamSelect } from '@/components/TeamSelect';
+import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
+import { useUiStore } from '@/stores/uiStore';
+import { InspectionStatus, ModuleType } from '@/domain/enums';
+import { TeamSelect } from '@/components/TeamSelect';
+import { ModuleSelect } from '@/components/ModuleSelect';
 
-export const DashboardPage = () => {
-  const repository = useRepository();
-  const { showSnackbar } = useSnackbar();
+export const DashboardPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
+  const pendingSyncCount = useUiStore((state) => state.pendingSyncCount);
   const [filters, setFilters] = useState<{
     from?: string;
     to?: string;
     module?: ModuleType;
     teamId?: string;
   }>({});
-  const [summary, setSummary] = useState<{
-    averagePercent: number;
-    inspectionsCount: number;
-    pendingCount: number;
-  } | null>(null);
+  const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
   const [teamRanking, setTeamRanking] = useState<Array<{
     teamId: string;
     teamName: string;
@@ -51,27 +46,46 @@ export const DashboardPage = () => {
   }, []);
 
   const loadDashboardData = async () => {
-    try {
       setLoading(true);
+    if (navigator.onLine) {
       const [summaryData, rankingData] = await Promise.all([
-        repository.getDashboardSummary(filters),
-        repository.getTeamRanking(filters),
+        appRepository.getDashboardSummary(filters),
+        appRepository.getDashboardTeamRanking(filters),
       ]);
       setSummary(summaryData);
       setTeamRanking(rankingData);
-    } catch (error) {
-      showSnackbar('Erro ao carregar dados do dashboard', 'error');
-    } finally {
       setLoading(false);
+      return;
     }
-  };
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters({ ...filters, [key]: value });
-  };
-
-  const handleSearch = () => {
-    loadDashboardData();
+    const inspections = await appRepository.listInspections();
+    const filtered = inspections.filter((inspection) => {
+      if (filters.module && inspection.status === InspectionStatus.RASCUNHO) return true;
+      if (filters.teamId && inspection.teamId !== filters.teamId) return false;
+      return true;
+    });
+    const avgBase = filtered.filter((i) => typeof i.scorePercent === 'number');
+    const averagePercent =
+      avgBase.length > 0
+        ? Math.round(avgBase.reduce((sum, i) => sum + (i.scorePercent ?? 0), 0) / avgBase.length)
+        : 0;
+    setSummary({
+      averagePercent,
+      inspectionsCount: filtered.length,
+      pendingCount: filtered.filter((i) => i.status === InspectionStatus.PENDENTE_AJUSTE).length,
+    });
+    const teams = await appRepository.getCachedTeams();
+    setTeamRanking(
+      teams.map((team) => ({
+        teamId: team.id,
+        teamName: team.name,
+        averagePercent: averagePercent,
+        inspectionsCount: filtered.filter((i) => i.teamId === team.id).length,
+        pendingCount: filtered.filter(
+          (i) => i.teamId === team.id && i.status === InspectionStatus.PENDENTE_AJUSTE
+        ).length,
+      }))
+    );
+    setLoading(false);
   };
 
   if (loading && !summary) {
@@ -88,55 +102,53 @@ export const DashboardPage = () => {
         Dashboard
       </Typography>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Filtros
-        </Typography>
-        <Grid container spacing={2}>
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Data Inicial"
               type="date"
-              value={filters.from || ''}
-              onChange={(e) => handleFilterChange('from', e.target.value)}
+              label="Data inicial"
+              value={filters.from || ""}
               InputLabelProps={{ shrink: true }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, from: e.target.value || undefined }))}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Data Final"
               type="date"
-              value={filters.to || ''}
-              onChange={(e) => handleFilterChange('to', e.target.value)}
+              label="Data final"
+              value={filters.to || ""}
               InputLabelProps={{ shrink: true }}
+              onChange={(e) => setFilters((prev) => ({ ...prev, to: e.target.value || undefined }))}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <ModuleSelect
-              value={filters.module || ''}
-              onChange={(module) => handleFilterChange('module', module)}
+              value={filters.module || ""}
+              onChange={(value) => setFilters((prev) => ({ ...prev, module: value }))}
               label="Módulo"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TeamSelect
-              value={filters.teamId || ''}
-              onChange={(teamId) => handleFilterChange('teamId', teamId)}
+              value={filters.teamId || ""}
+              onChange={(value) => setFilters((prev) => ({ ...prev, teamId: value || undefined }))}
               label="Equipe"
+              onlyActive={false}
             />
           </Grid>
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              startIcon={<Search />}
-              onClick={handleSearch}
-            >
-              Buscar
-            </Button>
-          </Grid>
         </Grid>
+        <Button variant="contained" startIcon={<Search />} onClick={loadDashboardData}>
+          Buscar
+        </Button>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="body2">
+          Pendências não sincronizadas: {pendingSyncCount}
+        </Typography>
       </Paper>
 
       {summary && (

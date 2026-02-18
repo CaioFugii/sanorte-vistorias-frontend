@@ -1,70 +1,63 @@
-import { create } from 'zustand';
-import { User, UserRole } from '@/domain';
-import { authService } from '@/services/authService';
+import { appRepository } from "@/repositories/AppRepository";
+import { User, UserRole } from "@/domain";
+import { create } from "zustand";
 
 interface AuthState {
   user: User | null;
-  isAuthenticated: boolean;
   token: string | null;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loadMe: () => Promise<void>;
   logout: () => void;
   hasRole: (role: UserRole) => boolean;
   hasAnyRole: (roles: UserRole[]) => boolean;
-  loadUser: () => Promise<void>;
 }
 
+function getStoredUser(): User | null {
+  const raw = localStorage.getItem("auth_user");
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+}
+}
+
+const initialToken = localStorage.getItem("auth_token");
+const initialUser = getStoredUser();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  isAuthenticated: false,
-  token: null,
+  user: initialUser,
+  token: initialToken,
+  isAuthenticated: Boolean(initialToken && initialUser),
 
   login: async (email: string, password: string) => {
-    try {
-      const { accessToken, user } = await authService.login({ email, password });
-      localStorage.setItem('auth_token', accessToken);
-      localStorage.setItem('auth_user', JSON.stringify(user));
-      set({ user, token: accessToken, isAuthenticated: true });
-    } catch (error) {
-      throw error;
+    const result = await appRepository.login(email, password);
+    set({
+      user: result.user,
+      token: result.token,
+      isAuthenticated: true,
+    });
+  },
+
+  loadMe: async () => {
+    if (!get().token) {
+      return;
     }
+    const me = await appRepository.me();
+    set({ user: me, isAuthenticated: true });
   },
 
   logout: () => {
+    appRepository.logout();
     set({ user: null, token: null, isAuthenticated: false });
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_token');
   },
 
-  hasRole: (role: UserRole) => {
-    const { user } = get();
-    return user?.role === role;
-  },
-
+  hasRole: (role: UserRole) => get().user?.role === role,
   hasAnyRole: (roles: UserRole[]) => {
-    const { user } = get();
-    return user ? roles.includes(user.role) : false;
-  },
-
-  loadUser: async () => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      try {
-        const user = await authService.getMe();
-        set({ user, token, isAuthenticated: true });
-      } catch (error) {
-        // Token inválido, limpar
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        set({ user: null, token: null, isAuthenticated: false });
-      }
-    }
+    const role = get().user?.role;
+    return !!role && roles.includes(role);
   },
 }));
-
-// Carregar usuário do localStorage ao inicializar
-if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    useAuthStore.getState().loadUser();
-  }
-}

@@ -1,35 +1,62 @@
 import {
-  ModuleType,
-  UserRole,
   ChecklistAnswer,
   InspectionStatus,
-  PendingStatus,
-} from './enums';
+  ModuleType,
+  SyncState,
+  UserRole,
+} from "./enums";
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AuthLoginResponse {
+  accessToken: string;
+  user: User;
 }
 
 export interface Team {
   id: string;
   name: string;
   active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  collaborators?: Collaborator[]; // Opcional, apenas quando solicitado
+  collaborators?: Collaborator[];
+  collaboratorIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Collaborator {
   id: string;
   name: string;
   active: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  checklistId?: string;
+  sectionId: string;
+  title: string;
+  description?: string;
+  order: number;
+  requiresPhotoOnNonConformity: boolean;
+  active: boolean;
+}
+
+export interface ChecklistSection {
+  id: string;
+  checklistId: string;
+  name: string;
+  title?: string;
+  order: number;
+  active?: boolean;
+  items: ChecklistItem[];
 }
 
 export interface Checklist {
@@ -38,86 +65,121 @@ export interface Checklist {
   name: string;
   description?: string;
   active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  items?: ChecklistItem[]; // Opcional, apenas quando solicitado
-}
-
-export interface ChecklistItem {
-  id: string;
-  checklistId: string;
-  title: string;
-  description?: string;
-  order: number;
-  requiresPhotoOnNonConformity: boolean;
-  active: boolean;
+  sections: ChecklistSection[];
+  items?: ChecklistItem[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Inspection {
-  id: string;
+  externalId: string;
+  serverId?: string;
   module: ModuleType;
   checklistId: string;
-  checklist?: Checklist; // Opcional, quando solicitado
   teamId: string;
-  team?: Team; // Opcional, quando solicitado
+  collaboratorIds?: string[];
   serviceDescription: string;
-  locationDescription?: string;
+  locationDescription: string;
   status: InspectionStatus;
-  scorePercent?: number; // null até finalizar, depois 0-100
+  scorePercent?: number;
+  syncState: SyncState;
+  syncErrorMessage?: string;
+  syncedAt?: string;
   createdByUserId: string;
-  createdBy?: User; // Opcional, quando solicitado
-  finalizedAt?: string; // null até finalizar
+  createdOffline: boolean;
+  pendingResolutionNotes?: string;
+  pendingResolutionEvidenceId?: string;
   createdAt: string;
   updatedAt: string;
-  collaborators?: Collaborator[]; // Opcional
-  items?: InspectionItem[]; // Opcional
-  evidences?: Evidence[]; // Opcional
-  signatures?: Signature[]; // Opcional
-  pendingAdjustments?: PendingAdjustment[]; // Opcional
+  finalizedAt?: string;
+  /** Itens da vistoria (preenchido quando a API retorna a vistoria completa, ex.: GET /inspections/:id). */
+  items?: InspectionItem[];
+  /** Relações opcionais retornadas pela API (GET /inspections/:id). */
+  team?: Team;
+  checklist?: Checklist;
+  createdBy?: User;
+  collaborators?: Collaborator[];
+  evidences?: Evidence[];
+  signatures?: Signature[];
 }
 
 export interface InspectionItem {
   id: string;
-  inspectionId: string;
+  inspectionExternalId?: string;
+  inspectionId?: string;
   checklistItemId: string;
-  checklistItem?: ChecklistItem; // Opcional, quando solicitado
-  answer?: ChecklistAnswer; // null | "CONFORME" | "NAO_CONFORME" | "NAO_APLICAVEL"
+  checklistItem?: ChecklistItem;
+  answer?: ChecklistAnswer;
   notes?: string;
-  createdAt: string;
   updatedAt: string;
-  evidences?: Evidence[]; // Opcional
+  /** Preenchido quando o item não conforme é resolvido. */
+  resolvedAt?: string | null;
+  resolvedByUserId?: string | null;
+  resolvedBy?: User | null;
+  resolutionNotes?: string | null;
+  resolutionEvidencePath?: string | null;
 }
 
 export interface Evidence {
   id: string;
-  inspectionId: string;
-  inspectionItemId?: string; // null se for evidência geral
-  filePath: string; // Caminho relativo (ex: "evidences/file.jpg")
-  fileName: string; // Nome original do arquivo
-  mimeType: string; // "image/jpeg", "image/png", etc
-  size: number; // Tamanho em bytes
+  inspectionExternalId: string;
+  inspectionItemId?: string;
+  fileName: string;
+  mimeType: string;
+  /** Local preview ou legado; quando temos Cloudinary use `url`. */
+  dataUrl?: string;
+  /** ID do asset no Cloudinary (ex: quality/evidences/abc123). */
+  cloudinaryPublicId?: string;
+  /** URL segura do Cloudinary. */
+  url?: string;
+  /** Tamanho em bytes (metadado Cloudinary ou estimado). */
+  size?: number;
+  bytes?: number;
+  format?: string;
+  width?: number;
+  height?: number;
   createdAt: string;
-  uploadedByUserId: string;
 }
 
 export interface Signature {
   id: string;
-  inspectionId: string;
+  inspectionExternalId: string;
   signerName: string;
-  signerRoleLabel: string; // Geralmente "Lider/Encarregado"
-  imagePath: string; // Caminho relativo
-  signedAt: string; // ISO 8601
+  /** Rótulo do signatário (ex: "Lider/Encarregado"). */
+  signerRoleLabel?: string;
+  /** Local preview ou legado; quando temos Cloudinary use `url`. */
+  dataUrl?: string;
+  /** ID do asset no Cloudinary. */
+  cloudinaryPublicId?: string;
+  /** URL segura do Cloudinary. */
+  url?: string;
+  signedAt: string;
 }
 
-export interface PendingAdjustment {
-  id: string;
-  inspectionId: string;
-  status: PendingStatus;
-  resolvedAt?: string; // null até resolver
-  resolvedByUserId?: string; // null até resolver
-  resolvedBy?: User; // Opcional, quando solicitado
-  resolutionNotes?: string; // null até resolver
-  resolutionEvidencePath?: string; // Opcional
-  createdAt: string;
-  updatedAt: string;
+export interface SyncInspectionPayload {
+  inspection: Inspection;
+  inspectionItems: InspectionItem[];
+  evidences: Evidence[];
+  signature: Signature | null;
+}
+
+export interface SyncInspectionResult {
+  externalId: string;
+  status: "CREATED" | "UPDATED" | "ERROR";
+  serverId?: string;
+  message?: string;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
 }

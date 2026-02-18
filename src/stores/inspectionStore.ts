@@ -1,57 +1,72 @@
-import { create } from 'zustand';
-import { Inspection, InspectionItem, Evidence, Signature } from '@/domain';
+import { appRepository } from "@/repositories/AppRepository";
+import { Evidence, Inspection, InspectionItem, Signature } from "@/domain";
+import { create } from "zustand";
 
 interface InspectionState {
   currentInspection: Inspection | null;
   inspectionItems: InspectionItem[];
-  currentEvidences: Evidence[];
-  currentSignature: Signature | null;
-  setCurrentInspection: (inspection: Inspection | null) => void;
-  setInspectionItems: (items: InspectionItem[]) => void;
-  updateInspectionItem: (itemId: string, updates: Partial<InspectionItem>) => void;
-  addEvidence: (evidence: Evidence) => void;
-  removeEvidence: (evidenceId: string) => void;
-  setSignature: (signature: Signature | null) => void;
-  clearCurrentInspection: () => void;
+  evidences: Evidence[];
+  signature: Signature | null;
+  load: (externalId: string) => Promise<void>;
+  setItemsAndAutosave: (items: InspectionItem[]) => Promise<void>;
+  addEvidence: (evidence: Evidence) => Promise<void>;
+  removeEvidence: (evidenceId: string) => Promise<void>;
+  saveSignature: (signature: Signature) => Promise<void>;
+  clear: () => void;
 }
 
-export const useInspectionStore = create<InspectionState>((set) => ({
+export const useInspectionStore = create<InspectionState>((set, get) => ({
   currentInspection: null,
   inspectionItems: [],
-  currentEvidences: [],
-  currentSignature: null,
+  evidences: [],
+  signature: null,
 
-  setCurrentInspection: (inspection) =>
-    set({ currentInspection: inspection }),
+  load: async (externalId) => {
+    const [inspection, items, evidences, signature] = await Promise.all([
+      appRepository.getInspection(externalId),
+      appRepository.getInspectionItems(externalId),
+      appRepository.getEvidences(externalId),
+      appRepository.getSignature(externalId),
+    ]);
+    set({
+      currentInspection: inspection,
+      inspectionItems: items,
+      evidences,
+      signature,
+    });
+  },
 
-  setInspectionItems: (items) => set({ inspectionItems: items }),
+  setItemsAndAutosave: async (items) => {
+    const externalId = get().currentInspection?.externalId;
+    if (!externalId) {
+      return;
+    }
+    await appRepository.setInspectionItems(externalId, items);
+    set({ inspectionItems: items });
+  },
 
-  updateInspectionItem: (itemId, updates) =>
+  addEvidence: async (evidence) => {
+    const saved = await appRepository.saveEvidence(evidence);
+    set((state) => ({ evidences: [...state.evidences, saved] }));
+  },
+
+  removeEvidence: async (evidenceId) => {
+    await appRepository.removeEvidence(evidenceId);
     set((state) => ({
-      inspectionItems: state.inspectionItems.map((item) =>
-        item.id === itemId ? { ...item, ...updates } : item
-      ),
-    })),
+      evidences: state.evidences.filter((evidence) => evidence.id !== evidenceId),
+    }));
+  },
 
-  addEvidence: (evidence) =>
-    set((state) => ({
-      currentEvidences: [...state.currentEvidences, evidence],
-    })),
+  saveSignature: async (signature) => {
+    const saved = await appRepository.saveSignature(signature);
+    set({ signature: saved });
+  },
 
-  removeEvidence: (evidenceId) =>
-    set((state) => ({
-      currentEvidences: state.currentEvidences.filter(
-        (e) => e.id !== evidenceId
-      ),
-    })),
-
-  setSignature: (signature) => set({ currentSignature: signature }),
-
-  clearCurrentInspection: () =>
+  clear: () =>
     set({
       currentInspection: null,
       inspectionItems: [],
-      currentEvidences: [],
-      currentSignature: null,
+      evidences: [],
+      signature: null,
     }),
 }));

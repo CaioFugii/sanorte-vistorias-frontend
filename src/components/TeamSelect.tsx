@@ -1,7 +1,5 @@
-import { Select, MenuItem, FormControl, InputLabel, SelectChangeEvent, CircularProgress } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { Team } from '@/domain';
-import { useRepository } from '@/app/RepositoryProvider';
+import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
+import { useReferenceStore } from "@/stores/referenceStore";
 
 interface TeamSelectProps {
   value: string;
@@ -20,41 +18,18 @@ export const TeamSelect = ({
   disabled = false,
   onlyActive = true,
 }: TeamSelectProps) => {
-  const repository = useRepository();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadTeams = async () => {
-      try {
-        const allTeams = await repository.getTeams();
-        setTeams(onlyActive ? allTeams.data.filter((t) => t.active) : allTeams.data);
-      } catch (error) {
-        console.error('Error loading teams:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadTeams();
-  }, [repository, onlyActive]);
+  const teams = useReferenceStore((state) => state.teams);
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
   };
-
-  if (loading) {
-    return (
-      <FormControl fullWidth>
-        <CircularProgress size={24} />
-      </FormControl>
-    );
-  }
+  const filtered = onlyActive ? teams.filter((team) => team.active) : teams;
 
   return (
     <FormControl fullWidth required={required} disabled={disabled}>
       <InputLabel>{label}</InputLabel>
       <Select value={value} onChange={handleChange} label={label}>
-        {teams.map((team) => (
+        {filtered.map((team) => (
           <MenuItem key={team.id} value={team.id}>
             {team.name}
           </MenuItem>
