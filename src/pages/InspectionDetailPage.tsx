@@ -107,11 +107,29 @@ export const InspectionDetailPage = (): JSX.Element => {
     setResolveError(null);
   };
 
-  const getEvidenceBase64 = (): string | undefined => {
+  /** Converte dataUrl em File para upload no Cloudinary (evita "Entity too large" ao enviar base64 no body). */
+  const dataUrlToFile = async (
+    dataUrl: string,
+    fileName: string,
+    mimeType: string
+  ): Promise<File> => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    return new File([blob], fileName, { type: mimeType });
+  };
+
+  const getResolutionEvidenceUrl = async (): Promise<string | undefined> => {
     const photo = resolutionEvidence[0];
-    if (!photo?.dataUrl) return undefined;
-    const base64 = photo.dataUrl.replace(/^data:[^;]+;base64,/, '');
-    return base64 || undefined;
+    if (!photo) return undefined;
+    if (photo.url) return photo.url;
+    if (!photo.dataUrl) return undefined;
+    const file = await dataUrlToFile(
+      photo.dataUrl,
+      photo.fileName || 'evidence.jpg',
+      photo.mimeType || 'image/jpeg'
+    );
+    const result = await appRepository.uploadToCloudinary(file, 'quality/evidences');
+    return result.url;
   };
 
   const handleResolveItem = async () => {
@@ -126,9 +144,10 @@ export const InspectionDetailPage = (): JSX.Element => {
     setResolving(true);
     setResolveError(null);
     try {
+      const resolutionEvidenceUrl = await getResolutionEvidenceUrl();
       await appRepository.resolveInspectionItem(inspection.serverId, resolveItem.id, {
         resolutionNotes: resolutionNotes.trim(),
-        resolutionEvidenceBase64: getEvidenceBase64(),
+        resolutionEvidenceUrl,
       });
       closeResolveModal();
       await loadInspection();
@@ -384,109 +403,126 @@ export const InspectionDetailPage = (): JSX.Element => {
         </Paper>
       )}
 
-      {inspection.evidences && inspection.evidences.length > 0 && (
-        <Paper sx={{ p: 3, mt: 3, maxWidth: 480 }}>
-          <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-            <PhotoLibrary /> Evidências
-          </Typography>
-          <Box
-            component="ul"
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 1.5,
-              listStyle: 'none',
-              m: 0,
-              p: 0,
-              maxHeight: 320,
-              overflowY: 'auto',
-            }}
-          >
-            {inspection.evidences.map((ev) => {
-              const src = ev.url ?? ev.dataUrl ?? '';
-              const thumbSize = 56;
-              return (
-                <Box
-                  component="li"
-                  key={ev.id}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    minWidth: 0,
-                    flex: '1 1 auto',
-                    maxWidth: 220,
-                  }}
-                >
-                  {src ? (
-                    <Box
-                      component="a"
-                      href={src}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{
-                        flexShrink: 0,
-                        width: thumbSize,
-                        height: thumbSize,
-                        borderRadius: 1,
-                        overflow: 'hidden',
-                        bgcolor: 'action.hover',
-                        display: 'block',
-                      }}
-                    >
-                      <img
-                        src={src}
-                        alt=""
-                        loading="lazy"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
+      {(() => {
+        const creationEvidences =
+          inspection.evidences?.map((ev) => ({
+            key: ev.id,
+            src: ev.url ?? ev.dataUrl ?? '',
+            label: ev.fileName,
+          })) ?? [];
+        const resolutionEvidences =
+          inspection.items
+            ?.filter((item) => item.resolutionEvidencePath)
+            .map((item) => ({
+              key: `${item.id}-resolution`,
+              src: item.resolutionEvidencePath!,
+              label: `Resolução: ${getItemTitle(item)}`,
+            })) ?? [];
+        const allEvidences = [...creationEvidences, ...resolutionEvidences];
+        if (allEvidences.length === 0) return null;
+        return (
+          <Paper sx={{ p: 3, mt: 3, maxWidth: 480 }}>
+            <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+              <PhotoLibrary /> Evidências
+            </Typography>
+            <Box
+              component="ul"
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1.5,
+                listStyle: 'none',
+                m: 0,
+                p: 0,
+                maxHeight: 320,
+                overflowY: 'auto',
+              }}
+            >
+              {allEvidences.map((entry) => {
+                const thumbSize = 56;
+                return (
+                  <Box
+                    component="li"
+                    key={entry.key}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      minWidth: 0,
+                      flex: '1 1 auto',
+                      maxWidth: 220,
+                    }}
+                  >
+                    {entry.src ? (
+                      <Box
+                        component="a"
+                        href={entry.src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{
+                          flexShrink: 0,
+                          width: thumbSize,
+                          height: thumbSize,
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          bgcolor: 'action.hover',
                           display: 'block',
                         }}
-                      />
-                    </Box>
-                  ) : (
-                    <Box
-                      sx={{
-                        width: thumbSize,
-                        height: thumbSize,
-                        borderRadius: 1,
-                        bgcolor: 'action.hover',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
+                      >
+                        <img
+                          src={entry.src}
+                          alt=""
+                          loading="lazy"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{
+                          width: thumbSize,
+                          height: thumbSize,
+                          borderRadius: 1,
+                          bgcolor: 'action.hover',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <PhotoLibrary fontSize="small" color="action" />
+                      </Box>
+                    )}
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ minWidth: 0, flex: 1 }}
+                      title={entry.label}
                     >
-                      <PhotoLibrary fontSize="small" color="action" />
-                    </Box>
-                  )}
-                  <Typography
-                    variant="body2"
-                    noWrap
-                    sx={{ minWidth: 0, flex: 1 }}
-                    title={ev.fileName}
-                  >
-                    {ev.fileName}
-                  </Typography>
-                  {src && (
-                    <Button
-                      size="small"
-                      href={src}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      sx={{ flexShrink: 0 }}
-                    >
-                      Ver
-                    </Button>
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-        </Paper>
-      )}
+                      {entry.label}
+                    </Typography>
+                    {entry.src && (
+                      <Button
+                        size="small"
+                        href={entry.src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ flexShrink: 0 }}
+                      >
+                        Ver
+                      </Button>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Paper>
+        );
+      })()}
 
       {inspection.status === InspectionStatus.PENDENTE_AJUSTE && nonConformItems.length > 0 && (
         <Paper sx={{ p: 3, mt: 3 }}>

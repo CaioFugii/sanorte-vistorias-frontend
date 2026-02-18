@@ -44,6 +44,7 @@ export const FillInspectionPage = (): JSX.Element => {
   const [finalizing, setFinalizing] = useState(false);
   const [signerName, setSignerName] = useState("");
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [signatureDirty, setSignatureDirty] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
 
   useEffect(() => {
@@ -65,9 +66,11 @@ export const FillInspectionPage = (): JSX.Element => {
     if (signature) {
       setSignerName(signature.signerName);
       setSignatureDataUrl(signature.url ?? signature.dataUrl ?? null);
+      setSignatureDirty(false);
     } else {
       setSignerName("");
       setSignatureDataUrl(null);
+      setSignatureDirty(false);
     }
   }, [signature]);
 
@@ -182,20 +185,27 @@ export const FillInspectionPage = (): JSX.Element => {
       signedAt: new Date().toISOString(),
     };
     if (navigator.onLine && signatureDataUrl.startsWith("data:")) {
-      try {
-        const res = await fetch(signatureDataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], "signature.png", { type: "image/png" });
-        const result = await appRepository.uploadToCloudinary(file, "quality/signatures");
-        base.cloudinaryPublicId = result.publicId;
-        base.url = result.url;
-      } catch {
-        base.dataUrl = signatureDataUrl;
+      // Evita upload duplicado: se já existe no Cloudinary e o usuário não redesenhou, reutiliza (ex.: Salvar e depois Finalizar)
+      if (signature?.cloudinaryPublicId && signature?.url && !signatureDirty) {
+        base.cloudinaryPublicId = signature.cloudinaryPublicId;
+        base.url = signature.url;
+      } else {
+        try {
+          const res = await fetch(signatureDataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], "signature.png", { type: "image/png" });
+          const result = await appRepository.uploadToCloudinary(file, "quality/signatures");
+          base.cloudinaryPublicId = result.publicId;
+          base.url = result.url;
+        } catch {
+          base.dataUrl = signatureDataUrl;
+        }
       }
     } else {
       base.dataUrl = signatureDataUrl;
     }
     await saveSignature(base as Parameters<typeof saveSignature>[0]);
+    setSignatureDirty(false);
   };
 
   const handleFinalize = async (): Promise<void> => {
@@ -292,7 +302,10 @@ export const FillInspectionPage = (): JSX.Element => {
       <Paper sx={{ p: 2 }}>
         <SignaturePad
           value={signatureDataUrl}
-          onChange={setSignatureDataUrl}
+          onChange={(url) => {
+            setSignatureDataUrl(url);
+            setSignatureDirty(true);
+          }}
           signerName={signerName}
           onSignerNameChange={setSignerName}
           disabled={!canEdit}

@@ -143,11 +143,21 @@ export interface IAppRepository {
   resolveInspectionItem(
     inspectionServerId: string,
     itemId: string,
-    options: { resolutionNotes: string; resolutionEvidenceBase64?: string }
+    options: {
+      resolutionNotes: string;
+      /** URL da imagem (recomendado: upload no Cloudinary). Evite base64 para não exceder limite do body. */
+      resolutionEvidenceUrl?: string;
+      /** @deprecated Use resolutionEvidenceUrl (upload primeiro). Base64 pode causar "Entity too large". */
+      resolutionEvidenceBase64?: string;
+    }
   ): Promise<InspectionItem>;
   resolvePendingInspection(
     externalId: string,
-    options: { resolutionNotes?: string; resolutionEvidenceBase64?: string }
+    options: {
+      resolutionNotes?: string;
+      resolutionEvidenceUrl?: string;
+      resolutionEvidenceBase64?: string;
+    }
   ): Promise<Inspection>;
   setInspectionItems(externalId: string, items: InspectionItem[]): Promise<void>;
   getInspectionItems(externalId: string): Promise<InspectionItem[]>;

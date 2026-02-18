@@ -1012,6 +1012,7 @@ const response = await fetch(`http://localhost:3000/inspections/${inspectionId}/
   "resolutionEvidence": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 }
 ```
+- **resolutionEvidence** (opcional): pode ser **base64** da imagem ou **URL** (string começando com `http`). Recomenda-se enviar URL (ex.: após upload no Cloudinary) para evitar erro "Entity too large" em imagens grandes.
 - **Descrição:** Resolve **um** item não conforme da vistoria. Quando **todos** os itens em não conformidade estiverem resolvidos, a vistoria passa automaticamente para status `RESOLVIDA`.
 - **Validações:**
   - Vistoria deve estar com status `PENDENTE_AJUSTE`

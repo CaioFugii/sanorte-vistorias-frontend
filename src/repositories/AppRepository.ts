@@ -362,12 +362,18 @@ export class AppRepository implements IAppRepository {
 
   async resolvePendingInspection(
     externalId: string,
-    options: { resolutionNotes?: string; resolutionEvidenceBase64?: string }
+    options: {
+      resolutionNotes?: string;
+      resolutionEvidenceUrl?: string;
+      resolutionEvidenceBase64?: string;
+    }
   ): Promise<Inspection> {
     if (navigator.onLine) {
+      const evidence =
+        options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
       const resolved = await this.apiRepository.resolveInspection(externalId, {
         resolutionNotes: options.resolutionNotes,
-        resolutionEvidence: options.resolutionEvidenceBase64,
+        resolutionEvidence: evidence,
       });
       try {
         await this.offlineRepository.updateInspection(externalId, {
@@ -392,14 +398,20 @@ export class AppRepository implements IAppRepository {
   async resolveInspectionItem(
     inspectionServerId: string,
     itemId: string,
-    options: { resolutionNotes: string; resolutionEvidenceBase64?: string }
+    options: {
+      resolutionNotes: string;
+      resolutionEvidenceUrl?: string;
+      resolutionEvidenceBase64?: string;
+    }
   ): Promise<InspectionItem> {
     if (!navigator.onLine) {
       throw new Error("Resolução por item está disponível apenas online.");
     }
+    const evidence =
+      options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
     return this.apiRepository.resolveInspectionItem(inspectionServerId, itemId, {
       resolutionNotes: options.resolutionNotes,
-      resolutionEvidence: options.resolutionEvidenceBase64,
+      resolutionEvidence: evidence,
     });
   }
 
