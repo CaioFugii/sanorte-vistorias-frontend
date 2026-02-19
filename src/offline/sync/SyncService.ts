@@ -2,6 +2,7 @@ import { SyncInspectionResult, SyncInspectionPayload } from "@/domain";
 import { SyncState } from "@/domain/enums";
 import { ApiRepository } from "@/api/repositories/ApiRepository";
 import { OfflineRepository } from "../repositories/OfflineRepository";
+import { OFFLINE_RETENTION_DAYS } from "../constants";
 
 export class SyncService {
   constructor(
@@ -56,6 +57,7 @@ export class SyncService {
         });
       }
       await this.offlineRepository.markSyncMetadata("lastSyncAt", now);
+      await this.offlineRepository.purgeSyncedOlderThanDays(OFFLINE_RETENTION_DAYS);
       return results;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha na sincronização.";

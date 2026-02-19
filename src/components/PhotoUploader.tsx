@@ -1,6 +1,6 @@
-import { Box, Button, IconButton, ImageList, ImageListItem } from "@mui/material";
+import { Box, Button, CircularProgress, IconButton, ImageList, ImageListItem } from "@mui/material";
 import { Delete, PhotoCamera } from "@mui/icons-material";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export interface PhotoFile {
   id: string;
@@ -84,6 +84,7 @@ export const PhotoUploader = ({
   onUpload,
 }: PhotoUploaderProps): JSX.Element => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const readFileAsDataUrl = (file: File): Promise<PhotoFile> =>
     new Promise((resolve, reject) => {
@@ -115,42 +116,48 @@ export const PhotoUploader = ({
       )
       .slice(0, remainingSlots);
 
-    const newPhotos: PhotoFile[] = [];
+    const willUpload = Boolean(onUpload && navigator.onLine && toProcess.length > 0);
+    if (willUpload) setUploading(true);
 
-    for (const file of toProcess) {
-      if (onUpload && navigator.onLine) {
-        try {
-          const result = await onUpload(file);
-          if (result) {
-            newPhotos.push({
-              id: crypto.randomUUID(),
-              url: result.url,
-              fileName: file.name,
-              mimeType: file.type,
-              cloudinaryPublicId: result.publicId,
-              size: result.bytes,
-              bytes: result.bytes,
-              format: result.format,
-              width: result.width,
-              height: result.height,
-            });
+    try {
+      const newPhotos: PhotoFile[] = [];
+
+      for (const file of toProcess) {
+        if (onUpload && navigator.onLine) {
+          try {
+            const result = await onUpload(file);
+            if (result) {
+              newPhotos.push({
+                id: crypto.randomUUID(),
+                url: result.url,
+                fileName: file.name,
+                mimeType: file.type,
+                cloudinaryPublicId: result.publicId,
+                size: result.bytes,
+                bytes: result.bytes,
+                format: result.format,
+                width: result.width,
+                height: result.height,
+              });
+            }
+          } catch {
+            const fallback = await readFileAsDataUrl(file);
+            newPhotos.push(fallback);
           }
-        } catch {
-          const fallback = await readFileAsDataUrl(file);
-          newPhotos.push(fallback);
+        } else {
+          const local = await readFileAsDataUrl(file);
+          newPhotos.push(local);
         }
-      } else {
-        const local = await readFileAsDataUrl(file);
-        newPhotos.push(local);
       }
-    }
 
-    if (newPhotos.length > 0) {
-      onChange([...photos, ...newPhotos]);
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      if (newPhotos.length > 0) {
+        onChange([...photos, ...newPhotos]);
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -168,17 +175,23 @@ export const PhotoUploader = ({
         multiple
         style={{ display: 'none' }}
         onChange={handleFileSelect}
-        disabled={disabled || photos.length >= maxPhotos}
+        disabled={disabled || photos.length >= maxPhotos || uploading}
       />
       <Button
         variant="outlined"
-        startIcon={<PhotoCamera />}
+        startIcon={
+          uploading ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            <PhotoCamera />
+          )
+        }
         onClick={() => fileInputRef.current?.click()}
-        disabled={disabled || photos.length >= maxPhotos}
+        disabled={disabled || photos.length >= maxPhotos || uploading}
         fullWidth
         sx={{ mb: 2 }}
       >
-        Adicionar foto {photos.length > 0 && `(${photos.length}/${maxPhotos})`}
+        {uploading ? "Enviando imagem..." : `Adicionar foto${photos.length > 0 ? ` (${photos.length}/${maxPhotos})` : ""}`}
       </Button>
       {photos.length > 0 && (
         <ImageList cols={3} gap={8}>

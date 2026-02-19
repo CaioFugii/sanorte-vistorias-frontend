@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { appRepository } from "@/repositories/AppRepository";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -6,9 +7,11 @@ import { useUiStore } from "@/stores/uiStore";
  * Sincronização automática quando o usuário está online.
  * - Ao voltar online (evento "online"), sincroniza se houver itens pendentes.
  * - Na montagem, se já estiver online e houver pendentes, sincroniza uma vez.
+ * - Ao mudar de rota (ex.: sair da tela de preencher vistoria), tenta sincronizar de novo.
  * Deve ser usado apenas dentro do layout autenticado (ex.: AppShell).
  */
 export function useAutoSync(): void {
+  const location = useLocation();
   const setPendingSyncCount = useUiStore((state) => state.setPendingSyncCount);
   const syncingRef = useRef(false);
 
@@ -29,7 +32,7 @@ export function useAutoSync(): void {
       }
     };
 
-    // Uma vez ao montar, se já estiver online
+    // Ao montar ou ao mudar de rota: se online e houver pendentes, tenta sincronizar
     if (navigator.onLine) {
       runSyncIfPending();
     }
@@ -39,5 +42,5 @@ export function useAutoSync(): void {
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [setPendingSyncCount]);
+  }, [location.pathname, setPendingSyncCount]);
 }

@@ -41,6 +41,7 @@ function App(): JSX.Element {
       }
       const count = await appRepository.countPendingSync();
       setPendingSyncCount(count);
+      await appRepository.runRetentionCleanup();
     };
     bootstrap();
   }, [loadCache, loadMe, refreshFromApi, setPendingSyncCount]);

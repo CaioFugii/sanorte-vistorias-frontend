@@ -145,12 +145,6 @@ export const DashboardPage = (): JSX.Element => {
         </Button>
       </Paper>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="body2">
-          Pendências não sincronizadas: {pendingSyncCount}
-        </Typography>
-      </Paper>
-
       {summary && (
         <>
           <Grid container spacing={3} sx={{ mb: 3 }}>

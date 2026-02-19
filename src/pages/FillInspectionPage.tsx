@@ -46,6 +46,7 @@ export const FillInspectionPage = (): JSX.Element => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signatureDirty, setSignatureDirty] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -166,6 +167,17 @@ export const FillInspectionPage = (): JSX.Element => {
     }
   };
 
+  /** Persiste respostas da vistoria (itens + assinatura) na API offline / IndexedDB. */
+  const handleSave = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      await setItemsAndAutosave(inspectionItems);
+      await handleSaveSignature();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveSignature = async (): Promise<void> => {
     if (!signatureDataUrl || !signerName.trim()) {
       return;
@@ -185,7 +197,6 @@ export const FillInspectionPage = (): JSX.Element => {
       signedAt: new Date().toISOString(),
     };
     if (navigator.onLine && signatureDataUrl.startsWith("data:")) {
-      // Evita upload duplicado: se já existe no Cloudinary e o usuário não redesenhou, reutiliza (ex.: Salvar e depois Finalizar)
       if (signature?.cloudinaryPublicId && signature?.url && !signatureDirty) {
         base.cloudinaryPublicId = signature.cloudinaryPublicId;
         base.url = signature.url;
@@ -262,8 +273,13 @@ export const FillInspectionPage = (): JSX.Element => {
               PDF
             </Button>
           )}
-          <Button variant="outlined" startIcon={<Save />} onClick={handleSaveSignature}>
-            Salvar
+          <Button
+            variant="outlined"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Salvando..." : "Salvar"}
           </Button>
           <Button
             variant="contained"

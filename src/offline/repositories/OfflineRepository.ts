@@ -135,4 +135,52 @@ export class OfflineRepository {
   async markSyncMetadata(key: string, value: string): Promise<void> {
     await db.syncMetadata.put({ key, value });
   }
+
+  /**
+   * Remove do banco local todos os dados de uma vistoria (assinatura, evidências, itens e a própria vistoria).
+   * Usado ao fazer purge de vistorias já sincronizadas e antigas.
+   */
+  async deleteInspectionData(externalId: string): Promise<void> {
+    await db.transaction(
+      "rw",
+      db.inspections,
+      db.inspectionItems,
+      db.evidences,
+      db.signatures,
+      async () => {
+        const sig = await db.signatures.where("inspectionExternalId").equals(externalId).first();
+        if (sig) await db.signatures.delete(sig.id);
+        const evs = await db.evidences.where("inspectionExternalId").equals(externalId).toArray();
+        if (evs.length > 0) await db.evidences.bulkDelete(evs.map((e) => e.id));
+        const items = await db.inspectionItems.where("inspectionExternalId").equals(externalId).toArray();
+        if (items.length > 0) await db.inspectionItems.bulkDelete(items.map((i) => i.id));
+        await db.inspections.delete(externalId);
+      }
+    );
+  }
+
+  /**
+   * Remove vistorias já sincronizadas (SYNCED) mais antigas que `retentionDays` dias.
+   * Não remove nunca vistorias PENDING_SYNC ou SYNC_ERROR.
+   * Retorna a quantidade de vistorias removidas.
+   */
+  async purgeSyncedOlderThanDays(retentionDays: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const cutoffIso = cutoff.toISOString();
+
+    const toDelete = await db.inspections
+      .where("syncState")
+      .equals(SyncState.SYNCED)
+      .filter(
+        (inspection) =>
+          (inspection.syncedAt ?? inspection.updatedAt ?? inspection.createdAt) < cutoffIso
+      )
+      .toArray();
+
+    for (const inspection of toDelete) {
+      await this.deleteInspectionData(inspection.externalId);
+    }
+    return toDelete.length;
+  }
 }

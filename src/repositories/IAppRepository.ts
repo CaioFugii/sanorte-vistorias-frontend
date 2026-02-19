@@ -138,6 +138,8 @@ export interface IAppRepository {
   getInspection(externalId: string, forceApi?: boolean): Promise<Inspection | null>;
   listInspections(): Promise<Inspection[]>;
   listInspectionsByUser(userId: string): Promise<Inspection[]>;
+  /** Lista para perfil FISCAL: online = API + local (rascunhos); offline = só local. */
+  listInspectionsForFiscal(userId: string): Promise<Inspection[]>;
   listPendingAdjustments(): Promise<Inspection[]>;
   updateInspection(externalId: string, updates: Partial<Inspection>): Promise<Inspection>;
   resolveInspectionItem(
@@ -182,4 +184,6 @@ export interface IAppRepository {
 
   syncAll(): Promise<SyncInspectionResult[]>;
   countPendingSync(): Promise<number>;
+  /** Remove do banco offline vistorias já sincronizadas mais antigas que o período de retenção. */
+  runRetentionCleanup(): Promise<number>;
 }

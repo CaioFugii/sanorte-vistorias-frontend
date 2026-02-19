@@ -17,6 +17,7 @@ import {
 import { SyncState, UserRole } from "@/domain/enums";
 import { OfflineRepository } from "@/offline/repositories/OfflineRepository";
 import { SyncService } from "@/offline/sync/SyncService";
+import { OFFLINE_RETENTION_DAYS } from "@/offline/constants";
 import { IAppRepository } from "./IAppRepository";
 
 function nowIso(): string {
@@ -349,6 +350,24 @@ export class AppRepository implements IAppRepository {
     return this.offlineRepository.listInspectionsByUser(userId);
   }
 
+  /** Lista para FISCAL: quando online, une API + local (rascunhos não sincronizados aparecem). */
+  async listInspectionsForFiscal(userId: string): Promise<Inspection[]> {
+    if (!navigator.onLine) {
+      return this.offlineRepository.listInspectionsByUser(userId);
+    }
+    const [apiRes, local] = await Promise.all([
+      this.apiRepository.getMyInspections({ page: 1, limit: 500 }).catch(() => ({ data: [] as Inspection[] })),
+      this.offlineRepository.listInspectionsByUser(userId),
+    ]);
+    const apiList = apiRes.data ?? [];
+    const byExternalId = new Map<string, Inspection>();
+    for (const i of apiList) byExternalId.set(i.externalId, i);
+    for (const i of local) byExternalId.set(i.externalId, i);
+    return Array.from(byExternalId.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
   async listPendingAdjustments(): Promise<Inspection[]> {
     return this.offlineRepository.listPendingAdjustments();
   }
@@ -475,6 +494,11 @@ export class AppRepository implements IAppRepository {
   async countPendingSync(): Promise<number> {
     const inspections = await this.offlineRepository.getInspectionsToSync();
     return inspections.length;
+  }
+
+  /** Remove vistorias já sincronizadas mais antigas que OFFLINE_RETENTION_DAYS. Chamado na abertura do app. */
+  async runRetentionCleanup(): Promise<number> {
+    return this.offlineRepository.purgeSyncedOlderThanDays(OFFLINE_RETENTION_DAYS);
   }
 }
 

@@ -2,6 +2,7 @@ import {
   AppBar,
   Box,
   Button,
+  Chip,
   Divider,
   Drawer,
   IconButton,
@@ -14,7 +15,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { Menu as MenuIcon } from "@mui/icons-material";
+import { Menu as MenuIcon, Sync as SyncIcon } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -53,12 +54,25 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string }>> = {
 
 export function AppShell({ children }: AppShellProps): JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user, logout } = useAuthStore();
-  const setPendingSyncCount = useUiStore((state) => state.setPendingSyncCount);
+  const { pendingSyncCount, setPendingSyncCount } = useUiStore();
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useAutoSync();
 
@@ -78,6 +92,20 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
     window.addEventListener("auth:unauthorized", onUnauthorized);
     return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
   }, [logout, navigate]);
+
+  const handleSync = async () => {
+    if (!navigator.onLine || syncing) return;
+    setSyncing(true);
+    try {
+      await appRepository.syncAll();
+      const count = await appRepository.countPendingSync();
+      setPendingSyncCount(count);
+    } catch {
+      // Mantém contador atual; usuário vê que ainda há pendentes
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const menuItems = user ? menuByRole[user.role] : [];
 
@@ -120,6 +148,40 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {user?.name ?? "Usuário"}
           </Typography>
+          <Chip
+            label={online ? "Online" : "Offline"}
+            size="small"
+            sx={{
+              mr: 1.5,
+              bgcolor: online ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)",
+              color: "inherit",
+              fontWeight: 500,
+              "& .MuiChip-icon": { color: online ? "#81c784" : "#e57373" },
+            }}
+            icon={
+              <Box
+                component="span"
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: online ? "#81c784" : "#e57373",
+                  ml: 0.5,
+                }}
+              />
+            }
+          />
+          {online && (
+            <Button
+              color="inherit"
+              startIcon={<SyncIcon />}
+              onClick={handleSync}
+              disabled={syncing || pendingSyncCount === 0}
+              sx={{ mr: 1 }}
+            >
+              {syncing ? "Sincronizando..." : pendingSyncCount > 0 ? `Sincronizar (${pendingSyncCount})` : "Sincronizar"}
+            </Button>
+          )}
           <Button color="inherit" onClick={logout}>
             Sair
           </Button>
