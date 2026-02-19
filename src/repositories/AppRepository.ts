@@ -356,7 +356,7 @@ export class AppRepository implements IAppRepository {
       return this.offlineRepository.listInspectionsByUser(userId);
     }
     const [apiRes, local] = await Promise.all([
-      this.apiRepository.getMyInspections({ page: 1, limit: 500 }).catch(() => ({ data: [] as Inspection[] })),
+      this.apiRepository.getMyInspections({ page: 1, limit: 100 }).catch(() => ({ data: [] as Inspection[] })),
       this.offlineRepository.listInspectionsByUser(userId),
     ]);
     const apiList = apiRes.data ?? [];
