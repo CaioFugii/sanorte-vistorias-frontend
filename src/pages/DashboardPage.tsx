@@ -18,14 +18,12 @@ import { Search } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
-import { useUiStore } from '@/stores/uiStore';
 import { InspectionStatus, ModuleType } from '@/domain/enums';
 import { TeamSelect } from '@/components/TeamSelect';
 import { ModuleSelect } from '@/components/ModuleSelect';
 
 export const DashboardPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
-  const pendingSyncCount = useUiStore((state) => state.pendingSyncCount);
   const [filters, setFilters] = useState<{
     from?: string;
     to?: string;
