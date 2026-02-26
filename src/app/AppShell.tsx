@@ -36,6 +36,7 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string }>> = {
     { path: "/dashboard", label: "Dashboard" },
     { path: "/users", label: "Usuários" },
     { path: "/teams", label: "Equipes" },
+    { path: "/sectors", label: "Setores" },
     { path: "/collaborators", label: "Colaboradores" },
     { path: "/checklists", label: "Checklists" },
     { path: "/inspections", label: "Vistorias" },

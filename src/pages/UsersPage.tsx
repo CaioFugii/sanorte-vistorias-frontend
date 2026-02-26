@@ -23,12 +23,15 @@ import { useEffect, useState } from "react";
 import { User } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export const UsersPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -104,11 +107,7 @@ export const UsersPage = (): JSX.Element => {
                   </IconButton>
                   <IconButton
                     color="error"
-                    onClick={async () => {
-                      if (!window.confirm("Deseja excluir este usuário?")) return;
-                      await appRepository.deleteUser(user.id);
-                      await load();
-                    }}
+                    onClick={() => setDeletingUser(user)}
                   >
                     <Delete />
                   </IconButton>
@@ -182,6 +181,28 @@ export const UsersPage = (): JSX.Element => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={!!deletingUser}
+        title="Excluir usuário"
+        description={`Deseja excluir o usuário "${deletingUser?.name ?? ""}"?`}
+        confirmLabel="Excluir"
+        loading={deleting}
+        onClose={() => {
+          if (deleting) return;
+          setDeletingUser(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingUser || deleting) return;
+          setDeleting(true);
+          try {
+            await appRepository.deleteUser(deletingUser.id);
+            setDeletingUser(null);
+            await load();
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
     </Box>
   );
 };

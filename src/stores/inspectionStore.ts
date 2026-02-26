@@ -22,17 +22,42 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
   signature: null,
 
   load: async (externalId) => {
-    const [inspection, items, evidences, signature] = await Promise.all([
+    const [inspection, localItems, localEvidences, localSignature] = await Promise.all([
       appRepository.getInspection(externalId),
       appRepository.getInspectionItems(externalId),
       appRepository.getEvidences(externalId),
       appRepository.getSignature(externalId),
     ]);
+
+    const inspectionItemsFromApi =
+      inspection?.items?.map((item) => ({
+        ...item,
+        inspectionExternalId: item.inspectionExternalId ?? inspection.externalId,
+        updatedAt: item.updatedAt ?? inspection.updatedAt ?? new Date().toISOString(),
+      })) ?? [];
+
+    const evidencesFromApi =
+      inspection?.evidences?.map((evidence) => ({
+        ...evidence,
+        inspectionExternalId: evidence.inspectionExternalId ?? inspection.externalId,
+        createdAt: evidence.createdAt ?? inspection.updatedAt ?? new Date().toISOString(),
+      })) ?? [];
+
+    const signatureFromApi = inspection?.signatures?.[0]
+      ? {
+          ...inspection.signatures[0],
+          inspectionExternalId:
+            inspection.signatures[0].inspectionExternalId ?? inspection.externalId,
+          signedAt:
+            inspection.signatures[0].signedAt ?? inspection.updatedAt ?? new Date().toISOString(),
+        }
+      : null;
+
     set({
       currentInspection: inspection,
-      inspectionItems: items,
-      evidences,
-      signature,
+      inspectionItems: localItems.length > 0 ? localItems : inspectionItemsFromApi,
+      evidences: localEvidences.length > 0 ? localEvidences : evidencesFromApi,
+      signature: localSignature ?? signatureFromApi,
     });
   },
 

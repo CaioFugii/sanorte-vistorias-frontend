@@ -1,9 +1,10 @@
 import { appRepository } from "@/repositories/AppRepository";
-import { Checklist, Team } from "@/domain";
+import { Checklist, Sector, Team } from "@/domain";
 import { create } from "zustand";
 
 interface ReferenceState {
   teams: Team[];
+  sectors: Sector[];
   checklists: Checklist[];
   loading: boolean;
   loadCache: () => Promise<void>;
@@ -12,25 +13,28 @@ interface ReferenceState {
 
 export const useReferenceStore = create<ReferenceState>((set) => ({
   teams: [],
+  sectors: [],
   checklists: [],
   loading: false,
 
   loadCache: async () => {
-    const [teams, checklists] = await Promise.all([
+    const [teams, sectors, checklists] = await Promise.all([
       appRepository.getCachedTeams(),
+      appRepository.getCachedSectors(),
       appRepository.getCachedChecklists(),
     ]);
-    set({ teams, checklists });
+    set({ teams, sectors, checklists });
   },
 
   refreshFromApi: async () => {
     set({ loading: true });
     try {
-      const [teams, checklists] = await Promise.all([
+      const [teams, sectors, checklists] = await Promise.all([
         appRepository.loadTeams(true),
+        appRepository.loadSectors(true),
         appRepository.loadChecklists(true),
       ]);
-      set({ teams, checklists });
+      set({ teams, sectors, checklists });
     } finally {
       set({ loading: false });
     }

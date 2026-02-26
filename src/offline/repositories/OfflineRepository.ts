@@ -4,6 +4,7 @@ import {
   Evidence,
   Inspection,
   InspectionItem,
+  Sector,
   Signature,
   Team,
 } from "@/domain";
@@ -22,6 +23,20 @@ export class OfflineRepository {
   async getTeams(): Promise<Team[]> {
     const teams = await db.teams.toArray();
     return teams.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async cacheSectors(sectors: Sector[]): Promise<void> {
+    await db.transaction("rw", db.sectors, async () => {
+      await db.sectors.clear();
+      if (sectors.length > 0) {
+        await db.sectors.bulkPut(sectors);
+      }
+    });
+  }
+
+  async getSectors(): Promise<Sector[]> {
+    const sectors = await db.sectors.toArray();
+    return sectors.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async cacheChecklists(checklists: Checklist[]): Promise<void> {

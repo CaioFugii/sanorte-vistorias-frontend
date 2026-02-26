@@ -6,6 +6,7 @@ interface ChecklistSelectProps {
   value: string;
   onChange: (checklistId: string) => void;
   module?: ModuleType;
+  sectorId?: string;
   disabled?: boolean;
   required?: boolean;
 }
@@ -14,13 +15,16 @@ export function ChecklistSelect({
   value,
   onChange,
   module,
+  sectorId,
   disabled,
   required,
 }: ChecklistSelectProps): JSX.Element {
   const checklists = useReferenceStore((state) => state.checklists);
-  const visibleChecklists = module
-    ? checklists.filter((checklist) => checklist.module === module)
-    : checklists;
+  const visibleChecklists = checklists.filter(
+    (checklist) =>
+      (!module || checklist.module === module) &&
+      (!sectorId || checklist.sectorId === sectorId)
+  );
   const handleChange = (event: SelectChangeEvent<string>) => onChange(event.target.value);
 
   return (

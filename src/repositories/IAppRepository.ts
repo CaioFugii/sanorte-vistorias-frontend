@@ -8,6 +8,7 @@ import {
   InspectionItem,
   ModuleType,
   PaginatedResponse,
+  Sector,
   Signature,
   SyncInspectionResult,
   Team,
@@ -21,8 +22,10 @@ export interface IAppRepository {
   logout(): void;
 
   loadTeams(forceApi?: boolean): Promise<Team[]>;
+  loadSectors(forceApi?: boolean): Promise<Sector[]>;
   loadChecklists(forceApi?: boolean): Promise<Checklist[]>;
   getCachedTeams(): Promise<Team[]>;
+  getCachedSectors(): Promise<Sector[]>;
   getCachedChecklists(): Promise<Checklist[]>;
   getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>>;
   createUser(input: { name: string; email: string; password: string; role: UserRole }): Promise<User>;
@@ -32,13 +35,24 @@ export interface IAppRepository {
   ): Promise<User>;
   deleteUser(userId: string): Promise<void>;
 
-  getCollaborators(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Collaborator>>;
-  createCollaborator(input: { name: string; active: boolean }): Promise<Collaborator>;
+  getCollaborators(params?: {
+    page?: number;
+    limit?: number;
+    sectorId?: string;
+  }): Promise<PaginatedResponse<Collaborator>>;
+  createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator>;
   updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; active: boolean }>
   ): Promise<Collaborator>;
   deleteCollaborator(collaboratorId: string): Promise<void>;
+
+  createSector(input: { name: string; active: boolean }): Promise<Sector>;
+  updateSector(
+    sectorId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Sector>;
+  deleteSector(sectorId: string): Promise<void>;
 
   createTeam(input: { name: string; active: boolean; collaboratorIds?: string[] }): Promise<Team>;
   updateTeam(
@@ -49,6 +63,7 @@ export interface IAppRepository {
 
   getChecklists(params?: {
     module?: ModuleType;
+    sectorId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Checklist>>;
@@ -56,11 +71,12 @@ export interface IAppRepository {
     module: ModuleType;
     name: string;
     description?: string;
+    sectorId: string;
     active: boolean;
   }): Promise<Checklist>;
   updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; active: boolean }>
+    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist>;
   deleteChecklist(checklistId: string): Promise<void>;
   createChecklistSection(
@@ -142,6 +158,14 @@ export interface IAppRepository {
   listInspectionsForFiscal(userId: string): Promise<Inspection[]>;
   listPendingAdjustments(): Promise<Inspection[]>;
   updateInspection(externalId: string, updates: Partial<Inspection>): Promise<Inspection>;
+  updateInspectionOnline(externalId: string, updates: Partial<Inspection>): Promise<Inspection>;
+  setInspectionItemsOnline(externalId: string, items: InspectionItem[]): Promise<InspectionItem[]>;
+  addInspectionEvidenceOnline(
+    inspectionId: string,
+    inspectionExternalId: string,
+    file: File,
+    inspectionItemId?: string
+  ): Promise<Evidence>;
   resolveInspectionItem(
     inspectionServerId: string,
     itemId: string,
@@ -181,6 +205,7 @@ export interface IAppRepository {
     width: number;
     height: number;
   }>;
+  deleteFromCloudinary(publicId: string): Promise<void>;
 
   syncAll(): Promise<SyncInspectionResult[]>;
   countPendingSync(): Promise<number>;

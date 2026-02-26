@@ -9,6 +9,7 @@ import {
   InspectionItem,
   ModuleType,
   PaginatedResponse,
+  Sector,
   Signature,
   SyncInspectionResult,
   Team,
@@ -78,6 +79,19 @@ export class AppRepository implements IAppRepository {
     }
   }
 
+  async loadSectors(forceApi = false): Promise<Sector[]> {
+    if (!navigator.onLine && !forceApi) {
+      return this.offlineRepository.getSectors();
+    }
+    try {
+      const result = await this.apiRepository.getSectors({ page: 1, limit: 100 });
+      await this.offlineRepository.cacheSectors(result.data);
+      return result.data;
+    } catch {
+      return this.offlineRepository.getSectors();
+    }
+  }
+
   async loadChecklists(forceApi = false): Promise<Checklist[]> {
     if (!navigator.onLine && !forceApi) {
       return this.offlineRepository.getChecklists();
@@ -93,6 +107,10 @@ export class AppRepository implements IAppRepository {
 
   async getCachedTeams(): Promise<Team[]> {
     return this.offlineRepository.getTeams();
+  }
+
+  async getCachedSectors(): Promise<Sector[]> {
+    return this.offlineRepository.getSectors();
   }
 
   async getCachedChecklists(): Promise<Checklist[]> {
@@ -123,23 +141,47 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.deleteUser(userId);
   }
 
-  async getCollaborators(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Collaborator>> {
+  async getCollaborators(params?: {
+    page?: number;
+    limit?: number;
+    sectorId?: string;
+  }): Promise<PaginatedResponse<Collaborator>> {
     return this.apiRepository.getCollaborators(params);
   }
 
-  async createCollaborator(input: { name: string; active: boolean }): Promise<Collaborator> {
+  async createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator> {
     return this.apiRepository.createCollaborator(input);
   }
 
   async updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; active: boolean }>
   ): Promise<Collaborator> {
     return this.apiRepository.updateCollaborator(collaboratorId, input);
   }
 
   async deleteCollaborator(collaboratorId: string): Promise<void> {
     return this.apiRepository.deleteCollaborator(collaboratorId);
+  }
+
+  async createSector(input: { name: string; active: boolean }): Promise<Sector> {
+    const sector = await this.apiRepository.createSector(input);
+    await this.loadSectors(true);
+    return sector;
+  }
+
+  async updateSector(
+    sectorId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Sector> {
+    const sector = await this.apiRepository.updateSector(sectorId, input);
+    await this.loadSectors(true);
+    return sector;
+  }
+
+  async deleteSector(sectorId: string): Promise<void> {
+    await this.apiRepository.deleteSector(sectorId);
+    await this.loadSectors(true);
   }
 
   async createTeam(input: { name: string; active: boolean; collaboratorIds?: string[] }): Promise<Team> {
@@ -164,6 +206,7 @@ export class AppRepository implements IAppRepository {
 
   async getChecklists(params?: {
     module?: ModuleType;
+    sectorId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Checklist>> {
@@ -174,6 +217,7 @@ export class AppRepository implements IAppRepository {
     module: ModuleType;
     name: string;
     description?: string;
+    sectorId: string;
     active: boolean;
   }): Promise<Checklist> {
     const checklist = await this.apiRepository.createChecklist(input);
@@ -183,7 +227,7 @@ export class AppRepository implements IAppRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; active: boolean }>
+    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist> {
     const checklist = await this.apiRepository.updateChecklist(checklistId, input);
     await this.loadChecklists(true);
@@ -379,6 +423,54 @@ export class AppRepository implements IAppRepository {
     });
   }
 
+  async updateInspectionOnline(externalId: string, updates: Partial<Inspection>): Promise<Inspection> {
+    if (!navigator.onLine) {
+      throw new Error("Edição administrativa disponível apenas online.");
+    }
+    return this.apiRepository.updateInspection(externalId, updates);
+  }
+
+  async setInspectionItemsOnline(externalId: string, items: InspectionItem[]): Promise<InspectionItem[]> {
+    if (!navigator.onLine) {
+      throw new Error("Edição administrativa disponível apenas online.");
+    }
+    return this.apiRepository.setInspectionItems(
+      externalId,
+      items.map((item) => ({
+        inspectionItemId: item.id,
+        answer: item.answer,
+        notes: item.notes,
+      }))
+    );
+  }
+
+  async addInspectionEvidenceOnline(
+    inspectionId: string,
+    inspectionExternalId: string,
+    file: File,
+    inspectionItemId?: string
+  ): Promise<Evidence> {
+    if (!navigator.onLine) {
+      throw new Error("Edição administrativa disponível apenas online.");
+    }
+    const created = await this.apiRepository.addInspectionEvidence(inspectionId, file, inspectionItemId);
+    return {
+      id: created.id,
+      inspectionExternalId,
+      inspectionItemId: created.inspectionItemId,
+      fileName: created.fileName,
+      mimeType: created.mimeType,
+      cloudinaryPublicId: created.cloudinaryPublicId,
+      url: created.url,
+      size: created.bytes,
+      bytes: created.bytes,
+      format: created.format,
+      width: created.width,
+      height: created.height,
+      createdAt: created.createdAt,
+    };
+  }
+
   async resolvePendingInspection(
     externalId: string,
     options: {
@@ -485,6 +577,10 @@ export class AppRepository implements IAppRepository {
     height: number;
   }> {
     return this.apiRepository.uploadToCloudinary(file, folder);
+  }
+
+  async deleteFromCloudinary(publicId: string): Promise<void> {
+    return this.apiRepository.deleteFromCloudinary(publicId);
   }
 
   async syncAll(): Promise<SyncInspectionResult[]> {

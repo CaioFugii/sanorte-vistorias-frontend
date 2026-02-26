@@ -25,6 +25,7 @@ import { useReferenceStore } from '@/stores/referenceStore';
 import { Collaborator, Team } from '@/domain';
 import { appRepository } from '@/repositories/AppRepository';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export const TeamsPage = (): JSX.Element => {
   const teams = useReferenceStore((state) => state.teams);
@@ -34,6 +35,8 @@ export const TeamsPage = (): JSX.Element => {
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -119,11 +122,7 @@ export const TeamsPage = (): JSX.Element => {
                   </IconButton>
                   <IconButton
                     color="error"
-                    onClick={async () => {
-                      if (!window.confirm("Deseja remover esta equipe?")) return;
-                      await appRepository.deleteTeam(team.id);
-                      await refreshFromApi();
-                    }}
+                    onClick={() => setDeletingTeam(team)}
                   >
                     <Delete />
                   </IconButton>
@@ -191,6 +190,28 @@ export const TeamsPage = (): JSX.Element => {
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={!!deletingTeam}
+        title="Remover equipe"
+        description={`Deseja remover a equipe "${deletingTeam?.name ?? ""}"?`}
+        confirmLabel="Remover"
+        loading={deleting}
+        onClose={() => {
+          if (deleting) return;
+          setDeletingTeam(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingTeam || deleting) return;
+          setDeleting(true);
+          try {
+            await appRepository.deleteTeam(deletingTeam.id);
+            setDeletingTeam(null);
+            await refreshFromApi();
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
     </Box>
   );
 };

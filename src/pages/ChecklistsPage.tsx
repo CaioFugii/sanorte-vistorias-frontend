@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -16,6 +17,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Add,
@@ -25,27 +28,32 @@ import {
   ExpandMore,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { Checklist } from '@/domain';
-import { useReferenceStore } from '@/stores/referenceStore';
+import { Checklist, Sector } from '@/domain';
 import { ModuleSelect } from '@/components/ModuleSelect';
+import { SectorSelect } from '@/components/SectorSelect';
 import { ModuleType } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export const ChecklistsPage = (): JSX.Element => {
-  const checklists = useReferenceStore((state) => state.checklists);
-  const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
-  const loadCache = useReferenceStore((state) => state.loadCache);
+  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
+  const [deletingChecklist, setDeletingChecklist] = useState<Checklist | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [sectorTab, setSectorTab] = useState("all");
   const [checklistModule, setChecklistModule] = useState<ModuleType | ''>(ModuleType.QUALIDADE);
   const [checklistName, setChecklistName] = useState("");
   const [checklistDescription, setChecklistDescription] = useState("");
+  const [checklistSectorId, setChecklistSectorId] = useState("");
   const [checklistActive, setChecklistActive] = useState(true);
   const [sectionName, setSectionName] = useState("");
   const [sectionOrder, setSectionOrder] = useState(1);
@@ -56,13 +64,44 @@ export const ChecklistsPage = (): JSX.Element => {
   const [itemRequiresPhoto, setItemRequiresPhoto] = useState(true);
   const [itemActive, setItemActive] = useState(true);
 
-  useEffect(() => {
-    const run = async () => {
-      await loadCache();
+  const load = async () => {
+    setLoading(true);
+    try {
+      if (!navigator.onLine) {
+        throw new Error("Gestão de checklists está disponível apenas online.");
+      }
+      const [checklistsResponse, sectorsData] = await Promise.all([
+        appRepository.getChecklists({ page: 1, limit: 100 }),
+        appRepository.loadSectors(true),
+      ]);
+      setChecklists(checklistsResponse.data);
+      setSectors(sectorsData);
+      setError(null);
+    } catch (e) {
+      setChecklists([]);
+      setSectors([]);
+      setError(e instanceof Error ? e.message : "Não foi possível carregar checklists.");
+    } finally {
       setLoading(false);
-    };
-    run();
+    }
+  };
+
+  useEffect(() => {
+    load();
   }, []);
+
+  useEffect(() => {
+    if (sectorTab === "all") return;
+    const exists = sectors.some((sector) => sector.id === sectorTab);
+    if (!exists) {
+      setSectorTab("all");
+    }
+  }, [sectors, sectorTab]);
+
+  const visibleChecklists =
+    sectorTab === "all"
+      ? checklists
+      : checklists.filter((checklist) => checklist.sectorId === sectorTab);
 
   if (loading) {
     return (
@@ -80,7 +119,7 @@ export const ChecklistsPage = (): JSX.Element => {
           <Button
             variant="outlined"
             startIcon={<Refresh />}
-            onClick={() => refreshFromApi()}
+            onClick={load}
           >
             Atualizar catálogo
           </Button>
@@ -92,6 +131,7 @@ export const ChecklistsPage = (): JSX.Element => {
               setChecklistModule(ModuleType.QUALIDADE);
               setChecklistName("");
               setChecklistDescription("");
+              setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
               setChecklistActive(true);
               setChecklistDialogOpen(true);
             }}
@@ -100,8 +140,27 @@ export const ChecklistsPage = (): JSX.Element => {
           </Button>
         </Box>
       </Box>
+      {error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-      {checklists.map((checklist: Checklist) => (
+      <Paper sx={{ mb: 2 }}>
+        <Tabs
+          value={sectorTab}
+          onChange={(_, value: string) => setSectorTab(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab value="all" label="Todos" />
+          {sectors.map((sector) => (
+            <Tab key={sector.id} value={sector.id} label={sector.name} />
+          ))}
+        </Tabs>
+      </Paper>
+
+      {visibleChecklists.map((checklist: Checklist) => (
         <Accordion key={checklist.id} sx={{ mb: 1 }}>
             <AccordionSummary expandIcon={<ExpandMore />}>
               <Box
@@ -115,6 +174,9 @@ export const ChecklistsPage = (): JSX.Element => {
               >
                 <Typography variant="h6">{checklist.name} ({checklist.module})</Typography>
                 <Box>
+                  {checklist.sector && (
+                    <Chip label={checklist.sector.name} size="small" color="info" sx={{ mr: 1 }} />
+                  )}
                   <Chip
                     label={checklist.active ? 'Ativo' : 'Inativo'}
                     size="small"
@@ -128,6 +190,7 @@ export const ChecklistsPage = (): JSX.Element => {
                       setChecklistModule(checklist.module);
                       setChecklistName(checklist.name);
                       setChecklistDescription(checklist.description || "");
+                      setChecklistSectorId(checklist.sectorId);
                       setChecklistActive(checklist.active);
                       setChecklistDialogOpen(true);
                     }}
@@ -137,11 +200,9 @@ export const ChecklistsPage = (): JSX.Element => {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={async (event) => {
+                    onClick={(event) => {
                       event.stopPropagation();
-                      if (!window.confirm("Deseja excluir o checklist?")) return;
-                      await appRepository.deleteChecklist(checklist.id);
-                      await refreshFromApi();
+                      setDeletingChecklist(checklist);
                     }}
                   >
                     <Delete />
@@ -236,7 +297,7 @@ export const ChecklistsPage = (): JSX.Element => {
                             color="error"
                             onClick={async () => {
                               await appRepository.deleteChecklistItem(checklist.id, item.id);
-                              await refreshFromApi();
+                              await load();
                             }}
                           >
                             <Delete />
@@ -255,6 +316,14 @@ export const ChecklistsPage = (): JSX.Element => {
         <DialogContent>
           <Box mt={2}>
             <ModuleSelect value={checklistModule} onChange={(value) => setChecklistModule(value)} />
+          </Box>
+          <Box mt={2}>
+            <SectorSelect
+              value={checklistSectorId}
+              onChange={setChecklistSectorId}
+              options={sectors}
+              required
+            />
           </Box>
           <TextField
             margin="normal"
@@ -279,13 +348,14 @@ export const ChecklistsPage = (): JSX.Element => {
           <Button onClick={() => setChecklistDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!checklistName.trim() || !checklistModule}
+            disabled={!checklistName.trim() || !checklistModule || !checklistSectorId}
             onClick={async () => {
-              if (!checklistModule) return;
+              if (!checklistModule || !checklistSectorId) return;
               if (editingChecklist) {
                 await appRepository.updateChecklist(editingChecklist.id, {
                   name: checklistName,
                   description: checklistDescription || undefined,
+                  sectorId: checklistSectorId,
                   active: checklistActive,
                 });
               } else {
@@ -293,11 +363,12 @@ export const ChecklistsPage = (): JSX.Element => {
                   module: checklistModule,
                   name: checklistName,
                   description: checklistDescription || undefined,
+                  sectorId: checklistSectorId,
                   active: checklistActive,
                 });
               }
               setChecklistDialogOpen(false);
-              await refreshFromApi();
+              await load();
             }}
           >
             Salvar
@@ -350,7 +421,7 @@ export const ChecklistsPage = (): JSX.Element => {
               }
               setSectionDialogOpen(false);
               setSelectedSectionId("");
-              await refreshFromApi();
+              await load();
             }}
           >
             Salvar
@@ -424,13 +495,35 @@ export const ChecklistsPage = (): JSX.Element => {
               }
               setItemDialogOpen(false);
               setEditingItemId(null);
-              await refreshFromApi();
+              await load();
             }}
           >
             Salvar
           </Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={!!deletingChecklist}
+        title="Excluir checklist"
+        description={`Deseja excluir o checklist "${deletingChecklist?.name ?? ""}"?`}
+        confirmLabel="Excluir"
+        loading={deleting}
+        onClose={() => {
+          if (deleting) return;
+          setDeletingChecklist(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingChecklist || deleting) return;
+          setDeleting(true);
+          try {
+            await appRepository.deleteChecklist(deletingChecklist.id);
+            setDeletingChecklist(null);
+            await load();
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
     </Box>
   );
 };

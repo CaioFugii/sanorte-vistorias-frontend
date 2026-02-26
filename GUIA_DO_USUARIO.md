@@ -1,279 +1,294 @@
-# Guia do Usuário - Sistema de Vistorias em Campo (Offline-First)
+# Guia do Usuario - Sanorte Vistorias (Offline-First)
 
-Bem-vindo ao Sistema de Vistorias em Campo da Sanorte. Este guia foi atualizado para a versão **offline-first**, na qual o trabalho de campo acontece localmente no dispositivo e a sincronização com a API é feita manualmente.
+Este guia descreve o uso da aplicacao com base no comportamento atual do sistema web.
+O fluxo principal e offline-first: voce pode trabalhar em campo sem internet, com sincronizacao posterior.
 
-## Índice
+## 1) Visao geral rapida
 
-- Primeiros passos
-- Fluxo offline e sincronização
-- Perfil FISCAL
-- Perfil GESTOR
-- Perfil ADMIN
-- Dúvidas frequentes
+- Acesso por login com perfil: `FISCAL`, `GESTOR` ou `ADMIN`.
+- Dados de vistoria sao salvos localmente no dispositivo (IndexedDB).
+- Quando houver internet, o sistema pode sincronizar automaticamente e tambem permite sincronizacao manual.
+- O topo da aplicacao mostra: status `Online/Offline`, botao `Sincronizar (N)` e botao `Sair`.
 
----
+## 2) Perfis e menus
 
-## Primeiros passos
+### FISCAL
 
-### Login
+- `Minhas vistorias`
+- `Nova vistoria`
 
-1. Acesse o sistema.
-2. Informe email e senha.
-3. Clique em **Entrar**.
+### GESTOR
 
-> Observação: o login depende de conexão com internet para autenticar na API.
+- `Dashboard`
+- `Vistorias`
+- `Pendencias`
 
-### Interface geral
+### ADMIN
 
-Após login, você verá:
-- menu lateral (ou menu hambúrguer no mobile);
-- barra superior com seu nome, botão **Sincronizar (X)** e **Sair**;
-- banner de aviso quando estiver offline.
+- `Dashboard`
+- `Usuarios`
+- `Equipes`
+- `Setores`
+- `Colaboradores`
+- `Checklists`
+- `Vistorias`
+- `Pendencias`
 
----
+## 3) Como o modo offline funciona
 
-## Fluxo offline e sincronização
+### O que funciona offline
 
-### Como funciona
+- Criar vistoria (rascunho local).
+- Preencher checklist e observacoes.
+- Adicionar fotos (ficam salvas localmente quando nao houver upload online).
+- Salvar assinatura do lider/encarregado.
+- Finalizar vistoria localmente.
+- Consultar vistorias que ja estao no banco local.
 
-- Durante o uso, os dados de vistorias são salvos localmente no dispositivo.
-- É possível criar/preencher/finalizar vistorias sem internet.
-- Quando houver conexão, use o botão **Sincronizar** para enviar pendências ao servidor.
+### O que depende de internet
 
-### Indicadores visuais
+- Login.
+- Sincronizar dados com o servidor.
+- Upload imediato de imagens para nuvem.
+- Resolver item nao conforme por item (fluxo detalhado usa endpoint online).
+- CRUD administrativo (`usuarios`, `equipes`, `setores`, `colaboradores`, `checklists`).
+- Dashboard com dados oficiais da API.
 
-- **Banner offline**: aparece quando não há internet.
-- **Contador de pendências** no botão de sincronização.
-- **Status de sync** nas listagens:
-  - `PENDING_SYNC`
-  - `SYNCING`
-  - `SYNCED`
-  - `SYNC_ERROR`
+### Indicadores de sincronizacao
 
-### Boas práticas
+- `Pendente` (`PENDING_SYNC`): alteracoes locais aguardando envio.
+- `Sincronizando` (`SYNCING`): envio em andamento.
+- `Sincronizado` (`SYNCED`): enviado com sucesso.
+- `Erro ao sincronizar` (`SYNC_ERROR`): falha no envio.
 
-1. Faça login online.
-2. Atualize catálogos de **Equipes** e **Checklists**.
-3. Vá a campo e trabalhe normalmente (offline se necessário).
-4. Ao voltar para rede, clique em **Sincronizar**.
+### Sincronizacao automatica e manual
 
----
+- **Automatica**: ao voltar online, ao entrar no app e ao trocar de rota (se houver pendencias).
+- **Manual**: botao `Sincronizar (N)` no topo, habilitado quando online e com pendencias.
 
-## Perfil FISCAL
+### Retencao de dados locais
 
-### Menu disponível
+- Vistorias `SYNCED` antigas podem ser removidas automaticamente apos 30 dias.
+- Vistorias `PENDING_SYNC` e `SYNC_ERROR` nao sao removidas automaticamente.
 
-- **Minhas vistorias** (`/inspections/mine`)
-- **Nova vistoria** (`/inspections/new`)
-- **Todas** (listagem geral local)
-- **Sair**
+## 4) Fluxo operacional - FISCAL
 
-### Criar nova vistoria
+### 4.1 Criar nova vistoria
 
-1. Abra **Nova vistoria**.
+1. Abra `Nova vistoria`.
 2. Preencha:
+   - Modulo
+   - Setor
    - Checklist
    - Equipe
-   - Descrição do serviço
-   - Localização
-3. Clique em **Criar**.
+   - Colaboradores (opcional)
+   - Descricao do servico (obrigatorio)
+   - Localizacao (opcional)
+3. Clique em `Criar`.
 
-O sistema gera um identificador externo (UUID) para sync idempotente.
+Resultado: a vistoria e criada como `RASCUNHO` com identificador externo (`externalId`) e status de sync pendente.
 
-### Preencher vistoria
+### 4.2 Preencher vistoria
 
-Na tela de preenchimento:
+Na tela `Preencher vistoria`:
 
-1. Responda cada item:
-   - **Conforme**
-   - **Não conforme**
-   - **Não aplicável**
-2. Preencha observações quando necessário.
-3. Anexe fotos por item.
-4. Anexe fotos gerais da vistoria.
-5. Capture assinatura e informe nome do líder/encarregado.
+- Responda cada item com:
+  - `Conforme`
+  - `Nao conforme`
+  - `Nao aplicavel`
+- Adicione observacoes quando necessario.
+- Anexe evidencias por item.
+- Anexe fotos gerais.
+- Capture assinatura e informe nome do signatario.
 
-> Observação: no topo da tela existem os botões **PDF**, **Salvar** e **Finalizar**.
-> O botão **Salvar** persiste a assinatura preenchida.
+### 4.3 Salvar e finalizar
 
-### Finalização
+- Botao `Salvar`: persiste itens/assinatura localmente.
+- Botao `Finalizar`: valida regras e conclui a vistoria.
 
-Ao finalizar, o sistema valida:
-- assinatura obrigatória;
-- item não conforme com foto obrigatória precisa de evidência;
-- checklist respondido.
+Validacoes de finalizacao:
 
-Depois disso:
-- calcula score (`conformes / avaliados`);
-- define status:
-  - com não conformidade: `PENDENTE_AJUSTE`;
-  - sem não conformidade: `FINALIZADA`;
-- marca para sincronização.
+- Assinatura com nome obrigatorios.
+- Todos os itens ativos precisam ter resposta.
+- Item `Nao conforme` com foto obrigatoria exige evidencia.
 
-### PDF offline
+Ao finalizar:
 
-Você pode gerar PDF localmente na própria tela da vistoria.
+- Score calculado: conformes / avaliados (exclui `Nao aplicavel`).
+- Se houver nao conformidade: status `PENDENTE_AJUSTE`.
+- Se nao houver nao conformidade: status `FINALIZADA`.
+- Vistoria fica marcada para sincronizacao.
 
-### Lista de vistorias
+### 4.4 Lista e detalhes
 
-Na tela de listagem, os botões de ação são:
-- **Ver**: abre detalhes;
-- **Editar**: abre preenchimento.
+- Em `Minhas vistorias`, use:
+  - `Ver` para abrir detalhes.
+  - `Editar` apenas para status `RASCUNHO`.
+- O status de sincronizacao aparece na listagem do fiscal.
 
----
+## 5) Fluxo operacional - GESTOR
 
-## Perfil GESTOR
+### 5.1 Dashboard
 
-### Menu disponível
+Use filtros:
 
-- **Dashboard**
-- **Vistorias**
-- **Pendências**
-- **Sair**
+- Data inicial
+- Data final
+- Modulo
+- Equipe
 
-### Dashboard
+E clique em `Buscar`.
 
-Exibe dados com filtros da API quando online e fallback local quando offline.
+Metricas exibidas:
 
-Filtros disponíveis na tela:
-- **Data inicial**
-- **Data final**
-- **Módulo**
-- **Equipe**
-- botão **Buscar**
+- Media geral
+- Servicos avaliados
+- Pendentes
+- Ranking por equipes
 
-Indicadores exibidos:
-- média geral;
-- total de vistorias;
-- total pendente de ajuste;
-- ranking por equipes;
-- quantidade pendente de sincronização.
+### 5.2 Vistorias
 
-### Pendências
+- Visualiza listagem geral.
+- Pode abrir detalhes e acompanhar status/percentual.
 
-Em **Pendências**, você pode:
-1. abrir uma pendência;
-2. registrar nota de resolução;
-3. anexar evidência opcional;
-4. clicar em **Marcar como Resolvida**.
+### 5.3 Pendencias
 
-Essa ação também fica pendente de sincronização.
+Em `Pendencias`:
 
----
+1. Abra `Ver e resolver`.
+2. Resolva cada item nao conforme:
+   - Informe notas de resolucao (obrigatorio).
+   - Anexe evidencia de correcao (opcional).
+3. Depois que todos os itens estiverem resolvidos, finalize a resolucao da vistoria quando aplicavel.
 
-## Perfil ADMIN
+## 6) Fluxo operacional - ADMIN
 
-### Menu disponível
+O perfil admin possui as capacidades do gestor e tambem os cadastros.
 
-- **Dashboard**
-- **Usuários**
-- **Equipes**
-- **Colaboradores**
-- **Checklists**
-- **Vistorias**
-- **Pendências**
-- **Sair**
+### 6.1 Usuarios
 
-### Usuários
+- Criar: `Novo usuario`.
+- Editar: nome, email, perfil e senha (opcional na edicao).
+- Excluir: icone de lixeira.
 
-Na tela **Usuários** (ADMIN), é possível:
+Perfis disponiveis:
 
-- criar usuário com nome, email, senha e perfil;
-- editar usuário existente (incluindo troca opcional de senha);
-- excluir usuário.
-
-Rótulos principais da tela:
-- botão **Novo usuário**;
-- modal com botão **Salvar**.
-
-Perfis disponíveis:
 - `ADMIN`
 - `GESTOR`
 - `FISCAL`
 
-### Equipes
+### 6.2 Equipes
 
-Na tela **Equipes** (ADMIN), é possível:
+- Criar/editar/excluir equipe.
+- Definir status ativa/inativa.
+- Associar colaboradores.
+- Atualizar dados via `Atualizar catalogo`.
 
-- criar equipe;
-- editar nome/status da equipe;
-- excluir equipe;
-- usar **Atualizar catálogo** para sincronizar lista com a API.
+### 6.3 Setores
 
-Rótulos principais da tela:
-- botão **Nova equipe**;
-- modal com botão **Salvar**.
+- Criar/editar/excluir setor.
+- Definir status ativo/inativo.
+- Nao e possivel excluir setor vinculado a colaboradores ou checklists.
 
-### Colaboradores
+### 6.4 Colaboradores
 
-Na tela **Colaboradores** (ADMIN), é possível:
+- Criar/editar/excluir colaborador.
+- Informar setor obrigatorio no cadastro/edicao.
+- Definir status ativo/inativo.
 
-- criar colaborador;
-- editar nome/status;
-- excluir colaborador.
+### 6.5 Checklists
 
-Rótulos principais da tela:
-- botão **Novo colaborador**;
-- modal com botão **Salvar**.
+- Criar/editar/excluir checklist.
+- Informar setor obrigatorio no cadastro/edicao.
+- Criar/editar secoes.
+- Criar/editar/excluir itens.
+- Definir:
+  - ordem
+  - ativo/inativo
+  - foto obrigatoria em nao conformidade
+- Atualizar dados via `Atualizar catalogo`.
 
-### Checklists
+## 7) Regras importantes de negocio
 
-Na tela **Checklists** (ADMIN), é possível:
+- Edicao de vistoria e permitida apenas em `RASCUNHO`.
+- Assinatura e obrigatoria para finalizar.
+- `Nao aplicavel` nao entra no denominador do score.
+- Se todos os itens avaliaveis forem `Nao aplicavel`, score final = 100%.
+- Resolver vistoria depende da resolucao de todos os itens nao conformes.
 
-- criar checklist;
-- editar checklist;
-- excluir checklist;
-- criar/editar seções;
-- criar/editar/excluir itens de seção;
-- configurar item com **foto obrigatória em não conformidade**;
-- atualizar catálogo diretamente da API.
+## 8) FAQ por perfil
 
-Rótulos principais da tela:
-- botão **Novo checklist**;
-- botão **Nova seção** dentro de cada checklist;
-- botão **Salvar** nos modais de checklist, seção e item.
+### FAQ - FISCAL
+
+**1. Posso criar e preencher vistoria sem internet?**  
+Sim. O fluxo de criacao/preenchimento/finalizacao funciona localmente.
+
+**2. O que acontece com minhas fotos quando estou offline?**  
+Elas ficam salvas localmente e sao enviadas na sincronizacao quando houver internet.
+
+**3. Como sei se minha vistoria subiu para o servidor?**  
+Pelo status de sincronizacao (`Sincronizado`) e reducao do contador no botao `Sincronizar (N)`.
+
+**4. Posso editar vistoria finalizada?**  
+Nao. Apenas vistoria em `RASCUNHO` permite edicao.
+
+**5. Finalizei, mas nao aparece no servidor. O que fazer?**  
+Verifique conexao, clique em `Sincronizar` e confira se ha `Erro ao sincronizar`.
+
+**6. Preciso responder todos os itens para finalizar?**  
+Sim, todos os itens ativos precisam de resposta.
+
+### FAQ - GESTOR
+
+**1. Posso acompanhar pendencias no modo offline?**  
+Sim, com base no que ja estiver salvo localmente.
+
+**2. Quem pode resolver nao conformidade?**  
+Gestor e admin no fluxo de acompanhamento; fiscal resolve no proprio fluxo de campo.
+
+**3. Posso resolver item sem nota?**  
+Nao. Nota de resolucao e obrigatoria.
+
+**4. Evidencia de resolucao e obrigatoria?**  
+Nao, e opcional (mas recomendada).
+
+**5. O dashboard funciona sem internet?**  
+Existe fallback local, mas os numeros oficiais sao obtidos online pela API.
+
+**6. Por que nao consigo marcar vistoria como resolvida?**  
+Porque ainda existe item nao conforme sem resolucao.
+
+### FAQ - ADMIN
+
+**1. O que somente admin pode fazer?**  
+Gerenciar usuarios, equipes, setores, colaboradores e checklists.
+
+**2. Posso usar os cadastros administrativos offline?**  
+Nao. Esses CRUDs dependem da API online.
+
+**3. Posso trocar perfil de um usuario existente?**  
+Sim, na edicao de usuario.
+
+**4. Posso criar item de checklist com foto obrigatoria?**  
+Sim, no cadastro de item habilite a opcao de foto obrigatoria em nao conformidade.
+
+**5. O que ocorre se eu inativar checklist/item?**  
+Ele deixa de ser usado no fluxo operacional conforme configuracao ativa.
+
+**6. Quando devo usar "Atualizar catalogo"?**  
+Sempre que quiser forcar recarga de equipes/setores/checklists do servidor para o cache local.
+
+## 9) Boas praticas para operacao em campo
+
+1. Entre no sistema ainda online.
+2. Atualize catalogos antes de sair para campo.
+3. Durante o trabalho, salve com frequencia.
+4. Ao recuperar conexao, sincronize e confirme se nao restaram erros.
+
+## 10) Suporte
+
+Em caso de duvida operacional, contate o responsavel funcional do processo ou o suporte tecnico da plataforma.
 
 ---
 
-## Regras de negócio importantes
-
-- Respostas: `CONFORME`, `NAO_CONFORME`, `NAO_APLICAVEL`.
-- Score: `conformes / avaliados` (avaliados = resposta diferente de `NAO_APLICAVEL`).
-- Se todos os itens forem não aplicáveis, score é tratado como 100%.
-- Finalização com qualquer não conformidade gera `PENDENTE_AJUSTE`.
-- Assinatura do líder/encarregado é obrigatória para finalizar.
-
----
-
-## Dúvidas frequentes
-
-**Posso trabalhar sem internet?**  
-Sim. O preenchimento da vistoria foi feito para funcionar offline.
-
-**Quando os dados vão para o servidor?**  
-Quando você clicar em **Sincronizar** e houver conexão.
-
-**Como sei se uma vistoria já subiu?**  
-Pelo status de sincronização (`SYNCED` quando enviada com sucesso).
-
-**Perco dados se fechar a tela?**  
-Não. As mudanças são persistidas localmente.
-
-**Quem resolve pendências?**  
-Gestor e Admin.
-
-**ADMIN consegue cadastrar usuários, equipes, colaboradores e checklists?**  
-Sim. Essas telas têm CRUD ativo nesta versão.
-
-**Quais nomes de botões devo procurar na interface?**  
-`Novo usuário`, `Nova equipe`, `Novo colaborador`, `Novo checklist`, `Nova seção`, `Salvar`, `Buscar`, `Resolver`, `Marcar como Resolvida`, `Ver`, `Editar`.
-
----
-
-## Precisa de ajuda?
-
-Se houver dúvidas operacionais, procure o responsável funcional da equipe ou o suporte técnico.
-
----
-
-**Última atualização**: Versão offline-first (manual sync + IndexedDB)
+Ultima atualizacao: fevereiro/2026

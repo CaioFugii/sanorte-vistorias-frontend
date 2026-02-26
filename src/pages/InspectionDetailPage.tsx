@@ -24,13 +24,14 @@ import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
-import { ChecklistAnswer, InspectionStatus } from '@/domain/enums';
+import { ChecklistAnswer, InspectionStatus, UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
 import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
 import { getModuleLabel } from '@/utils/moduleLabel';
 import jsPDF from 'jspdf';
+import { useAuthStore } from '@/stores/authStore';
 
 function formatDateTime(iso: string | undefined): string {
   if (!iso) return '–';
@@ -66,6 +67,7 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [checklistTab, setChecklistTab] = useState(0);
+  const user = useAuthStore((state) => state.user);
 
   const loadInspection = async () => {
     if (!externalId) return;
@@ -90,6 +92,10 @@ export const InspectionDetailPage = (): JSX.Element => {
   const resolvedCount = inspection ? getResolvedCount(inspection.items) : 0;
   const allResolved = nonConformItems.length > 0 && resolvedCount === nonConformItems.length;
   const canResolveInspection = inspection?.status === InspectionStatus.PENDENTE_AJUSTE && allResolved;
+  const canEditInspection =
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.GESTOR ||
+    inspection?.status === InspectionStatus.RASCUNHO;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
@@ -223,11 +229,17 @@ export const InspectionDetailPage = (): JSX.Element => {
           >
             Gerar PDF
           </Button>
-          {inspection.status === InspectionStatus.RASCUNHO && (
+          {canEditInspection && (
             <Button
               variant="contained"
               startIcon={<Edit />}
-              onClick={() => navigate(`/inspections/${inspection.externalId}/fill`)}
+              onClick={() =>
+                navigate(
+                  user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR
+                    ? `/inspections/${inspection.externalId}/manage`
+                    : `/inspections/${inspection.externalId}/fill`
+                )
+              }
             >
               Editar
             </Button>

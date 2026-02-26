@@ -9,6 +9,7 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
+import { SectorSelect } from "@/components/SectorSelect";
 import { TeamSelect } from "@/components/TeamSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -16,14 +17,17 @@ import { Collaborator, ModuleType } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
 import { CollaboratorMultiSelect } from "@/components/CollaboratorMultiSelect";
 import { useEffect } from "react";
+import { useReferenceStore } from "@/stores/referenceStore";
 
 export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const loadCache = useReferenceStore((state) => state.loadCache);
   const [loading, setLoading] = useState(false);
   const [loadingCollaborators, setLoadingCollaborators] = useState(true);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [module, setModule] = useState<ModuleType>(ModuleType.QUALIDADE);
+  const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
@@ -34,14 +38,19 @@ export const NewInspectionPage = (): JSX.Element => {
     const loadCollaborators = async () => {
       setLoadingCollaborators(true);
       try {
-        const response = await appRepository.getCollaborators({ page: 1, limit: 100 });
+        await loadCache();
+        const response = await appRepository.getCollaborators({
+          page: 1,
+          limit: 100,
+          sectorId: sectorId || undefined,
+        });
         setCollaborators(response.data.filter((collaborator) => collaborator.active));
       } finally {
         setLoadingCollaborators(false);
       }
     };
     loadCollaborators();
-  }, []);
+  }, [loadCache, sectorId]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -81,7 +90,25 @@ export const NewInspectionPage = (): JSX.Element => {
             required
           />
           <Box sx={{ mt: 2 }}>
-            <ChecklistSelect value={checklistId} onChange={setChecklistId} module={module} required />
+            <SectorSelect
+              value={sectorId}
+              onChange={(value) => {
+                setSectorId(value);
+                setChecklistId("");
+                setCollaboratorIds([]);
+              }}
+              required
+            />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <ChecklistSelect
+              value={checklistId}
+              onChange={setChecklistId}
+              module={module}
+              sectorId={sectorId}
+              disabled={!sectorId}
+              required
+            />
           </Box>
           <Box sx={{ mt: 2 }}>
             <TeamSelect value={teamId} onChange={setTeamId} required />
@@ -91,7 +118,7 @@ export const NewInspectionPage = (): JSX.Element => {
               value={collaboratorIds}
               onChange={setCollaboratorIds}
               collaborators={collaborators}
-              disabled={loadingCollaborators}
+              disabled={loadingCollaborators || !sectorId}
             />
           </Box>
           <TextField

@@ -15,7 +15,7 @@ import { CloudDone, CloudQueue } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Inspection } from "@/domain";
-import { InspectionStatus, SyncState } from "@/domain/enums";
+import { InspectionStatus, SyncState, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { StatusChip } from "@/components/StatusChip";
@@ -56,6 +56,8 @@ export const InspectionsPage = (): JSX.Element => {
   }
 
   const isFiscal = hasRole("FISCAL" as any);
+  const isAdminOrManager =
+    user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
   const isNotSynced = (i: Inspection) =>
     i.syncState === SyncState.PENDING_SYNC || i.syncState === SyncState.SYNC_ERROR;
 
@@ -150,11 +152,15 @@ export const InspectionsPage = (): JSX.Element => {
                   >
                     Ver
                   </Button>
-                  {inspection.status === InspectionStatus.RASCUNHO && (
+                  {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
                     <Button
                       size="small"
                       onClick={() =>
-                        navigate(`/inspections/${inspection.externalId}/fill`)
+                        navigate(
+                          isAdminOrManager
+                            ? `/inspections/${inspection.externalId}/manage`
+                            : `/inspections/${inspection.externalId}/fill`
+                        )
                       }
                     >
                       Editar

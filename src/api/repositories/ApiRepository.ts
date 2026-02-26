@@ -8,6 +8,7 @@ import {
   InspectionStatus,
   ModuleType,
   PaginatedResponse,
+  Sector,
   Team,
   SyncInspectionPayload,
   SyncInspectionResult,
@@ -189,9 +190,46 @@ export class ApiRepository {
     await apiClient.delete(`/teams/${teamId}`);
   }
 
+  async getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>> {
+    const response = await apiClient.get<PaginatedResponse<Sector> | Sector[]>("/sectors", { params });
+    const data = this.unwrapPaginated(response.data);
+    if (Array.isArray(response.data)) {
+      return {
+        data,
+        meta: {
+          page: 1,
+          limit: data.length,
+          total: data.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+    return response.data;
+  }
+
+  async createSector(input: { name: string; active: boolean }): Promise<Sector> {
+    const response = await apiClient.post<Sector>("/sectors", input);
+    return response.data;
+  }
+
+  async updateSector(
+    sectorId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Sector> {
+    const response = await apiClient.put<Sector>(`/sectors/${sectorId}`, input);
+    return response.data;
+  }
+
+  async deleteSector(sectorId: string): Promise<void> {
+    await apiClient.delete(`/sectors/${sectorId}`);
+  }
+
   async getCollaborators(params?: {
     page?: number;
     limit?: number;
+    sectorId?: string;
   }): Promise<PaginatedResponse<Collaborator>> {
     const response = await apiClient.get<PaginatedResponse<Collaborator> | Collaborator[]>(
       "/collaborators",
@@ -214,14 +252,14 @@ export class ApiRepository {
     return response.data;
   }
 
-  async createCollaborator(input: { name: string; active: boolean }): Promise<Collaborator> {
+  async createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator> {
     const response = await apiClient.post<Collaborator>("/collaborators", input);
     return response.data;
   }
 
   async updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; active: boolean }>
   ): Promise<Collaborator> {
     const response = await apiClient.put<Collaborator>(`/collaborators/${collaboratorId}`, input);
     return response.data;
@@ -233,6 +271,7 @@ export class ApiRepository {
 
   async getChecklists(params?: {
     module?: ModuleType;
+    sectorId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Checklist>> {
@@ -263,6 +302,7 @@ export class ApiRepository {
     module: ModuleType;
     name: string;
     description?: string;
+    sectorId: string;
     active: boolean;
   }): Promise<Checklist> {
     const response = await apiClient.post<Checklist>("/checklists", input);
@@ -271,7 +311,7 @@ export class ApiRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; active: boolean }>
+    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist> {
     const response = await apiClient.put<Checklist>(`/checklists/${checklistId}`, input);
     return normalizeChecklistSections(response.data);
@@ -350,6 +390,48 @@ export class ApiRepository {
 
   async getInspection(id: string): Promise<Inspection> {
     const response = await apiClient.get<Inspection>(`/inspections/${id}`);
+    return response.data;
+  }
+
+  async addInspectionEvidence(
+    inspectionId: string,
+    file: File,
+    inspectionItemId?: string
+  ): Promise<{
+    id: string;
+    inspectionId?: string;
+    inspectionItemId?: string;
+    fileName: string;
+    mimeType: string;
+    cloudinaryPublicId?: string;
+    url?: string;
+    bytes?: number;
+    format?: string;
+    width?: number;
+    height?: number;
+    createdAt: string;
+  }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (inspectionItemId) {
+      formData.append("inspectionItemId", inspectionItemId);
+    }
+    const response = await apiClient.post(`/inspections/${inspectionId}/evidences`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  }
+
+  async updateInspection(id: string, input: Partial<Inspection>): Promise<Inspection> {
+    const response = await apiClient.put<Inspection>(`/inspections/${id}`, input);
+    return response.data;
+  }
+
+  async setInspectionItems(
+    id: string,
+    items: Array<{ inspectionItemId: string; answer?: string; notes?: string }>
+  ): Promise<InspectionItem[]> {
+    const response = await apiClient.put<InspectionItem[]>(`/inspections/${id}/items`, items);
     return response.data;
   }
 

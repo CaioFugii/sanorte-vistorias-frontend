@@ -7,6 +7,9 @@ import { useReferenceStore } from "@/stores/referenceStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import { appRepository } from "@/repositories/AppRepository";
+import { API_ERROR_EVENT } from "@/api/apiClient";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const theme = createTheme({
   palette: {
@@ -46,10 +49,31 @@ function App(): JSX.Element {
     bootstrap();
   }, [loadCache, loadMe, refreshFromApi, setPendingSyncCount]);
 
+  useEffect(() => {
+    const onApiError = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message?: string }>;
+      const message = customEvent.detail?.message;
+      if (!message) return;
+      toast.error(message, { toastId: `api-error:${message}` });
+    };
+    window.addEventListener(API_ERROR_EVENT, onApiError);
+    return () => window.removeEventListener(API_ERROR_EVENT, onApiError);
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <RouterProvider router={router} />
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </ThemeProvider>
   );
 }

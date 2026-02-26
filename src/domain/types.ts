@@ -30,9 +30,19 @@ export interface Team {
   updatedAt?: string;
 }
 
+export interface Sector {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Collaborator {
   id: string;
   name: string;
+  sectorId: string;
+  sector?: Sector;
   active: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -64,6 +74,8 @@ export interface Checklist {
   module: ModuleType;
   name: string;
   description?: string;
+  sectorId: string;
+  sector?: Sector;
   active: boolean;
   sections: ChecklistSection[];
   items?: ChecklistItem[];

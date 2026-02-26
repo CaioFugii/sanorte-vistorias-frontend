@@ -11,6 +11,7 @@ interface ChecklistRendererProps {
   onItemChange: (itemId: string, updates: Partial<InspectionItem>) => void;
   onEvidencesChange: (itemId: string, photos: PhotoFile[]) => void;
   disabled?: boolean;
+  showItemEvidenceUploader?: boolean;
   /** Quando informado, fotos são enviadas ao Cloudinary antes de adicionar (online). */
   onUploadEvidence?: (file: File) => Promise<{
     publicId: string;
@@ -29,6 +30,7 @@ export const ChecklistRenderer = ({
   onItemChange,
   onEvidencesChange,
   disabled = false,
+  showItemEvidenceUploader = true,
   onUploadEvidence,
 }: ChecklistRendererProps) => {
   const getInspectionItem = (checklistItemId: string): InspectionItem | undefined => {
@@ -39,14 +41,14 @@ export const ChecklistRenderer = ({
 
   return (
     <Box>
-      {checklist.sections
+      {(checklist.sections ?? [])
         .sort((a, b) => a.order - b.order)
         .map((section) => (
           <Box key={section.id} sx={{ mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               {section.title ?? section.name}
             </Typography>
-            {section.items
+            {(section.items ?? checklist.items?.filter((item) => item.sectionId === section.id) ?? [])
               .filter((item) => item.active)
               .sort((a, b) => a.order - b.order)
               .map((item, index) => {
@@ -83,17 +85,21 @@ export const ChecklistRenderer = ({
                       disabled={disabled}
                       sx={{ mb: 2 }}
                     />
-                    {requiresPhoto && (
-                      <Alert severity="warning" sx={{ mb: 2 }}>
-                        Este item exige foto por estar não conforme.
-                      </Alert>
+                    {showItemEvidenceUploader && (
+                      <>
+                        {requiresPhoto && (
+                          <Alert severity="warning" sx={{ mb: 2 }}>
+                            Este item exige foto por estar não conforme.
+                          </Alert>
+                        )}
+                        <PhotoUploader
+                          photos={itemEvidences}
+                          onChange={(photos) => onEvidencesChange(inspectionItem.id, photos)}
+                          disabled={disabled}
+                          onUpload={onUploadEvidence}
+                        />
+                      </>
                     )}
-                    <PhotoUploader
-                      photos={itemEvidences}
-                      onChange={(photos) => onEvidencesChange(inspectionItem.id, photos)}
-                      disabled={disabled}
-                      onUpload={onUploadEvidence}
-                    />
                   </Paper>
                 );
               })}

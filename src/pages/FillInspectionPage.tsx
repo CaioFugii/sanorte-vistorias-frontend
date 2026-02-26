@@ -22,8 +22,9 @@ import {
 } from "@/components/PhotoUploader";
 import { SignaturePad } from "@/components/SignaturePad";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { InspectionStatus, SyncState } from "@/domain/enums";
+import { InspectionStatus, SyncState, UserRole } from "@/domain/enums";
 import { InspectionItem } from "@/domain";
+import { useAuthStore } from "@/stores/authStore";
 
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
@@ -40,6 +41,7 @@ export const FillInspectionPage = (): JSX.Element => {
     removeEvidence,
     saveSignature,
   } = useInspectionStore();
+  const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(true);
   const [finalizing, setFinalizing] = useState(false);
   const [signerName, setSignerName] = useState("");
@@ -261,7 +263,11 @@ export const FillInspectionPage = (): JSX.Element => {
     doc.save(`vistoria-${currentInspection.externalId}.pdf`);
   };
 
-  const canEdit = currentInspection.status === InspectionStatus.RASCUNHO;
+  const isAdminOrManager =
+    user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const canEdit =
+    isAdminOrManager || currentInspection.status === InspectionStatus.RASCUNHO;
+  const canFinalize = currentInspection.status === InspectionStatus.RASCUNHO;
 
   return (
     <Box>
@@ -284,7 +290,7 @@ export const FillInspectionPage = (): JSX.Element => {
           <Button
             variant="contained"
             startIcon={<CheckCircle />}
-            disabled={!canEdit || finalizing}
+            disabled={!canFinalize || finalizing}
             onClick={() => setFinalizeOpen(true)}
           >
             Finalizar
@@ -334,7 +340,8 @@ export const FillInspectionPage = (): JSX.Element => {
         onConfirm={handleFinalize}
         title="Finalizar vistoria"
         description="Confirma a finalização? Isso marcará a inspeção para sincronização."
-        confirmLabel={finalizing ? "Finalizando..." : "Finalizar"}
+        confirmLabel="Finalizar"
+        loading={finalizing}
       />
     </Box>
   );

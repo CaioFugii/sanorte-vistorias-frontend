@@ -1,5 +1,6 @@
 export { ModuleSelect } from './ModuleSelect';
 export { TeamSelect } from './TeamSelect';
+export { SectorSelect } from './SectorSelect';
 export { ChecklistSelect } from './ChecklistSelect';
 export { StatusChip } from './StatusChip';
 export { PercentBadge } from './PercentBadge';
