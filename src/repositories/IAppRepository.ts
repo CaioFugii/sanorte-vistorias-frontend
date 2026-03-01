@@ -185,6 +185,8 @@ export interface IAppRepository {
       resolutionEvidenceBase64?: string;
     }
   ): Promise<Inspection>;
+  paralyzeInspection(id: string, reason: string): Promise<Inspection>;
+  unparalyzeInspection(id: string): Promise<Inspection>;
   setInspectionItems(externalId: string, items: InspectionItem[]): Promise<void>;
   getInspectionItems(externalId: string): Promise<InspectionItem[]>;
   saveEvidence(evidence: Evidence): Promise<Evidence>;

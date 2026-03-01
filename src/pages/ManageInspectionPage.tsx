@@ -10,8 +10,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
 } from "@mui/material";
-import { Delete, Save } from "@mui/icons-material";
+import { Delete, PauseCircleOutline, PlayCircleOutline, Save } from "@mui/icons-material";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
@@ -34,6 +35,12 @@ export const ManageInspectionPage = (): JSX.Element => {
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
+  const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
+  const [paralyzeReason, setParalyzeReason] = useState("");
+  const [paralyzeError, setParalyzeError] = useState<string | null>(null);
+  const [paralyzeLoading, setParalyzeLoading] = useState(false);
+  const [unparalyzeDialogOpen, setUnparalyzeDialogOpen] = useState(false);
+  const [unparalyzeLoading, setUnparalyzeLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAllowed =
@@ -67,6 +74,21 @@ export const ManageInspectionPage = (): JSX.Element => {
     };
     run();
   }, [externalId, isAllowed, loadCache, navigate]);
+
+  const loadInspection = async () => {
+    if (!externalId || !isAllowed) return;
+    const data = await appRepository.getInspection(externalId, true);
+    if (data) {
+      setInspection(data);
+      setInspectionItems(
+        (data.items ?? []).map((item) => ({
+          ...item,
+          inspectionExternalId: item.inspectionExternalId ?? data.externalId,
+          updatedAt: item.updatedAt ?? data.updatedAt ?? new Date().toISOString(),
+        }))
+      );
+    }
+  };
 
   const checklist = useMemo(() => {
     if (!inspection) return undefined;
@@ -145,6 +167,61 @@ export const ManageInspectionPage = (): JSX.Element => {
     }
   };
 
+  const canParalyze = inspection.hasParalysisPenalty !== true;
+  const canUnparalyze = inspection.hasParalysisPenalty === true;
+
+  const openParalyzeDialog = () => {
+    setParalyzeReason("");
+    setParalyzeError(null);
+    setParalyzeDialogOpen(true);
+  };
+
+  const closeParalyzeDialog = () => {
+    if (paralyzeLoading) return;
+    setParalyzeDialogOpen(false);
+    setParalyzeReason("");
+    setParalyzeError(null);
+  };
+
+  const handleParalyzeInspection = async () => {
+    if (!paralyzeReason.trim()) {
+      setParalyzeError("Motivo da paralisação é obrigatório.");
+      return;
+    }
+    setParalyzeLoading(true);
+    setParalyzeError(null);
+    try {
+      await appRepository.paralyzeInspection(
+        inspection.serverId ?? inspection.externalId,
+        paralyzeReason.trim()
+      );
+      closeParalyzeDialog();
+      await loadInspection();
+    } catch (e) {
+      setParalyzeError(e instanceof Error ? e.message : "Erro ao registrar paralisação.");
+    } finally {
+      setParalyzeLoading(false);
+    }
+  };
+
+  const closeUnparalyzeDialog = () => {
+    if (unparalyzeLoading) return;
+    setUnparalyzeDialogOpen(false);
+  };
+
+  const handleUnparalyzeInspection = async () => {
+    setUnparalyzeLoading(true);
+    try {
+      await appRepository.unparalyzeInspection(
+        inspection.serverId ?? inspection.externalId
+      );
+      closeUnparalyzeDialog();
+      await loadInspection();
+    } finally {
+      setUnparalyzeLoading(false);
+    }
+  };
+
   const handleUploadGeneralEvidences = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!inspection) return;
     const files = event.target.files;
@@ -179,14 +256,38 @@ export const ManageInspectionPage = (): JSX.Element => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5">Editar vistoria (gestão)</Typography>
-        <Button
-          variant="contained"
-          startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? "Salvando..." : "Salvar alterações"}
-        </Button>
+        <Box display="flex" gap={1}>
+          {canParalyze && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<PauseCircleOutline />}
+              onClick={openParalyzeDialog}
+              disabled={paralyzeLoading}
+            >
+              Registrar paralisação
+            </Button>
+          )}
+          {canUnparalyze && (
+            <Button
+              variant="outlined"
+              color="success"
+              startIcon={<PlayCircleOutline />}
+              onClick={() => setUnparalyzeDialogOpen(true)}
+              disabled={unparalyzeLoading}
+            >
+              Remover penalidade
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Salvando..." : "Salvar alterações"}
+          </Button>
+        </Box>
       </Box>
 
       <Paper sx={{ p: 2 }}>
@@ -306,6 +407,65 @@ export const ManageInspectionPage = (): JSX.Element => {
         Edição administrativa online: respostas e observações podem ser ajustadas em qualquer status.
         Evidências e assinatura permanecem no fluxo operacional.
       </Alert>
+      <Dialog
+        open={unparalyzeDialogOpen}
+        onClose={closeUnparalyzeDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Remover penalidade de paralisação</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Remove a penalidade de 25% aplicada por paralisação e recalcula a nota.
+            Esta ação é usada para correção de erro de registro.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeUnparalyzeDialog} disabled={unparalyzeLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleUnparalyzeInspection}
+            disabled={unparalyzeLoading}
+          >
+            {unparalyzeLoading ? "Removendo..." : "Remover penalidade"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={paralyzeDialogOpen} onClose={closeParalyzeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Registrar paralisação</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Motivo da paralisação"
+            multiline
+            rows={3}
+            value={paralyzeReason}
+            onChange={(e) => setParalyzeReason(e.target.value)}
+            margin="normal"
+            required
+            error={!!paralyzeError}
+            helperText={
+              paralyzeError ?? "Esta ação aplica penalidade persistente de 25% na nota."
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeParalyzeDialog} disabled={paralyzeLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleParalyzeInspection}
+            disabled={paralyzeLoading || !paralyzeReason.trim()}
+          >
+            {paralyzeLoading ? "Salvando..." : "Confirmar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog
         open={deleteDialogOpen}
         onClose={deleteLoading ? undefined : () => setDeleteDialogOpen(false)}

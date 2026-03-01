@@ -94,6 +94,11 @@ export interface Inspection {
   locationDescription: string;
   status: InspectionStatus;
   scorePercent?: number;
+  hasParalysisPenalty?: boolean;
+  paralyzedReason?: string | null;
+  paralyzedAt?: string | null;
+  paralyzedByUserId?: string | null;
+  paralyzedBy?: User | null;
   syncState: SyncState;
   syncErrorMessage?: string;
   syncedAt?: string;

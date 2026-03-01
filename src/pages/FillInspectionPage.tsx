@@ -3,10 +3,15 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
+  TextField,
   Typography,
 } from "@mui/material";
-import { CheckCircle, PictureAsPdf, Save } from "@mui/icons-material";
+import { CheckCircle, PictureAsPdf, PauseCircleOutline, Save } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import jsPDF from "jspdf";
@@ -49,6 +54,10 @@ export const FillInspectionPage = (): JSX.Element => {
   const [signatureDirty, setSignatureDirty] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
+  const [paralyzeReason, setParalyzeReason] = useState("");
+  const [paralyzeError, setParalyzeError] = useState<string | null>(null);
+  const [paralyzeLoading, setParalyzeLoading] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -268,6 +277,41 @@ export const FillInspectionPage = (): JSX.Element => {
   const canEdit =
     isAdminOrManager || currentInspection.status === InspectionStatus.RASCUNHO;
   const canFinalize = currentInspection.status === InspectionStatus.RASCUNHO;
+  const canParalyze =
+    user?.role === UserRole.FISCAL &&
+    canEdit &&
+    currentInspection.hasParalysisPenalty !== true;
+
+  const openParalyzeDialog = () => {
+    setParalyzeReason("");
+    setParalyzeError(null);
+    setParalyzeDialogOpen(true);
+  };
+
+  const closeParalyzeDialog = () => {
+    if (paralyzeLoading) return;
+    setParalyzeDialogOpen(false);
+    setParalyzeReason("");
+    setParalyzeError(null);
+  };
+
+  const handleParalyzeInspection = async () => {
+    if (!paralyzeReason.trim()) {
+      setParalyzeError("Motivo da paralisação é obrigatório.");
+      return;
+    }
+    setParalyzeLoading(true);
+    setParalyzeError(null);
+    try {
+      await appRepository.paralyzeInspection(currentInspection.externalId, paralyzeReason.trim());
+      closeParalyzeDialog();
+      await load(externalId);
+    } catch (e) {
+      setParalyzeError(e instanceof Error ? e.message : "Erro ao registrar paralisação.");
+    } finally {
+      setParalyzeLoading(false);
+    }
+  };
 
   return (
     <Box>
@@ -287,6 +331,17 @@ export const FillInspectionPage = (): JSX.Element => {
           >
             {saving ? "Salvando..." : "Salvar"}
           </Button>
+          {canParalyze && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<PauseCircleOutline />}
+              onClick={openParalyzeDialog}
+              disabled={paralyzeLoading}
+            >
+              Registrar paralisação
+            </Button>
+          )}
           <Button
             variant="contained"
             startIcon={<CheckCircle />}
@@ -343,6 +398,39 @@ export const FillInspectionPage = (): JSX.Element => {
         confirmLabel="Finalizar"
         loading={finalizing}
       />
+
+      <Dialog open={paralyzeDialogOpen} onClose={closeParalyzeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Registrar paralisação</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Motivo da paralisação"
+            multiline
+            rows={3}
+            value={paralyzeReason}
+            onChange={(e) => setParalyzeReason(e.target.value)}
+            margin="normal"
+            required
+            error={!!paralyzeError}
+            helperText={
+              paralyzeError ?? "Esta ação aplica penalidade persistente de 25% na nota."
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeParalyzeDialog} disabled={paralyzeLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleParalyzeInspection}
+            disabled={paralyzeLoading || !paralyzeReason.trim()}
+          >
+            {paralyzeLoading ? "Salvando..." : "Confirmar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

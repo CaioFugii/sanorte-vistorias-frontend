@@ -53,6 +53,9 @@ interface SyncApiItem {
   collaboratorIds?: string[];
   serviceDescription: string;
   locationDescription?: string;
+  paralyze?: {
+    reason: string;
+  };
   createdOffline: boolean;
   syncedAt?: string;
   items: Array<{
@@ -443,6 +446,16 @@ export class ApiRepository {
     return response.data;
   }
 
+  async paralyzeInspection(id: string, reason: string): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(`/inspections/${id}/paralyze`, { reason });
+    return response.data;
+  }
+
+  async unparalyzeInspection(id: string): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(`/inspections/${id}/unparalyze`);
+    return response.data;
+  }
+
   /** Resolve um item não conforme. Quando todos estiverem resolvidos, a vistoria passa a RESOLVIDA. */
   async resolveInspectionItem(
     inspectionId: string,
@@ -605,6 +618,10 @@ export class ApiRepository {
         collaboratorIds: inspection.collaboratorIds,
         serviceDescription: inspection.serviceDescription,
         locationDescription: inspection.locationDescription,
+        paralyze:
+          inspection.hasParalysisPenalty && inspection.paralyzedReason
+            ? { reason: inspection.paralyzedReason }
+            : undefined,
         createdOffline: inspection.createdOffline,
         syncedAt: inspection.syncedAt,
         items: entry.inspectionItems.map((item) => ({

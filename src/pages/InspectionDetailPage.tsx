@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -20,7 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment } from '@mui/icons-material';
+import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment, PauseCircleOutline } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
@@ -67,12 +68,16 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [checklistTab, setChecklistTab] = useState(0);
+  const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
+  const [paralyzeReason, setParalyzeReason] = useState('');
+  const [paralyzeError, setParalyzeError] = useState<string | null>(null);
+  const [paralyzeLoading, setParalyzeLoading] = useState(false);
   const user = useAuthStore((state) => state.user);
 
   const loadInspection = async () => {
     if (!externalId) return;
     setLoading(true);
-    const forceApi = true;
+    const forceApi = user?.role !== UserRole.FISCAL;
     const inspectionData = await appRepository.getInspection(externalId, forceApi);
     if (!inspectionData) {
       navigate('/inspections');
@@ -86,7 +91,7 @@ export const InspectionDetailPage = (): JSX.Element => {
     if (externalId) {
       loadInspection();
     }
-  }, [externalId]);
+  }, [externalId, user?.role]);
 
   const nonConformItems = inspection ? getNonConformItems(inspection.items) : [];
   const resolvedCount = inspection ? getResolvedCount(inspection.items) : 0;
@@ -96,6 +101,9 @@ export const InspectionDetailPage = (): JSX.Element => {
     user?.role === UserRole.ADMIN ||
     user?.role === UserRole.GESTOR ||
     inspection?.status === InspectionStatus.RASCUNHO;
+  const canParalyzeInspection =
+    (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
+    inspection?.hasParalysisPenalty !== true;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
@@ -175,6 +183,38 @@ export const InspectionDetailPage = (): JSX.Element => {
     }
   };
 
+  const openParalyzeDialog = () => {
+    setParalyzeReason('');
+    setParalyzeError(null);
+    setParalyzeDialogOpen(true);
+  };
+
+  const closeParalyzeDialog = () => {
+    if (paralyzeLoading) return;
+    setParalyzeDialogOpen(false);
+    setParalyzeReason('');
+    setParalyzeError(null);
+  };
+
+  const handleParalyzeInspection = async () => {
+    if (!inspection) return;
+    if (!paralyzeReason.trim()) {
+      setParalyzeError('Motivo da paralisação é obrigatório.');
+      return;
+    }
+    setParalyzeLoading(true);
+    setParalyzeError(null);
+    try {
+      await appRepository.paralyzeInspection(inspection.externalId, paralyzeReason.trim());
+      closeParalyzeDialog();
+      await loadInspection();
+    } catch (e) {
+      setParalyzeError(e instanceof Error ? e.message : 'Erro ao registrar paralisação.');
+    } finally {
+      setParalyzeLoading(false);
+    }
+  };
+
   const handleGeneratePDF = () => {
     if (!inspection) return;
 
@@ -229,6 +269,17 @@ export const InspectionDetailPage = (): JSX.Element => {
           >
             Gerar PDF
           </Button>
+          {canParalyzeInspection && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<PauseCircleOutline />}
+              onClick={openParalyzeDialog}
+              disabled={paralyzeLoading}
+            >
+              Registrar paralisação
+            </Button>
+          )}
           {canEditInspection && (
             <Button
               variant="contained"
@@ -262,6 +313,24 @@ export const InspectionDetailPage = (): JSX.Element => {
             <Typography variant="body2" gutterBottom>
               <strong>Status:</strong> <StatusChip status={inspection.status} />
             </Typography>
+            <Typography variant="body2" gutterBottom>
+              <strong>Penalidade de paralisação:</strong>{' '}
+              {inspection.hasParalysisPenalty ? (
+                <Chip label="Aplicada (25%)" color="warning" size="small" />
+              ) : (
+                'Não aplicada'
+              )}
+            </Typography>
+            {inspection.paralyzedReason && (
+              <Typography variant="body2" gutterBottom>
+                <strong>Motivo da paralisação:</strong> {inspection.paralyzedReason}
+              </Typography>
+            )}
+            {inspection.paralyzedAt && (
+              <Typography variant="body2" gutterBottom>
+                <strong>Paralisada em:</strong> {formatDateTime(inspection.paralyzedAt)}
+              </Typography>
+            )}
             <Typography variant="body2" gutterBottom>
               <strong>Percentual:</strong>{' '}
               {inspection.scorePercent !== undefined ? (
@@ -649,6 +718,43 @@ export const InspectionDetailPage = (): JSX.Element => {
           Nenhum item não conforme a exibir. Se a vistoria ainda estiver pendente, atualize a página para carregar os itens.
         </Alert>
       )}
+
+      {paralyzeError && !paralyzeDialogOpen && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {paralyzeError}
+        </Alert>
+      )}
+
+      <Dialog open={paralyzeDialogOpen} onClose={closeParalyzeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Registrar paralisação</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Motivo da paralisação"
+            multiline
+            rows={3}
+            value={paralyzeReason}
+            onChange={(e) => setParalyzeReason(e.target.value)}
+            margin="normal"
+            required
+            error={!!paralyzeError}
+            helperText={paralyzeError ?? 'Esta ação aplica penalidade persistente de 25% na nota.'}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeParalyzeDialog} disabled={paralyzeLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={handleParalyzeInspection}
+            disabled={paralyzeLoading || !paralyzeReason.trim()}
+          >
+            {paralyzeLoading ? 'Salvando...' : 'Confirmar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={resolveModalOpen} onClose={closeResolveModal} maxWidth="sm" fullWidth>
         <DialogTitle>Resolver item não conforme</DialogTitle>

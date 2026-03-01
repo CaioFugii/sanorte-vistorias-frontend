@@ -1,6 +1,7 @@
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   Paper,
   Table,
@@ -116,7 +117,12 @@ export const InspectionsPage = (): JSX.Element => {
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>{inspection.locationDescription || "-"}</TableCell>
                 <TableCell>
-                  <StatusChip status={inspection.status} />
+                  <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                    <StatusChip status={inspection.status} />
+                    {inspection.hasParalysisPenalty && (
+                      <Chip size="small" label="Penalizada" color="warning" variant="outlined" />
+                    )}
+                  </Box>
                 </TableCell>
                 {isFiscal && (
                   <TableCell>

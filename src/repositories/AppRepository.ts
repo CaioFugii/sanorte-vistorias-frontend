@@ -48,6 +48,47 @@ export class AppRepository implements IAppRepository {
     this.apiRepository
   );
 
+  private getCurrentUser(): User | null {
+    const rawUser = localStorage.getItem("auth_user");
+    if (!rawUser) return null;
+    try {
+      return JSON.parse(rawUser) as User;
+    } catch {
+      return null;
+    }
+  }
+
+  private async ensureLocalInspectionForFiscal(externalId: string): Promise<Inspection> {
+    const existing = await this.offlineRepository.getInspectionByExternalId(externalId);
+    if (existing) return existing;
+
+    if (!navigator.onLine) {
+      throw new Error("Vistoria não disponível no dispositivo para paralisação offline.");
+    }
+
+    const fromApi = await this.apiRepository.getInspection(externalId);
+    const normalized = normalizeInspectionFromApi(fromApi, externalId);
+    const localCopy: Inspection = {
+      ...normalized,
+      syncState: SyncState.SYNCED,
+      syncErrorMessage: undefined,
+      syncedAt: normalized.syncedAt ?? nowIso(),
+      createdOffline: false,
+    };
+    await this.offlineRepository.createInspection(localCopy);
+    if ((normalized.items ?? []).length > 0) {
+      await this.offlineRepository.replaceInspectionItems(
+        externalId,
+        (normalized.items ?? []).map((item) => ({
+          ...item,
+          inspectionExternalId: item.inspectionExternalId ?? externalId,
+          updatedAt: item.updatedAt ?? localCopy.updatedAt ?? nowIso(),
+        }))
+      );
+    }
+    return localCopy;
+  }
+
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
     const data = await this.apiRepository.login(email, password);
     localStorage.setItem("auth_token", data.accessToken);
@@ -503,6 +544,37 @@ export class AppRepository implements IAppRepository {
       pendingResolutionNotes: options.resolutionNotes,
       syncState: SyncState.PENDING_SYNC,
     });
+  }
+
+  async paralyzeInspection(id: string, reason: string): Promise<Inspection> {
+    const user = this.getCurrentUser();
+    if (user?.role === UserRole.FISCAL) {
+      const current = await this.ensureLocalInspectionForFiscal(id);
+      if (current.hasParalysisPenalty) {
+        return current;
+      }
+
+      return this.offlineRepository.updateInspection(id, {
+        hasParalysisPenalty: true,
+        paralyzedReason: reason,
+        paralyzedAt: nowIso(),
+        paralyzedByUserId: user.id,
+        syncState: SyncState.PENDING_SYNC,
+        syncErrorMessage: undefined,
+      });
+    }
+
+    if (!navigator.onLine) {
+      throw new Error("Paralisação disponível apenas online para este perfil.");
+    }
+    return this.apiRepository.paralyzeInspection(id, reason);
+  }
+
+  async unparalyzeInspection(id: string): Promise<Inspection> {
+    if (!navigator.onLine) {
+      throw new Error("Remoção de penalidade disponível apenas online.");
+    }
+    return this.apiRepository.unparalyzeInspection(id);
   }
 
   /** Resolve um item não conforme. Só disponível online. Use inspection.serverId na URL (id interno da API). */
