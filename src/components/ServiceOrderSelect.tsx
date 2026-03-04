@@ -5,6 +5,7 @@ import { useEffect } from "react";
 interface ServiceOrderSelectProps {
   value: string;
   onChange: (serviceOrderId: string) => void;
+  sectorId?: string;
   label?: string;
   required?: boolean;
   disabled?: boolean;
@@ -13,6 +14,7 @@ interface ServiceOrderSelectProps {
 export const ServiceOrderSelect = ({
   value,
   onChange,
+  sectorId,
   label = "Ordem de Serviço (OS)",
   required = false,
   disabled = false,
@@ -21,8 +23,8 @@ export const ServiceOrderSelect = ({
   const loadServiceOrders = useReferenceStore((state) => state.loadServiceOrders);
 
   useEffect(() => {
-    loadServiceOrders();
-  }, [loadServiceOrders]);
+    loadServiceOrders(sectorId);
+  }, [loadServiceOrders, sectorId]);
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
@@ -37,7 +39,7 @@ export const ServiceOrderSelect = ({
         </MenuItem>
         {serviceOrders.map((so) => (
           <MenuItem key={so.id} value={so.id}>
-            {so.osNumber} - {so.address}
+            {so.osNumber} - {so.sector?.name}
           </MenuItem>
         ))}
       </Select>

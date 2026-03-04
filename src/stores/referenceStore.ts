@@ -10,7 +10,7 @@ interface ReferenceState {
   loading: boolean;
   loadCache: () => Promise<void>;
   refreshFromApi: () => Promise<void>;
-  loadServiceOrders: () => Promise<void>;
+  loadServiceOrders: (sectorId?: string) => Promise<void>;
 }
 
 export const useReferenceStore = create<ReferenceState>((set) => ({
@@ -48,13 +48,21 @@ export const useReferenceStore = create<ReferenceState>((set) => ({
     }
   },
 
-  loadServiceOrders: async () => {
+  loadServiceOrders: async (sectorId?: string) => {
+    if (!sectorId?.trim()) {
+      set({ serviceOrders: [] });
+      return;
+    }
     if (!navigator.onLine) {
       set({ serviceOrders: [] });
       return;
     }
     try {
-      const result = await appRepository.getServiceOrders({ page: 1, limit: 100 });
+      const result = await appRepository.getServiceOrders({
+        sectorId,
+        page: 1,
+        limit: 100,
+      });
       set({ serviceOrders: result.data });
     } catch {
       set({ serviceOrders: [] });

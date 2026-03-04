@@ -21,15 +21,23 @@ import { IAppRepository } from "./IAppRepository";
 /** Normaliza inspeção vinda da API: serverId (id interno), externalId e itens. */
 function normalizeInspectionFromApi(inspection: Inspection & { id?: string }, externalId: string): Inspection {
   const serverId = inspection.id ?? inspection.serverId;
+  const routeId = externalId || inspection.externalId || (inspection as { id?: string }).id || "";
   const items = inspection.items?.map((item) => ({
     ...item,
-    inspectionExternalId: item.inspectionExternalId ?? externalId,
+    inspectionExternalId: item.inspectionExternalId ?? routeId,
   }));
   return {
     ...inspection,
+    externalId: routeId,
     serverId,
     items: items ?? inspection.items,
   };
+}
+
+/** Garante externalId preenchido (id da API como fallback) para itens de listagem. */
+function normalizeInspectionListItem(inspection: Inspection & { id?: string }): Inspection {
+  const routeId = inspection.externalId ?? inspection.id ?? "";
+  return normalizeInspectionFromApi(inspection, routeId);
 }
 
 export class AppRepository implements IAppRepository {
@@ -279,7 +287,11 @@ export class AppRepository implements IAppRepository {
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Inspection>> {
-    return this.apiRepository.getInspections(params);
+    const res = await this.apiRepository.getInspections(params);
+    return {
+      ...res,
+      data: res.data.map((i) => normalizeInspectionListItem(i as Inspection & { id?: string })),
+    };
   }
 
   async getMyInspections(params?: {
@@ -287,7 +299,11 @@ export class AppRepository implements IAppRepository {
     limit?: number;
     osNumber?: string;
   }): Promise<PaginatedResponse<Inspection>> {
-    return this.apiRepository.getMyInspections(params);
+    const res = await this.apiRepository.getMyInspections(params);
+    return {
+      ...res,
+      data: res.data.map((i) => normalizeInspectionListItem(i as Inspection & { id?: string })),
+    };
   }
 
   async getDashboardSummary(params?: {
@@ -334,7 +350,12 @@ export class AppRepository implements IAppRepository {
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,
     });
-    return normalizeInspectionFromApi(created as Inspection & { id?: string }, created.externalId);
+    const createdWithId = created as Inspection & { id?: string };
+    const routeId = createdWithId.externalId ?? createdWithId.id;
+    if (!routeId) {
+      throw new Error("API retornou vistoria sem id nem externalId");
+    }
+    return normalizeInspectionFromApi(createdWithId, routeId);
   }
 
   async finalizeInspection(inspectionId: string): Promise<Inspection> {
@@ -355,12 +376,12 @@ export class AppRepository implements IAppRepository {
   }
 
   async listInspections(): Promise<Inspection[]> {
-    const res = await this.apiRepository.getInspections({ page: 1, limit: 100 });
+    const res = await this.getInspections({ page: 1, limit: 100 });
     return res.data;
   }
 
   async listInspectionsByUser(_userId: string): Promise<Inspection[]> {
-    const res = await this.apiRepository.getMyInspections({ page: 1, limit: 100 });
+    const res = await this.getMyInspections({ page: 1, limit: 100 });
     return res.data;
   }
 
@@ -369,7 +390,7 @@ export class AppRepository implements IAppRepository {
   }
 
   async listPendingAdjustments(): Promise<Inspection[]> {
-    const res = await this.apiRepository.getInspections({
+    const res = await this.getInspections({
       status: InspectionStatus.PENDENTE_AJUSTE,
       page: 1,
       limit: 100,

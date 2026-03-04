@@ -8,7 +8,8 @@ interface InspectionState {
   evidences: Evidence[];
   signature: Signature | null;
   load: (externalId: string) => Promise<void>;
-  setItemsAndAutosave: (items: InspectionItem[]) => Promise<void>;
+  setItems: (items: InspectionItem[]) => void;
+  saveItems: () => Promise<void>;
   addEvidence: (evidence: Evidence) => Promise<void>;
   removeEvidence: (evidenceId: string) => Promise<void>;
   saveSignature: (signature: Signature) => Promise<void>;
@@ -53,21 +54,27 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
         }
       : null;
 
+    const finalSignature = localSignature ?? signatureFromApi;
+
     set({
       currentInspection: inspection,
       inspectionItems: localItems.length > 0 ? localItems : inspectionItemsFromApi,
       evidences: localEvidences.length > 0 ? localEvidences : evidencesFromApi,
-      signature: localSignature ?? signatureFromApi,
+      signature: finalSignature,
     });
   },
 
-  setItemsAndAutosave: async (items) => {
+  setItems: (items) => {
+    set({ inspectionItems: items });
+  },
+
+  saveItems: async () => {
     const externalId = get().currentInspection?.externalId;
-    if (!externalId) {
+    const items = get().inspectionItems;
+    if (!externalId || items.length === 0) {
       return;
     }
     await appRepository.setInspectionItems(externalId, items);
-    set({ inspectionItems: items });
   },
 
   addEvidence: async (evidence) => {

@@ -7,7 +7,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
@@ -15,46 +15,28 @@ import { ServiceOrderSelect } from "@/components/ServiceOrderSelect";
 import { TeamSelect } from "@/components/TeamSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
-import { Collaborator, ModuleType } from "@/domain";
+import { ModuleType } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
-import { CollaboratorMultiSelect } from "@/components/CollaboratorMultiSelect";
-import { useEffect } from "react";
 import { useReferenceStore } from "@/stores/referenceStore";
 
 export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const loadCache = useReferenceStore((state) => state.loadCache);
   const serviceOrders = useReferenceStore((state) => state.serviceOrders);
   const [loading, setLoading] = useState(false);
-  const [loadingCollaborators, setLoadingCollaborators] = useState(true);
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [module, setModule] = useState<ModuleType>(ModuleType.QUALIDADE);
+  const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [serviceOrderId, setServiceOrderId] = useState("");
-  const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
 
   useEffect(() => {
-    const loadCollaborators = async () => {
-      setLoadingCollaborators(true);
-      try {
-        await loadCache();
-        const response = await appRepository.getCollaborators({
-          page: 1,
-          limit: 100,
-          sectorId: sectorId || undefined,
-        });
-        setCollaborators(response.data.filter((collaborator) => collaborator.active));
-      } finally {
-        setLoadingCollaborators(false);
-      }
-    };
-    loadCollaborators();
-  }, [loadCache, sectorId]);
+    if (!serviceOrderId) return;
+    const so = serviceOrders.find((s) => s.id === serviceOrderId);
+    setLocationDescription(so?.address ?? "");
+  }, [serviceOrderId, serviceOrders]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -68,7 +50,6 @@ export const NewInspectionPage = (): JSX.Element => {
         checklistId,
         teamId,
         serviceOrderId,
-        collaboratorIds,
         serviceDescription,
         locationDescription,
         createdByUserId: user.id,
@@ -100,7 +81,8 @@ export const NewInspectionPage = (): JSX.Element => {
               onChange={(value) => {
                 setSectorId(value);
                 setChecklistId("");
-                setCollaboratorIds([]);
+                setServiceOrderId("");
+                setLocationDescription("");
               }}
               required
             />
@@ -118,9 +100,9 @@ export const NewInspectionPage = (): JSX.Element => {
           <Box sx={{ mt: 2 }}>
             <TeamSelect value={teamId} onChange={setTeamId} required />
           </Box>
-          {serviceOrders.length === 0 && navigator.onLine && (
+          {sectorId && serviceOrders.length === 0 && navigator.onLine && (
             <Alert severity="info" sx={{ mt: 2 }}>
-              Nenhuma Ordem de Serviço cadastrada. Administradores e gestores podem importar OS via Excel
+              Nenhuma Ordem de Serviço cadastrada para este setor. Administradores e gestores podem importar OS via Excel
               na página &quot;Ordens de Serviço&quot;.
             </Alert>
           )}
@@ -128,16 +110,9 @@ export const NewInspectionPage = (): JSX.Element => {
             <ServiceOrderSelect
               value={serviceOrderId}
               onChange={setServiceOrderId}
+              sectorId={sectorId || undefined}
               required
-              disabled={serviceOrders.length === 0}
-            />
-          </Box>
-          <Box sx={{ mt: 2 }}>
-            <CollaboratorMultiSelect
-              value={collaboratorIds}
-              onChange={setCollaboratorIds}
-              collaborators={collaborators}
-              disabled={loadingCollaborators || !sectorId}
+              disabled={!sectorId}
             />
           </Box>
           <TextField

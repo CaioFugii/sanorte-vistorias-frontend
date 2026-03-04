@@ -14,6 +14,7 @@ import {
 import { CheckCircle, PictureAsPdf, PauseCircleOutline, Save } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import jsPDF from "jspdf";
 import { appRepository } from "@/repositories/AppRepository";
 import { useInspectionStore } from "@/stores/inspectionStore";
@@ -41,7 +42,8 @@ export const FillInspectionPage = (): JSX.Element => {
     evidences,
     signature,
     load,
-    setItemsAndAutosave,
+    setItems,
+    saveItems,
     addEvidence,
     removeEvidence,
     saveSignature,
@@ -99,7 +101,7 @@ export const FillInspectionPage = (): JSX.Element => {
     }
   }, [signature]);
 
-  const ensureChecklistItems = async (): Promise<void> => {
+  const ensureChecklistItems = (): void => {
     if (!currentInspection || !checklist) return;
     if (inspectionItems.length > 0) return;
     const now = new Date().toISOString();
@@ -112,7 +114,7 @@ export const FillInspectionPage = (): JSX.Element => {
         checklistItemId: item.id,
         updatedAt: now,
       }));
-    await setItemsAndAutosave(initialItems);
+    setItems(initialItems);
   };
 
   useEffect(() => {
@@ -131,11 +133,11 @@ export const FillInspectionPage = (): JSX.Element => {
     return <Alert severity="error">Vistoria não encontrada.</Alert>;
   }
 
-  const handleItemChange = async (id: string, updates: Partial<InspectionItem>) => {
+  const handleItemChange = (id: string, updates: Partial<InspectionItem>) => {
     const next = inspectionItems.map((item) =>
       item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
     );
-    await setItemsAndAutosave(next);
+    setItems(next);
   };
 
   const handleUploadEvidence = async (file: File, inspectionItemId?: string) => {
@@ -198,11 +200,11 @@ export const FillInspectionPage = (): JSX.Element => {
     }
   };
 
-  /** Persiste respostas da vistoria (itens + assinatura) na API offline / IndexedDB. */
+  /** Persiste respostas da vistoria (itens + assinatura) na API. Uma única chamada para os itens. */
   const handleSave = async (): Promise<void> => {
     setSaving(true);
     try {
-      await setItemsAndAutosave(inspectionItems);
+      await saveItems();
       await handleSaveSignature();
     } finally {
       setSaving(false);
@@ -262,10 +264,10 @@ export const FillInspectionPage = (): JSX.Element => {
         signature: currentSignature,
       });
       if (!validation.isValid) {
-        alert(validation.errors.join("\n"));
+        toast.error(validation.errors.join("\n"));
         return;
       }
-      await appRepository.setInspectionItems(currentInspection.externalId, inspectionItems);
+      await saveItems();
       const inspectionId = currentInspection.serverId ?? currentInspection.externalId;
       await appRepository.finalizeInspection(inspectionId);
       navigate(`/inspections/${currentInspection.externalId}`);
