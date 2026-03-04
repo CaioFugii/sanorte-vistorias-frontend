@@ -113,7 +113,12 @@ export interface IAppRepository {
   ): Promise<ChecklistItem>;
   deleteChecklistItem(checklistId: string, itemId: string): Promise<void>;
 
-  getServiceOrders(): Promise<ServiceOrder[]>;
+  getServiceOrders(params?: {
+    page?: number;
+    limit?: number;
+    osNumber?: string;
+    sectorId?: string;
+  }): Promise<PaginatedResponse<ServiceOrder>>;
   importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }>;
 
   getInspections(params?: {

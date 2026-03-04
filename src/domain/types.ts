@@ -50,6 +50,8 @@ export interface Collaborator {
 export interface ServiceOrder {
   id: string;
   osNumber: string;
+  sectorId?: string;
+  sector?: Sector;
   address: string;
   field?: boolean;
   remote?: boolean;

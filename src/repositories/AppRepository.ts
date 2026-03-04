@@ -256,8 +256,13 @@ export class AppRepository implements IAppRepository {
     await this.loadChecklists(true);
   }
 
-  async getServiceOrders(): Promise<ServiceOrder[]> {
-    return this.apiRepository.getServiceOrders();
+  async getServiceOrders(params?: {
+    page?: number;
+    limit?: number;
+    osNumber?: string;
+    sectorId?: string;
+  }): Promise<PaginatedResponse<ServiceOrder>> {
+    return this.apiRepository.getServiceOrders(params);
   }
 
   async importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }> {

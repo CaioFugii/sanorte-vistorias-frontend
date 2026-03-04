@@ -13,6 +13,13 @@ import {
   Team,
   User,
 } from "@/domain";
+
+export interface ServiceOrdersParams {
+  page?: number;
+  limit?: number;
+  osNumber?: string;
+  sectorId?: string;
+}
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";
 
@@ -313,10 +320,14 @@ export class ApiRepository {
     await apiClient.delete(`/checklists/${checklistId}/items/${itemId}`);
   }
 
-  async getServiceOrders(): Promise<ServiceOrder[]> {
-    const response = await apiClient.get<ServiceOrder[]>("/service-orders");
-    const data = response.data;
-    return Array.isArray(data) ? data : [];
+  async getServiceOrders(
+    params?: ServiceOrdersParams
+  ): Promise<PaginatedResponse<ServiceOrder>> {
+    const response = await apiClient.get<PaginatedResponse<ServiceOrder>>(
+      "/service-orders",
+      { params }
+    );
+    return response.data;
   }
 
   async importServiceOrders(file: File): Promise<{

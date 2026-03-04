@@ -54,8 +54,8 @@ export const useReferenceStore = create<ReferenceState>((set) => ({
       return;
     }
     try {
-      const serviceOrders = await appRepository.getServiceOrders();
-      set({ serviceOrders });
+      const result = await appRepository.getServiceOrders({ page: 1, limit: 100 });
+      set({ serviceOrders: result.data });
     } catch {
       set({ serviceOrders: [] });
     }
