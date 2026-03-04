@@ -2,11 +2,8 @@ import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { RouterProvider } from "react-router-dom";
 import { useEffect } from "react";
 import { router } from "./router";
-import { useNetworkStatus } from "./useNetworkStatus";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useUiStore } from "@/stores/uiStore";
-import { appRepository } from "@/repositories/AppRepository";
 import { API_ERROR_EVENT } from "@/api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -26,8 +23,6 @@ function App(): JSX.Element {
   const loadCache = useReferenceStore((state) => state.loadCache);
   const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
   const loadMe = useAuthStore((state) => state.loadMe);
-  const setPendingSyncCount = useUiStore((state) => state.setPendingSyncCount);
-  useNetworkStatus();
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -42,12 +37,9 @@ function App(): JSX.Element {
           useAuthStore.getState().logout();
         }
       }
-      const count = await appRepository.countPendingSync();
-      setPendingSyncCount(count);
-      await appRepository.runRetentionCleanup();
     };
     bootstrap();
-  }, [loadCache, loadMe, refreshFromApi, setPendingSyncCount]);
+  }, [loadCache, loadMe, refreshFromApi]);
 
   useEffect(() => {
     const onApiError = (event: Event) => {

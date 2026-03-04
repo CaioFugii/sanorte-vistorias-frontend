@@ -1,4 +1,4 @@
-import { ChecklistAnswer } from "../enums";
+import { ChecklistAnswer, ModuleType } from "../enums";
 import { Checklist, Evidence, InspectionItem, Signature } from "../types";
 
 interface ValidateFinalizeInput {
@@ -15,8 +15,9 @@ export function validateFinalize({
   signature,
 }: ValidateFinalizeInput): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
+  const isRemotoModule = checklist.module === ModuleType.REMOTO;
 
-  if (!signature || !signature.signerName.trim()) {
+  if (!isRemotoModule && (!signature || !signature.signerName.trim())) {
     errors.push("Assinatura do líder/encarregado é obrigatória.");
   }
 
@@ -33,17 +34,19 @@ export function validateFinalize({
     errors.push("Existem itens sem resposta.");
   }
 
-  const nonConformityItems = inspectionItems.filter(
-    (item) => item.answer === ChecklistAnswer.NAO_CONFORME
-  );
-  for (const item of nonConformityItems) {
-    const checklistItem = itemMap.get(item.checklistItemId);
-    if (!checklistItem?.requiresPhotoOnNonConformity) {
-      continue;
-    }
-    const hasEvidence = evidences.some((evidence) => evidence.inspectionItemId === item.id);
-    if (!hasEvidence) {
-      errors.push(`O item "${checklistItem.title}" requer foto obrigatória.`);
+  if (!isRemotoModule) {
+    const nonConformityItems = inspectionItems.filter(
+      (item) => item.answer === ChecklistAnswer.NAO_CONFORME
+    );
+    for (const item of nonConformityItems) {
+      const checklistItem = itemMap.get(item.checklistItemId);
+      if (!checklistItem?.requiresPhotoOnNonConformity) {
+        continue;
+      }
+      const hasEvidence = evidences.some((evidence) => evidence.inspectionItemId === item.id);
+      if (!hasEvidence) {
+        errors.push(`O item "${checklistItem.title}" requer foto obrigatória.`);
+      }
     }
   }
 

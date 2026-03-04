@@ -2,7 +2,6 @@ import {
   ChecklistAnswer,
   InspectionStatus,
   ModuleType,
-  SyncState,
   UserRole,
 } from "./enums";
 
@@ -48,6 +47,17 @@ export interface Collaborator {
   updatedAt?: string;
 }
 
+export interface ServiceOrder {
+  id: string;
+  osNumber: string;
+  address: string;
+  field?: boolean;
+  remote?: boolean;
+  postWork?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ChecklistItem {
   id: string;
   checklistId?: string;
@@ -89,6 +99,8 @@ export interface Inspection {
   module: ModuleType;
   checklistId: string;
   teamId: string;
+  serviceOrderId?: string;
+  serviceOrder?: Pick<ServiceOrder, "id" | "osNumber" | "address">;
   collaboratorIds?: string[];
   serviceDescription: string;
   locationDescription: string;
@@ -99,11 +111,7 @@ export interface Inspection {
   paralyzedAt?: string | null;
   paralyzedByUserId?: string | null;
   paralyzedBy?: User | null;
-  syncState: SyncState;
-  syncErrorMessage?: string;
-  syncedAt?: string;
   createdByUserId: string;
-  createdOffline: boolean;
   pendingResolutionNotes?: string;
   pendingResolutionEvidenceId?: string;
   createdAt: string;
@@ -171,20 +179,6 @@ export interface Signature {
   /** URL segura do Cloudinary. */
   url?: string;
   signedAt: string;
-}
-
-export interface SyncInspectionPayload {
-  inspection: Inspection;
-  inspectionItems: InspectionItem[];
-  evidences: Evidence[];
-  signature: Signature | null;
-}
-
-export interface SyncInspectionResult {
-  externalId: string;
-  status: "CREATED" | "UPDATED" | "ERROR";
-  serverId?: string;
-  message?: string;
 }
 
 export interface PaginationMeta {

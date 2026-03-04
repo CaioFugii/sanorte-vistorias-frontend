@@ -5,6 +5,7 @@ export { SectorsPage } from './SectorsPage';
 export { CollaboratorsPage } from './CollaboratorsPage';
 export { UsersPage } from './UsersPage';
 export { ChecklistsPage } from './ChecklistsPage';
+export { ServiceOrdersPage } from './ServiceOrdersPage';
 export { InspectionsPage } from './InspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';
 export { InspectionDetailPage } from './InspectionDetailPage';

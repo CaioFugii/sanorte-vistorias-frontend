@@ -18,7 +18,7 @@ import jsPDF from "jspdf";
 import { appRepository } from "@/repositories/AppRepository";
 import { useInspectionStore } from "@/stores/inspectionStore";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { calculateScore, determineStatus, validateFinalize } from "@/domain/rules";
+import { validateFinalize } from "@/domain/rules";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
 import {
   evidenceToPhotoFile,
@@ -27,14 +27,14 @@ import {
 } from "@/components/PhotoUploader";
 import { SignaturePad } from "@/components/SignaturePad";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { InspectionStatus, SyncState, UserRole } from "@/domain/enums";
+import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { InspectionItem } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
 
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
   const navigate = useNavigate();
-  const { checklists } = useReferenceStore();
+  const { checklists, serviceOrders, loadServiceOrders } = useReferenceStore();
   const {
     currentInspection,
     inspectionItems,
@@ -69,10 +69,23 @@ export const FillInspectionPage = (): JSX.Element => {
     run();
   }, [externalId, load]);
 
+  useEffect(() => {
+    loadServiceOrders();
+  }, [loadServiceOrders]);
+
   const checklist = useMemo(
     () => checklists.find((entry) => entry.id === currentInspection?.checklistId),
     [checklists, currentInspection]
   );
+
+  const osNumber = useMemo(() => {
+    if (!currentInspection) return null;
+    if (currentInspection.serviceOrder?.osNumber) return currentInspection.serviceOrder.osNumber;
+    if (currentInspection.serviceOrderId) {
+      return serviceOrders.find((so) => so.id === currentInspection.serviceOrderId)?.osNumber ?? null;
+    }
+    return null;
+  }, [currentInspection, serviceOrders]);
 
   useEffect(() => {
     if (signature) {
@@ -125,15 +138,22 @@ export const FillInspectionPage = (): JSX.Element => {
     await setItemsAndAutosave(next);
   };
 
-  const handleUploadEvidence = async (file: File) => {
-    const result = await appRepository.uploadToCloudinary(file, "quality/evidences");
+  const handleUploadEvidence = async (file: File, inspectionItemId?: string) => {
+    const inspectionId = currentInspection.serverId ?? currentInspection.externalId;
+    const evidence = await appRepository.addInspectionEvidenceOnline(
+      inspectionId,
+      currentInspection.externalId,
+      file,
+      inspectionItemId
+    );
+    addEvidence(evidence);
     return {
-      publicId: result.publicId,
-      url: result.url,
-      bytes: result.bytes,
-      format: result.format,
-      width: result.width,
-      height: result.height,
+      publicId: evidence.cloudinaryPublicId ?? "",
+      url: evidence.url ?? "",
+      bytes: evidence.bytes ?? 0,
+      format: evidence.format ?? "png",
+      width: evidence.width ?? 0,
+      height: evidence.height ?? 0,
     };
   };
 
@@ -245,14 +265,9 @@ export const FillInspectionPage = (): JSX.Element => {
         alert(validation.errors.join("\n"));
         return;
       }
-      const scorePercent = calculateScore(inspectionItems);
-      const status = determineStatus(inspectionItems);
-      await appRepository.updateInspection(currentInspection.externalId, {
-        status,
-        scorePercent,
-        finalizedAt: new Date().toISOString(),
-        syncState: SyncState.PENDING_SYNC,
-      });
+      await appRepository.setInspectionItems(currentInspection.externalId, inspectionItems);
+      const inspectionId = currentInspection.serverId ?? currentInspection.externalId;
+      await appRepository.finalizeInspection(inspectionId);
       navigate(`/inspections/${currentInspection.externalId}`);
     } finally {
       setFinalizing(false);
@@ -280,7 +295,10 @@ export const FillInspectionPage = (): JSX.Element => {
   const canParalyze =
     user?.role === UserRole.FISCAL &&
     canEdit &&
-    currentInspection.hasParalysisPenalty !== true;
+    currentInspection.hasParalysisPenalty !== true &&
+    currentInspection.module === ModuleType.CAMPO;
+
+  const isRemotoModule = currentInspection.module === ModuleType.REMOTO;
 
   const openParalyzeDialog = () => {
     setParalyzeReason("");
@@ -316,7 +334,14 @@ export const FillInspectionPage = (): JSX.Element => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5">Preencher vistoria</Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Typography variant="h5">Preencher vistoria</Typography>
+          {osNumber && (
+            <Typography variant="h5" color="text.secondary" fontWeight={500}>
+              — OS {osNumber}
+            </Typography>
+          )}
+        </Box>
         <Box display="flex" gap={1}>
           {!canEdit && (
             <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={handleGeneratePdf}>
@@ -361,40 +386,46 @@ export const FillInspectionPage = (): JSX.Element => {
           onItemChange={handleItemChange}
           onEvidencesChange={handleItemEvidencesChange}
           disabled={!canEdit}
+          showItemEvidenceUploader={!isRemotoModule}
           onUploadEvidence={canEdit ? handleUploadEvidence : undefined}
         />
       </Paper>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Fotos gerais
-        </Typography>
-        <PhotoUploader
-          photos={generalEvidencesPhotos}
-          onChange={handleGeneralEvidencesChange}
-          onUpload={canEdit ? handleUploadEvidence : undefined}
-        />
-      </Paper>
+      {!isRemotoModule && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Fotos gerais
+          </Typography>
+          <PhotoUploader
+            photos={generalEvidencesPhotos}
+            onChange={handleGeneralEvidencesChange}
+            onUpload={canEdit ? handleUploadEvidence : undefined}
+            disabled={!canEdit}
+          />
+        </Paper>
+      )}
 
-      <Paper sx={{ p: 2 }}>
-        <SignaturePad
-          value={signatureDataUrl}
-          onChange={(url) => {
-            setSignatureDataUrl(url);
-            setSignatureDirty(true);
-          }}
-          signerName={signerName}
-          onSignerNameChange={setSignerName}
-          disabled={!canEdit}
-        />
-      </Paper>
+      {!isRemotoModule && (
+        <Paper sx={{ p: 2 }}>
+          <SignaturePad
+            value={signatureDataUrl}
+            onChange={(url) => {
+              setSignatureDataUrl(url);
+              setSignatureDirty(true);
+            }}
+            signerName={signerName}
+            onSignerNameChange={setSignerName}
+            disabled={!canEdit}
+          />
+        </Paper>
+      )}
 
       <ConfirmDialog
         open={finalizeOpen}
         onClose={() => setFinalizeOpen(false)}
         onConfirm={handleFinalize}
         title="Finalizar vistoria"
-        description="Confirma a finalização? Isso marcará a inspeção para sincronização."
+        description="Confirma a finalização da vistoria?"
         confirmLabel="Finalizar"
         loading={finalizing}
       />

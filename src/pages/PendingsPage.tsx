@@ -27,14 +27,12 @@ export const PendingsPage = (): JSX.Element => {
 
   const loadPendings = async () => {
     setLoading(true);
-    const data = navigator.onLine
-      ? (await appRepository.getInspections({
-          status: InspectionStatus.PENDENTE_AJUSTE,
-          page: 1,
-          limit: 100,
-        })).data
-      : await appRepository.listPendingAdjustments();
-    setInspections(data);
+    const res = await appRepository.getInspections({
+      status: InspectionStatus.PENDENTE_AJUSTE,
+      page: 1,
+      limit: 100,
+    });
+    setInspections(res.data);
     setLoading(false);
   };
 

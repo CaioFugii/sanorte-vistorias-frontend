@@ -9,8 +9,8 @@ import {
   ModuleType,
   PaginatedResponse,
   Sector,
+  ServiceOrder,
   Signature,
-  SyncInspectionResult,
   Team,
   User,
   UserRole,
@@ -64,6 +64,7 @@ export interface IAppRepository {
   getChecklists(params?: {
     module?: ModuleType;
     sectorId?: string;
+    active?: boolean;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Checklist>>;
@@ -112,16 +113,24 @@ export interface IAppRepository {
   ): Promise<ChecklistItem>;
   deleteChecklistItem(checklistId: string, itemId: string): Promise<void>;
 
+  getServiceOrders(): Promise<ServiceOrder[]>;
+  importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }>;
+
   getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
     teamId?: string;
     status?: InspectionStatus;
+    osNumber?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Inspection>>;
-  getMyInspections(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Inspection>>;
+  getMyInspections(params?: {
+    page?: number;
+    limit?: number;
+    osNumber?: string;
+  }): Promise<PaginatedResponse<Inspection>>;
   getDashboardSummary(params?: {
     from?: string;
     to?: string;
@@ -146,6 +155,7 @@ export interface IAppRepository {
     module: ModuleType;
     teamId: string;
     checklistId: string;
+    serviceOrderId: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
@@ -177,6 +187,9 @@ export interface IAppRepository {
       resolutionEvidenceBase64?: string;
     }
   ): Promise<InspectionItem>;
+  finalizeInspection(inspectionId: string): Promise<Inspection>;
+  getInspectionPdf(inspectionId: string): Promise<Blob>;
+
   resolvePendingInspection(
     externalId: string,
     options: {
@@ -208,9 +221,4 @@ export interface IAppRepository {
     height: number;
   }>;
   deleteFromCloudinary(publicId: string): Promise<void>;
-
-  syncAll(): Promise<SyncInspectionResult[]>;
-  countPendingSync(): Promise<number>;
-  /** Remove do banco offline vistorias já sincronizadas mais antigas que o período de retenção. */
-  runRetentionCleanup(): Promise<number>;
 }

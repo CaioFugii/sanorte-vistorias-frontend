@@ -11,9 +11,10 @@ interface ChecklistRendererProps {
   onItemChange: (itemId: string, updates: Partial<InspectionItem>) => void;
   onEvidencesChange: (itemId: string, photos: PhotoFile[]) => void;
   disabled?: boolean;
+  /** Quando false, oculta o upload de fotos nos itens do checklist. */
   showItemEvidenceUploader?: boolean;
-  /** Quando informado, fotos são enviadas ao Cloudinary antes de adicionar (online). */
-  onUploadEvidence?: (file: File) => Promise<{
+  /** Quando informado, fotos são enviadas ao Cloudinary/API antes de adicionar. */
+  onUploadEvidence?: (file: File, inspectionItemId?: string) => Promise<{
     publicId: string;
     url: string;
     bytes: number;
@@ -96,7 +97,7 @@ export const ChecklistRenderer = ({
                           photos={itemEvidences}
                           onChange={(photos) => onEvidencesChange(inspectionItem.id, photos)}
                           disabled={disabled}
-                          onUpload={onUploadEvidence}
+                          onUpload={onUploadEvidence ? (file) => onUploadEvidence(file, inspectionItem.id) : undefined}
                         />
                       </>
                     )}

@@ -25,7 +25,7 @@ import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
-import { ChecklistAnswer, InspectionStatus, UserRole } from '@/domain/enums';
+import { ChecklistAnswer, InspectionStatus, ModuleType, UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
@@ -103,7 +103,7 @@ export const InspectionDetailPage = (): JSX.Element => {
     inspection?.status === InspectionStatus.RASCUNHO;
   const canParalyzeInspection =
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
-    inspection?.hasParalysisPenalty !== true;
+    inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
@@ -215,9 +215,35 @@ export const InspectionDetailPage = (): JSX.Element => {
     }
   };
 
-  const handleGeneratePDF = () => {
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleGeneratePDF = async () => {
     if (!inspection) return;
 
+    const inspectionId = inspection.serverId ?? inspection.externalId;
+    if (navigator.onLine && inspection.serverId) {
+      setPdfLoading(true);
+      try {
+        const blob = await appRepository.getInspectionPdf(inspectionId);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `vistoria-${inspection.externalId}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch {
+        // Fallback to local generation
+        generateLocalPdf();
+      } finally {
+        setPdfLoading(false);
+      }
+    } else {
+      generateLocalPdf();
+    }
+  };
+
+  const generateLocalPdf = () => {
+    if (!inspection) return;
     const doc = new jsPDF();
     doc.setFontSize(18);
     doc.text('Relatório de Vistoria', 20, 20);
@@ -233,7 +259,6 @@ export const InspectionDetailPage = (): JSX.Element => {
       20,
       70
     );
-
     doc.save(`vistoria-${inspection.externalId}.pdf`);
   };
 
@@ -264,10 +289,11 @@ export const InspectionDetailPage = (): JSX.Element => {
         <Box display="flex" gap={2}>
           <Button
             variant="outlined"
-            startIcon={<PictureAsPdf />}
+            startIcon={pdfLoading ? <CircularProgress size={20} color="inherit" /> : <PictureAsPdf />}
             onClick={handleGeneratePDF}
+            disabled={pdfLoading}
           >
-            Gerar PDF
+            {pdfLoading ? 'Baixando...' : 'Gerar PDF'}
           </Button>
           {canParalyzeInspection && (
             <Button

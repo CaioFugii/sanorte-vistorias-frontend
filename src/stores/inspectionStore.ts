@@ -71,8 +71,7 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
   },
 
   addEvidence: async (evidence) => {
-    const saved = await appRepository.saveEvidence(evidence);
-    set((state) => ({ evidences: [...state.evidences, saved] }));
+    set((state) => ({ evidences: [...state.evidences, evidence] }));
   },
 
   removeEvidence: async (evidenceId) => {

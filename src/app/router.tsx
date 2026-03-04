@@ -12,6 +12,7 @@ import {
   NewInspectionPage,
   PendingsPage,
   SectorsPage,
+  ServiceOrdersPage,
   TeamsPage,
   UsersPage,
 } from "@/pages";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
       { path: "/users", element: <UsersPage /> },
       { path: "/collaborators", element: <CollaboratorsPage /> },
       { path: "/checklists", element: <ChecklistsPage /> },
+      { path: "/service-orders", element: <ServiceOrdersPage /> },
       { path: "/inspections", element: <InspectionsPage /> },
       { path: "/inspections/mine", element: <InspectionsPage /> },
       { path: "/inspections/new", element: <NewInspectionPage /> },

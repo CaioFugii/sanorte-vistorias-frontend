@@ -18,7 +18,7 @@ import { Search } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
-import { InspectionStatus, ModuleType } from '@/domain/enums';
+import { ModuleType } from '@/domain/enums';
 import { TeamSelect } from '@/components/TeamSelect';
 import { ModuleSelect } from '@/components/ModuleSelect';
 
@@ -44,46 +44,17 @@ export const DashboardPage = (): JSX.Element => {
   }, []);
 
   const loadDashboardData = async () => {
-      setLoading(true);
-    if (navigator.onLine) {
+    setLoading(true);
+    try {
       const [summaryData, rankingData] = await Promise.all([
         appRepository.getDashboardSummary(filters),
         appRepository.getDashboardTeamRanking(filters),
       ]);
       setSummary(summaryData);
       setTeamRanking(rankingData);
+    } finally {
       setLoading(false);
-      return;
     }
-    const inspections = await appRepository.listInspections();
-    const filtered = inspections.filter((inspection) => {
-      if (filters.module && inspection.status === InspectionStatus.RASCUNHO) return true;
-      if (filters.teamId && inspection.teamId !== filters.teamId) return false;
-      return true;
-    });
-    const avgBase = filtered.filter((i) => typeof i.scorePercent === 'number');
-    const averagePercent =
-      avgBase.length > 0
-        ? Math.round(avgBase.reduce((sum, i) => sum + (i.scorePercent ?? 0), 0) / avgBase.length)
-        : 0;
-    setSummary({
-      averagePercent,
-      inspectionsCount: filtered.length,
-      pendingCount: filtered.filter((i) => i.status === InspectionStatus.PENDENTE_AJUSTE).length,
-    });
-    const teams = await appRepository.getCachedTeams();
-    setTeamRanking(
-      teams.map((team) => ({
-        teamId: team.id,
-        teamName: team.name,
-        averagePercent: averagePercent,
-        inspectionsCount: filtered.filter((i) => i.teamId === team.id).length,
-        pendingCount: filtered.filter(
-          (i) => i.teamId === team.id && i.status === InspectionStatus.PENDENTE_AJUSTE
-        ).length,
-      }))
-    );
-    setLoading(false);
   };
 
   if (loading && !summary) {

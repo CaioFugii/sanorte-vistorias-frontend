@@ -9,9 +9,8 @@ import {
   ModuleType,
   PaginatedResponse,
   Sector,
+  ServiceOrder,
   Team,
-  SyncInspectionPayload,
-  SyncInspectionResult,
   User,
 } from "@/domain";
 import { apiClient } from "../apiClient";
@@ -26,59 +25,6 @@ export interface CloudinaryUploadResult {
   format: string;
   width: number;
   height: number;
-}
-
-interface SyncApiEvidence {
-  /** ID do item no app (opcional). Servidor usa apenas se existir para a vistoria. */
-  inspectionItemId?: string;
-  /** ID estável do item do checklist; permite ao servidor resolver o inspection_item correto. */
-  checklistItemId?: string;
-  cloudinaryPublicId: string;
-  url: string;
-  filePath: string;
-  fileName: string;
-  mimeType: string;
-  size: number;
-  bytes?: number;
-  format?: string;
-  width?: number;
-  height?: number;
-}
-
-interface SyncApiItem {
-  externalId: string;
-  module: ModuleType;
-  checklistId: string;
-  teamId: string;
-  collaboratorIds?: string[];
-  serviceDescription: string;
-  locationDescription?: string;
-  paralyze?: {
-    reason: string;
-  };
-  createdOffline: boolean;
-  syncedAt?: string;
-  items: Array<{
-    checklistItemId: string;
-    answer?: string;
-    notes?: string;
-  }>;
-  evidences: SyncApiEvidence[];
-  signature?: {
-    signerName: string;
-    cloudinaryPublicId: string;
-    url: string;
-  };
-  finalize: boolean;
-}
-
-interface SyncApiResponse {
-  results?: Array<{
-    externalId: string;
-    serverId?: string;
-    status: "CREATED" | "UPDATED" | "ERROR";
-    message?: string;
-  }>;
 }
 
 function normalizeChecklistSections(checklist: Checklist): Checklist {
@@ -103,13 +49,6 @@ function normalizeChecklistSections(checklist: Checklist): Checklist {
         .sort((a, b) => a.order - b.order),
     })),
   };
-}
-
-/** Converte dataUrl em File para upload no Cloudinary. */
-async function dataUrlToFile(dataUrl: string, fileName: string, mimeType: string): Promise<File> {
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
-  return new File([blob], fileName, { type: mimeType });
 }
 
 export class ApiRepository {
@@ -275,6 +214,7 @@ export class ApiRepository {
   async getChecklists(params?: {
     module?: ModuleType;
     sectorId?: string;
+    active?: boolean;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Checklist>> {
@@ -373,12 +313,36 @@ export class ApiRepository {
     await apiClient.delete(`/checklists/${checklistId}/items/${itemId}`);
   }
 
+  async getServiceOrders(): Promise<ServiceOrder[]> {
+    const response = await apiClient.get<ServiceOrder[]>("/service-orders");
+    const data = response.data;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async importServiceOrders(file: File): Promise<{
+    inserted: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<{
+      inserted: number;
+      skipped: number;
+      errors: string[];
+    }>("/service-orders/import", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
     teamId?: string;
     status?: InspectionStatus;
+    osNumber?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Inspection>> {
@@ -386,13 +350,78 @@ export class ApiRepository {
     return response.data;
   }
 
-  async getMyInspections(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Inspection>> {
+  async getMyInspections(params?: {
+    page?: number;
+    limit?: number;
+    osNumber?: string;
+  }): Promise<PaginatedResponse<Inspection>> {
     const response = await apiClient.get<PaginatedResponse<Inspection>>("/inspections/mine", { params });
     return response.data;
   }
 
   async getInspection(id: string): Promise<Inspection> {
     const response = await apiClient.get<Inspection>(`/inspections/${id}`);
+    return response.data;
+  }
+
+  async createInspection(input: {
+    module: ModuleType;
+    checklistId: string;
+    teamId: string;
+    serviceOrderId: string;
+    serviceDescription: string;
+    locationDescription?: string;
+    collaboratorIds?: string[];
+    externalId?: string;
+    createdOffline?: boolean;
+    syncedAt?: string;
+  }): Promise<Inspection> {
+    const payload: Record<string, unknown> = {
+      module: input.module,
+      checklistId: input.checklistId,
+      teamId: input.teamId,
+      serviceOrderId: input.serviceOrderId,
+      serviceDescription: input.serviceDescription,
+      locationDescription: input.locationDescription ?? "",
+      collaboratorIds: input.collaboratorIds,
+    };
+    if (input.externalId) payload.externalId = input.externalId;
+    if (input.createdOffline !== undefined) payload.createdOffline = input.createdOffline;
+    if (input.syncedAt) payload.syncedAt = input.syncedAt;
+    const response = await apiClient.post<Inspection>("/inspections", payload);
+    return response.data;
+  }
+
+  async addInspectionSignature(
+    inspectionId: string,
+    signerName: string,
+    imageBase64: string
+  ): Promise<{
+    id: string;
+    inspectionId: string;
+    signerName: string;
+    signerRoleLabel: string;
+    imagePath: string;
+    cloudinaryPublicId: string;
+    url: string;
+    signedAt: string;
+  }> {
+    const response = await apiClient.post(`/inspections/${inspectionId}/signature`, {
+      signerName,
+      imageBase64,
+    });
+    return response.data;
+  }
+
+  async finalizeInspection(inspectionId: string): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(`/inspections/${inspectionId}/finalize`);
+    return response.data;
+  }
+
+  async getInspectionPdf(inspectionId: string): Promise<Blob> {
+    const response = await apiClient.get<Blob>(`/inspections/${inspectionId}/pdf`, {
+      responseType: "blob",
+    });
     return response.data;
   }
 
@@ -535,115 +564,5 @@ export class ApiRepository {
   async deleteFromCloudinary(publicId: string): Promise<void> {
     const encoded = encodeURIComponent(publicId);
     await apiClient.delete(`/uploads/${encoded}`);
-  }
-
-  async syncInspections(payload: SyncInspectionPayload[]): Promise<SyncInspectionResult[]> {
-    const inspections: SyncApiItem[] = [];
-
-    for (const entry of payload) {
-      const inspection = entry.inspection;
-      const evidences: SyncApiEvidence[] = [];
-
-      for (const evidence of entry.evidences) {
-        let publicId = evidence.cloudinaryPublicId;
-        let url = evidence.url;
-        let size = evidence.size ?? evidence.bytes ?? 0;
-        let bytes = evidence.bytes;
-        let format = evidence.format;
-        let width = evidence.width;
-        let height = evidence.height;
-
-        if ((!publicId || !url) && evidence.dataUrl) {
-          const file = await dataUrlToFile(evidence.dataUrl, evidence.fileName, evidence.mimeType);
-          const result = await this.uploadToCloudinary(file, "quality/evidences");
-          publicId = result.publicId;
-          url = result.url;
-          size = result.bytes;
-          bytes = result.bytes;
-          format = result.format;
-          width = result.width;
-          height = result.height;
-        }
-
-        if (!publicId || !url) {
-          throw new Error("Evidência sem upload no Cloudinary. Faça upload antes de sincronizar.");
-        }
-        const item = evidence.inspectionItemId
-          ? entry.inspectionItems.find((i) => i.id === evidence.inspectionItemId)
-          : undefined;
-        evidences.push({
-          inspectionItemId: evidence.inspectionItemId,
-          checklistItemId: item?.checklistItemId,
-          cloudinaryPublicId: publicId,
-          url,
-          filePath: url,
-          fileName: evidence.fileName,
-          mimeType: evidence.mimeType,
-          size,
-          bytes,
-          format,
-          width,
-          height,
-        });
-      }
-
-      let signaturePayload: { signerName: string; cloudinaryPublicId: string; url: string } | undefined;
-      if (entry.signature) {
-        const sig = entry.signature;
-        let publicId = sig.cloudinaryPublicId;
-        let url = sig.url;
-
-        if ((!publicId || !url) && sig.dataUrl) {
-          const file = await dataUrlToFile(sig.dataUrl, "signature.png", "image/png");
-          const result = await this.uploadToCloudinary(file, "quality/signatures");
-          publicId = result.publicId;
-          url = result.url;
-        }
-
-        if (!publicId || !url) {
-          throw new Error("Assinatura sem upload no Cloudinary. Faça upload antes de sincronizar.");
-        }
-        signaturePayload = {
-          signerName: sig.signerName,
-          cloudinaryPublicId: publicId,
-          url,
-        };
-      }
-
-      inspections.push({
-        externalId: inspection.externalId,
-        module: inspection.module ?? ModuleType.QUALIDADE,
-        checklistId: inspection.checklistId,
-        teamId: inspection.teamId,
-        collaboratorIds: inspection.collaboratorIds,
-        serviceDescription: inspection.serviceDescription,
-        locationDescription: inspection.locationDescription,
-        paralyze:
-          inspection.hasParalysisPenalty && inspection.paralyzedReason
-            ? { reason: inspection.paralyzedReason }
-            : undefined,
-        createdOffline: inspection.createdOffline,
-        syncedAt: inspection.syncedAt,
-        items: entry.inspectionItems.map((item) => ({
-          checklistItemId: item.checklistItemId,
-          answer: item.answer,
-          notes: item.notes,
-        })),
-        evidences,
-        signature: signaturePayload,
-        finalize: inspection.status !== "RASCUNHO",
-      });
-    }
-
-    const response = await apiClient.post<SyncApiResponse>(
-      "/sync/inspections",
-      { inspections }
-    );
-    return (response.data.results || []).map((result) => ({
-      externalId: result.externalId,
-      serverId: result.serverId,
-      status: result.status,
-      message: result.message,
-    }));
   }
 }

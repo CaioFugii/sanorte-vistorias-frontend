@@ -10,25 +10,17 @@ import {
   ModuleType,
   PaginatedResponse,
   Sector,
+  ServiceOrder,
   Signature,
-  SyncInspectionResult,
   Team,
   User,
 } from "@/domain";
-import { SyncState, UserRole } from "@/domain/enums";
-import { OfflineRepository } from "@/offline/repositories/OfflineRepository";
-import { SyncService } from "@/offline/sync/SyncService";
-import { OFFLINE_RETENTION_DAYS } from "@/offline/constants";
+import { UserRole } from "@/domain/enums";
 import { IAppRepository } from "./IAppRepository";
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
 /** Normaliza inspeção vinda da API: serverId (id interno), externalId e itens. */
-function normalizeInspectionFromApi(inspection: Inspection, externalId: string): Inspection {
-  const apiInspection = inspection as Inspection & { id?: string };
-  const serverId = apiInspection.id ?? inspection.serverId;
+function normalizeInspectionFromApi(inspection: Inspection & { id?: string }, externalId: string): Inspection {
+  const serverId = inspection.id ?? inspection.serverId;
   const items = inspection.items?.map((item) => ({
     ...item,
     inspectionExternalId: item.inspectionExternalId ?? externalId,
@@ -41,53 +33,7 @@ function normalizeInspectionFromApi(inspection: Inspection, externalId: string):
 }
 
 export class AppRepository implements IAppRepository {
-  private readonly offlineRepository = new OfflineRepository();
   private readonly apiRepository = new ApiRepository();
-  private readonly syncService = new SyncService(
-    this.offlineRepository,
-    this.apiRepository
-  );
-
-  private getCurrentUser(): User | null {
-    const rawUser = localStorage.getItem("auth_user");
-    if (!rawUser) return null;
-    try {
-      return JSON.parse(rawUser) as User;
-    } catch {
-      return null;
-    }
-  }
-
-  private async ensureLocalInspectionForFiscal(externalId: string): Promise<Inspection> {
-    const existing = await this.offlineRepository.getInspectionByExternalId(externalId);
-    if (existing) return existing;
-
-    if (!navigator.onLine) {
-      throw new Error("Vistoria não disponível no dispositivo para paralisação offline.");
-    }
-
-    const fromApi = await this.apiRepository.getInspection(externalId);
-    const normalized = normalizeInspectionFromApi(fromApi, externalId);
-    const localCopy: Inspection = {
-      ...normalized,
-      syncState: SyncState.SYNCED,
-      syncErrorMessage: undefined,
-      syncedAt: normalized.syncedAt ?? nowIso(),
-      createdOffline: false,
-    };
-    await this.offlineRepository.createInspection(localCopy);
-    if ((normalized.items ?? []).length > 0) {
-      await this.offlineRepository.replaceInspectionItems(
-        externalId,
-        (normalized.items ?? []).map((item) => ({
-          ...item,
-          inspectionExternalId: item.inspectionExternalId ?? externalId,
-          updatedAt: item.updatedAt ?? localCopy.updatedAt ?? nowIso(),
-        }))
-      );
-    }
-    return localCopy;
-  }
 
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
     const data = await this.apiRepository.login(email, password);
@@ -107,55 +53,31 @@ export class AppRepository implements IAppRepository {
     localStorage.removeItem("auth_user");
   }
 
-  async loadTeams(forceApi = false): Promise<Team[]> {
-    if (!navigator.onLine && !forceApi) {
-      return this.offlineRepository.getTeams();
-    }
-    try {
-      const result = await this.apiRepository.getTeams({ page: 1, limit: 100 });
-      await this.offlineRepository.cacheTeams(result.data);
-      return result.data;
-    } catch {
-      return this.offlineRepository.getTeams();
-    }
+  async loadTeams(_forceApi = false): Promise<Team[]> {
+    const result = await this.apiRepository.getTeams({ page: 1, limit: 100 });
+    return result.data;
   }
 
-  async loadSectors(forceApi = false): Promise<Sector[]> {
-    if (!navigator.onLine && !forceApi) {
-      return this.offlineRepository.getSectors();
-    }
-    try {
-      const result = await this.apiRepository.getSectors({ page: 1, limit: 100 });
-      await this.offlineRepository.cacheSectors(result.data);
-      return result.data;
-    } catch {
-      return this.offlineRepository.getSectors();
-    }
+  async loadSectors(_forceApi = false): Promise<Sector[]> {
+    const result = await this.apiRepository.getSectors({ page: 1, limit: 100 });
+    return result.data;
   }
 
-  async loadChecklists(forceApi = false): Promise<Checklist[]> {
-    if (!navigator.onLine && !forceApi) {
-      return this.offlineRepository.getChecklists();
-    }
-    try {
-      const result = await this.apiRepository.getChecklists({ page: 1, limit: 100 });
-      await this.offlineRepository.cacheChecklists(result.data);
-      return result.data;
-    } catch {
-      return this.offlineRepository.getChecklists();
-    }
+  async loadChecklists(_forceApi = false): Promise<Checklist[]> {
+    const result = await this.apiRepository.getChecklists({ page: 1, limit: 100 });
+    return result.data;
   }
 
   async getCachedTeams(): Promise<Team[]> {
-    return this.offlineRepository.getTeams();
+    return this.loadTeams();
   }
 
   async getCachedSectors(): Promise<Sector[]> {
-    return this.offlineRepository.getSectors();
+    return this.loadSectors();
   }
 
   async getCachedChecklists(): Promise<Checklist[]> {
-    return this.offlineRepository.getChecklists();
+    return this.loadChecklists();
   }
 
   async getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>> {
@@ -334,19 +256,32 @@ export class AppRepository implements IAppRepository {
     await this.loadChecklists(true);
   }
 
+  async getServiceOrders(): Promise<ServiceOrder[]> {
+    return this.apiRepository.getServiceOrders();
+  }
+
+  async importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }> {
+    return this.apiRepository.importServiceOrders(file);
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
     teamId?: string;
     status?: InspectionStatus;
+    osNumber?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Inspection>> {
     return this.apiRepository.getInspections(params);
   }
 
-  async getMyInspections(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Inspection>> {
+  async getMyInspections(params?: {
+    page?: number;
+    limit?: number;
+    osNumber?: string;
+  }): Promise<PaginatedResponse<Inspection>> {
     return this.apiRepository.getMyInspections(params);
   }
 
@@ -379,104 +314,80 @@ export class AppRepository implements IAppRepository {
     module: ModuleType;
     teamId: string;
     checklistId: string;
+    serviceOrderId: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
     createdByUserId: string;
   }): Promise<Inspection> {
-    const inspection: Inspection = {
-      externalId: crypto.randomUUID(),
+    const created = await this.apiRepository.createInspection({
       module: input.module,
       checklistId: input.checklistId,
       teamId: input.teamId,
+      serviceOrderId: input.serviceOrderId,
       collaboratorIds: input.collaboratorIds,
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,
-      status: InspectionStatus.RASCUNHO,
-      syncState: SyncState.PENDING_SYNC,
-      createdByUserId: input.createdByUserId,
-      createdOffline: true,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    return this.offlineRepository.createInspection(inspection);
+    });
+    return normalizeInspectionFromApi(created as Inspection & { id?: string }, created.externalId);
   }
 
-  async getInspection(externalId: string, forceApi = false): Promise<Inspection | null> {
-    if (forceApi && navigator.onLine) {
-      try {
-        const inspection = await this.apiRepository.getInspection(externalId);
-        return normalizeInspectionFromApi(inspection, externalId);
-      } catch {
-        return null;
-      }
+  async finalizeInspection(inspectionId: string): Promise<Inspection> {
+    return this.apiRepository.finalizeInspection(inspectionId);
+  }
+
+  async getInspectionPdf(inspectionId: string): Promise<Blob> {
+    return this.apiRepository.getInspectionPdf(inspectionId);
+  }
+
+  async getInspection(externalId: string, _forceApi = false): Promise<Inspection | null> {
+    try {
+      const inspection = await this.apiRepository.getInspection(externalId);
+      return normalizeInspectionFromApi(inspection as Inspection & { id?: string }, externalId);
+    } catch {
+      return null;
     }
-    const local = await this.offlineRepository.getInspectionByExternalId(externalId);
-    if (local) {
-      const items = await this.offlineRepository.getInspectionItems(externalId);
-      return { ...local, items: items.length > 0 ? items : local.items };
-    }
-    if (navigator.onLine) {
-      try {
-        const inspection = await this.apiRepository.getInspection(externalId);
-        return normalizeInspectionFromApi(inspection, externalId);
-      } catch {
-        return null;
-      }
-    }
-    return null;
   }
 
   async listInspections(): Promise<Inspection[]> {
-    return this.offlineRepository.listInspections();
+    const res = await this.apiRepository.getInspections({ page: 1, limit: 100 });
+    return res.data;
   }
 
-  async listInspectionsByUser(userId: string): Promise<Inspection[]> {
-    return this.offlineRepository.listInspectionsByUser(userId);
+  async listInspectionsByUser(_userId: string): Promise<Inspection[]> {
+    const res = await this.apiRepository.getMyInspections({ page: 1, limit: 100 });
+    return res.data;
   }
 
-  /** Lista para FISCAL: quando online, une API + local (rascunhos não sincronizados aparecem). */
   async listInspectionsForFiscal(userId: string): Promise<Inspection[]> {
-    if (!navigator.onLine) {
-      return this.offlineRepository.listInspectionsByUser(userId);
-    }
-    const [apiRes, local] = await Promise.all([
-      this.apiRepository.getMyInspections({ page: 1, limit: 100 }).catch(() => ({ data: [] as Inspection[] })),
-      this.offlineRepository.listInspectionsByUser(userId),
-    ]);
-    const apiList = apiRes.data ?? [];
-    const byExternalId = new Map<string, Inspection>();
-    for (const i of apiList) byExternalId.set(i.externalId, i);
-    for (const i of local) byExternalId.set(i.externalId, i);
-    return Array.from(byExternalId.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return this.listInspectionsByUser(userId);
   }
 
   async listPendingAdjustments(): Promise<Inspection[]> {
-    return this.offlineRepository.listPendingAdjustments();
+    const res = await this.apiRepository.getInspections({
+      status: InspectionStatus.PENDENTE_AJUSTE,
+      page: 1,
+      limit: 100,
+    });
+    return res.data;
   }
 
   async updateInspection(externalId: string, updates: Partial<Inspection>): Promise<Inspection> {
-    return this.offlineRepository.updateInspection(externalId, {
-      ...updates,
-      syncState: SyncState.PENDING_SYNC,
-    });
+    const inspection = await this.getInspection(externalId);
+    const inspectionId = inspection?.serverId ?? externalId;
+    return this.apiRepository.updateInspection(inspectionId, updates);
   }
 
   async updateInspectionOnline(externalId: string, updates: Partial<Inspection>): Promise<Inspection> {
-    if (!navigator.onLine) {
-      throw new Error("Edição administrativa disponível apenas online.");
-    }
-    return this.apiRepository.updateInspection(externalId, updates);
+    return this.updateInspection(externalId, updates);
   }
 
   async setInspectionItemsOnline(externalId: string, items: InspectionItem[]): Promise<InspectionItem[]> {
-    if (!navigator.onLine) {
-      throw new Error("Edição administrativa disponível apenas online.");
-    }
+    const inspection = await this.getInspection(externalId);
+    if (!inspection) throw new Error("Vistoria não encontrada.");
+    const inspectionId = inspection.serverId ?? externalId;
     return this.apiRepository.setInspectionItems(
-      externalId,
+      inspectionId,
       items.map((item) => ({
         inspectionItemId: item.id,
         answer: item.answer,
@@ -491,9 +402,6 @@ export class AppRepository implements IAppRepository {
     file: File,
     inspectionItemId?: string
   ): Promise<Evidence> {
-    if (!navigator.onLine) {
-      throw new Error("Edição administrativa disponível apenas online.");
-    }
     const created = await this.apiRepository.addInspectionEvidence(inspectionId, file, inspectionItemId);
     return {
       id: created.id,
@@ -520,64 +428,21 @@ export class AppRepository implements IAppRepository {
       resolutionEvidenceBase64?: string;
     }
   ): Promise<Inspection> {
-    if (navigator.onLine) {
-      const evidence =
-        options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
-      const resolved = await this.apiRepository.resolveInspection(externalId, {
-        resolutionNotes: options.resolutionNotes,
-        resolutionEvidence: evidence,
-      });
-      try {
-        await this.offlineRepository.updateInspection(externalId, {
-          status: InspectionStatus.RESOLVIDA,
-          pendingResolutionNotes: options.resolutionNotes,
-          syncState: SyncState.SYNCED,
-          updatedAt: resolved.updatedAt ?? new Date().toISOString(),
-        });
-      } catch {
-        // Inspection may not exist locally (e.g. admin only saw it from API list)
-      }
-      return resolved;
-    }
-    return this.offlineRepository.updateInspection(externalId, {
-      status: InspectionStatus.RESOLVIDA,
-      pendingResolutionNotes: options.resolutionNotes,
-      syncState: SyncState.PENDING_SYNC,
+    const evidence = options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
+    return this.apiRepository.resolveInspection(externalId, {
+      resolutionNotes: options.resolutionNotes,
+      resolutionEvidence: evidence,
     });
   }
 
   async paralyzeInspection(id: string, reason: string): Promise<Inspection> {
-    const user = this.getCurrentUser();
-    if (user?.role === UserRole.FISCAL) {
-      const current = await this.ensureLocalInspectionForFiscal(id);
-      if (current.hasParalysisPenalty) {
-        return current;
-      }
-
-      return this.offlineRepository.updateInspection(id, {
-        hasParalysisPenalty: true,
-        paralyzedReason: reason,
-        paralyzedAt: nowIso(),
-        paralyzedByUserId: user.id,
-        syncState: SyncState.PENDING_SYNC,
-        syncErrorMessage: undefined,
-      });
-    }
-
-    if (!navigator.onLine) {
-      throw new Error("Paralisação disponível apenas online para este perfil.");
-    }
     return this.apiRepository.paralyzeInspection(id, reason);
   }
 
   async unparalyzeInspection(id: string): Promise<Inspection> {
-    if (!navigator.onLine) {
-      throw new Error("Remoção de penalidade disponível apenas online.");
-    }
     return this.apiRepository.unparalyzeInspection(id);
   }
 
-  /** Resolve um item não conforme. Só disponível online. Use inspection.serverId na URL (id interno da API). */
   async resolveInspectionItem(
     inspectionServerId: string,
     itemId: string,
@@ -587,11 +452,7 @@ export class AppRepository implements IAppRepository {
       resolutionEvidenceBase64?: string;
     }
   ): Promise<InspectionItem> {
-    if (!navigator.onLine) {
-      throw new Error("Resolução por item está disponível apenas online.");
-    }
-    const evidence =
-      options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
+    const evidence = options.resolutionEvidenceUrl ?? options.resolutionEvidenceBase64;
     return this.apiRepository.resolveInspectionItem(inspectionServerId, itemId, {
       resolutionNotes: options.resolutionNotes,
       resolutionEvidence: evidence,
@@ -599,42 +460,105 @@ export class AppRepository implements IAppRepository {
   }
 
   async setInspectionItems(externalId: string, items: InspectionItem[]): Promise<void> {
-    await this.offlineRepository.replaceInspectionItems(externalId, items);
-    await this.offlineRepository.updateInspection(externalId, {
-      syncState: SyncState.PENDING_SYNC,
-    });
+    const inspection = await this.getInspection(externalId);
+    if (!inspection) throw new Error("Vistoria não encontrada.");
+    const inspectionId = inspection.serverId ?? externalId;
+    await this.apiRepository.setInspectionItems(
+      inspectionId,
+      items.map((item) => ({
+        inspectionItemId: item.id,
+        answer: item.answer,
+        notes: item.notes,
+      }))
+    );
   }
 
   async getInspectionItems(externalId: string): Promise<InspectionItem[]> {
-    return this.offlineRepository.getInspectionItems(externalId);
+    const inspection = await this.getInspection(externalId);
+    return inspection?.items ?? [];
   }
 
   async saveEvidence(evidence: Evidence): Promise<Evidence> {
-    const saved = await this.offlineRepository.saveEvidence(evidence);
-    await this.offlineRepository.updateInspection(evidence.inspectionExternalId, {
-      syncState: SyncState.PENDING_SYNC,
-    });
-    return saved;
+    if (evidence.cloudinaryPublicId && evidence.url) {
+      return evidence;
+    }
+    if (evidence.dataUrl) {
+      const res = await fetch(evidence.dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], evidence.fileName, { type: evidence.mimeType });
+      const inspectionId = (await this.getInspection(evidence.inspectionExternalId))?.serverId ?? evidence.inspectionExternalId;
+      const created = await this.apiRepository.addInspectionEvidence(
+        inspectionId,
+        file,
+        evidence.inspectionItemId
+      );
+      return {
+        ...evidence,
+        id: created.id,
+        cloudinaryPublicId: created.cloudinaryPublicId,
+        url: created.url,
+        bytes: created.bytes,
+        format: created.format,
+        width: created.width,
+        height: created.height,
+      };
+    }
+    throw new Error("Evidência sem dados para upload (dataUrl ou cloudinaryPublicId).");
   }
 
-  async removeEvidence(evidenceId: string): Promise<void> {
-    await this.offlineRepository.deleteEvidence(evidenceId);
+  async removeEvidence(_evidenceId: string): Promise<void> {
+    // TODO: Backend não possui endpoint de remoção de evidência; remoção é apenas local.
   }
 
   async getEvidences(externalId: string): Promise<Evidence[]> {
-    return this.offlineRepository.getEvidences(externalId);
+    const inspection = await this.getInspection(externalId);
+    const list = inspection?.evidences ?? [];
+    return list.map((e) => ({
+      ...e,
+      inspectionExternalId: e.inspectionExternalId ?? externalId,
+    }));
   }
 
   async saveSignature(signature: Signature): Promise<Signature> {
-    const saved = await this.offlineRepository.saveSignature(signature);
-    await this.offlineRepository.updateInspection(signature.inspectionExternalId, {
-      syncState: SyncState.PENDING_SYNC,
-    });
-    return saved;
+    const inspectionId = signature.inspectionExternalId;
+    let imageBase64 = "";
+    if (signature.dataUrl?.startsWith("data:")) {
+      imageBase64 = signature.dataUrl.split(",")[1] ?? "";
+    } else if (signature.url) {
+      const res = await fetch(signature.url);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      imageBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string)?.split(",")[1] ?? "");
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+    if (!imageBase64) throw new Error("Assinatura sem imagem (dataUrl ou url).");
+    const result = await this.apiRepository.addInspectionSignature(
+      inspectionId,
+      signature.signerName,
+      imageBase64
+    );
+    return {
+      id: result.id,
+      inspectionExternalId: signature.inspectionExternalId,
+      signerName: result.signerName,
+      signerRoleLabel: result.signerRoleLabel,
+      cloudinaryPublicId: result.cloudinaryPublicId,
+      url: result.url,
+      signedAt: result.signedAt,
+    };
   }
 
   async getSignature(externalId: string): Promise<Signature | null> {
-    return this.offlineRepository.getSignature(externalId);
+    const inspection = await this.getInspection(externalId);
+    const sig = inspection?.signatures?.[0];
+    if (!sig) return null;
+    return {
+      ...sig,
+      inspectionExternalId: sig.inspectionExternalId ?? externalId,
+    };
   }
 
   async uploadToCloudinary(
@@ -653,20 +577,6 @@ export class AppRepository implements IAppRepository {
 
   async deleteFromCloudinary(publicId: string): Promise<void> {
     return this.apiRepository.deleteFromCloudinary(publicId);
-  }
-
-  async syncAll(): Promise<SyncInspectionResult[]> {
-    return this.syncService.syncAll();
-  }
-
-  async countPendingSync(): Promise<number> {
-    const inspections = await this.offlineRepository.getInspectionsToSync();
-    return inspections.length;
-  }
-
-  /** Remove vistorias já sincronizadas mais antigas que OFFLINE_RETENTION_DAYS. Chamado na abertura do app. */
-  async runRetentionCleanup(): Promise<number> {
-    return this.offlineRepository.purgeSyncedOlderThanDays(OFFLINE_RETENTION_DAYS);
   }
 }
 

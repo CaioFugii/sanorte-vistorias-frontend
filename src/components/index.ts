@@ -1,13 +1,12 @@
 export { ModuleSelect } from './ModuleSelect';
 export { TeamSelect } from './TeamSelect';
 export { SectorSelect } from './SectorSelect';
+export { ServiceOrderSelect } from './ServiceOrderSelect';
 export { ChecklistSelect } from './ChecklistSelect';
 export { StatusChip } from './StatusChip';
 export { PercentBadge } from './PercentBadge';
 export { PhotoUploader } from './PhotoUploader';
 export { SignaturePad } from './SignaturePad';
 export { ChecklistRenderer } from './ChecklistRenderer';
-export { OfflineBanner } from './OfflineBanner';
-export { SyncStatusBadge } from './SyncStatusBadge';
 export { AnswerRadioGroup } from './AnswerRadioGroup';
 export { ConfirmDialog } from './ConfirmDialog';

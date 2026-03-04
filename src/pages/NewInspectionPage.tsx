@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -10,6 +11,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
+import { ServiceOrderSelect } from "@/components/ServiceOrderSelect";
 import { TeamSelect } from "@/components/TeamSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -23,6 +25,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const loadCache = useReferenceStore((state) => state.loadCache);
+  const serviceOrders = useReferenceStore((state) => state.serviceOrders);
   const [loading, setLoading] = useState(false);
   const [loadingCollaborators, setLoadingCollaborators] = useState(true);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -30,6 +33,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
+  const [serviceOrderId, setServiceOrderId] = useState("");
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
@@ -54,7 +58,7 @@ export const NewInspectionPage = (): JSX.Element => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user || !checklistId || !teamId || !serviceDescription.trim()) {
+    if (!user || !checklistId || !teamId || !serviceOrderId || !serviceDescription.trim()) {
       return;
     }
     setLoading(true);
@@ -63,6 +67,7 @@ export const NewInspectionPage = (): JSX.Element => {
         module,
         checklistId,
         teamId,
+        serviceOrderId,
         collaboratorIds,
         serviceDescription,
         locationDescription,
@@ -112,6 +117,20 @@ export const NewInspectionPage = (): JSX.Element => {
           </Box>
           <Box sx={{ mt: 2 }}>
             <TeamSelect value={teamId} onChange={setTeamId} required />
+          </Box>
+          {serviceOrders.length === 0 && navigator.onLine && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Nenhuma Ordem de Serviço cadastrada. Administradores e gestores podem importar OS via Excel
+              na página &quot;Ordens de Serviço&quot;.
+            </Alert>
+          )}
+          <Box sx={{ mt: 2 }}>
+            <ServiceOrderSelect
+              value={serviceOrderId}
+              onChange={setServiceOrderId}
+              required
+              disabled={serviceOrders.length === 0}
+            />
           </Box>
           <Box sx={{ mt: 2 }}>
             <CollaboratorMultiSelect
