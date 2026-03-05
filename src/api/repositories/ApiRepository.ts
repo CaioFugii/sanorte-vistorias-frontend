@@ -539,6 +539,8 @@ export class ApiRepository {
       averagePercent: number;
       inspectionsCount: number;
       pendingCount: number;
+      paralyzedCount: number;
+      paralysisRatePercent: number;
     }>
   > {
     const response = await apiClient.get<
@@ -548,8 +550,34 @@ export class ApiRepository {
         averagePercent: number;
         inspectionsCount: number;
         pendingCount: number;
+        paralyzedCount: number;
+        paralysisRatePercent: number;
       }>
     >("/dashboards/ranking/teams", { params });
+    return response.data;
+  }
+
+  async getDashboardTeam(
+    teamId: string,
+    params?: { from?: string; to?: string; module?: ModuleType }
+  ): Promise<{
+    teamId: string;
+    teamName: string;
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    paralyzedCount: number;
+    paralysisRatePercent: number;
+  }> {
+    const response = await apiClient.get<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingCount: number;
+      paralyzedCount: number;
+      paralysisRatePercent: number;
+    }>(`/dashboards/teams/${teamId}`, { params });
     return response.data;
   }
 

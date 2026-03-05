@@ -329,9 +329,26 @@ export class AppRepository implements IAppRepository {
       averagePercent: number;
       inspectionsCount: number;
       pendingCount: number;
+      paralyzedCount: number;
+      paralysisRatePercent: number;
     }>
   > {
     return this.apiRepository.getDashboardTeamRanking(params);
+  }
+
+  async getDashboardTeam(
+    teamId: string,
+    params?: { from?: string; to?: string; module?: ModuleType }
+  ): Promise<{
+    teamId: string;
+    teamName: string;
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    paralyzedCount: number;
+    paralysisRatePercent: number;
+  }> {
+    return this.apiRepository.getDashboardTeam(teamId, params);
   }
 
   async createInspection(input: {

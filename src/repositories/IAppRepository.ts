@@ -156,8 +156,22 @@ export interface IAppRepository {
       averagePercent: number;
       inspectionsCount: number;
       pendingCount: number;
+      paralyzedCount: number;
+      paralysisRatePercent: number;
     }>
   >;
+  getDashboardTeam(
+    teamId: string,
+    params?: { from?: string; to?: string; module?: ModuleType }
+  ): Promise<{
+    teamId: string;
+    teamName: string;
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    paralyzedCount: number;
+    paralysisRatePercent: number;
+  }>;
 
   createInspection(input: {
     module: ModuleType;
