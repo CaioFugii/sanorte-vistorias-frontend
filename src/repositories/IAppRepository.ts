@@ -118,6 +118,9 @@ export interface IAppRepository {
     limit?: number;
     osNumber?: string;
     sectorId?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
   }): Promise<PaginatedResponse<ServiceOrder>>;
   importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }>;
 

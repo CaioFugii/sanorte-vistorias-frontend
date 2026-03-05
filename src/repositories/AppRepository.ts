@@ -269,6 +269,9 @@ export class AppRepository implements IAppRepository {
     limit?: number;
     osNumber?: string;
     sectorId?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
   }): Promise<PaginatedResponse<ServiceOrder>> {
     return this.apiRepository.getServiceOrders(params);
   }

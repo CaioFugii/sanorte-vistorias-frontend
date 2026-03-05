@@ -24,13 +24,14 @@ export const SectorSelect = ({
   const cachedSectors = useReferenceStore((state) => state.sectors);
   const sectors = options ?? cachedSectors;
   const filtered = onlyActive ? sectors.filter((sector) => sector.active) : sectors;
+  const hasNoOptions = filtered.length === 0;
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     onChange(event.target.value);
   };
 
   return (
-    <FormControl fullWidth required={required} disabled={disabled}>
+    <FormControl fullWidth required={required} disabled={disabled || hasNoOptions}>
       <InputLabel>{label}</InputLabel>
       <Select value={value} onChange={handleChange} label={label}>
         {filtered.map((sector) => (

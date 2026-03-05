@@ -19,6 +19,12 @@ export interface ServiceOrdersParams {
   limit?: number;
   osNumber?: string;
   sectorId?: string;
+  /** Filtra OS já usadas em vistoria CAMPO */
+  field?: boolean;
+  /** Filtra OS já usadas em vistoria REMOTO */
+  remote?: boolean;
+  /** Filtra OS já usadas em vistoria POS_OBRA */
+  postWork?: boolean;
 }
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";

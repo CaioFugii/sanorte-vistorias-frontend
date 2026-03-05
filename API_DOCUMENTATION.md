@@ -36,8 +36,9 @@ Authorization: Bearer <token>
   - anexos e assinatura: `POST /inspections/:id/evidences`, `POST /inspections/:id/signature`
   - transições: `POST /inspections/:id/paralyze`, `POST /inspections/:id/finalize`, `POST /inspections/:id/items/:itemId/resolve`, `POST /inspections/:id/resolve`
   - PDF: `GET /inspections/:id/pdf`
+- Sync offline: `POST /sync/inspections`
 - Upload genérico: `POST /uploads`, `DELETE /uploads/:publicId`
-- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`
+- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`, `GET /dashboards/teams/:teamId`
 
 ### Regras críticas que impactam UI
 
@@ -61,7 +62,7 @@ Authorization: Bearer <token>
 - `POST /inspections/:id/unparalyze`:
   - disponível apenas para GESTOR/ADMIN.
   - remove penalidade e recalcula nota (correção de erro).
-- `POST /inspections/:id/finalize` exige assinatura e, para itens não conformes com obrigatoriedade, evidência.
+- `POST /inspections/:id/finalize`: assinatura é opcional; para itens não conformes com obrigatoriedade, evidência é exigida.
 
 ### Máquina de status da vistoria (visão frontend)
 
@@ -82,6 +83,7 @@ Authorization: Bearer <token>
 ### Filtros disponíveis para listagens (essencial para telas)
 
 - Paginação padrão em listas: `page`, `limit`.
+- `GET /service-orders`: filtros por `osNumber` (busca parcial), `sectorId`, `field`, `remote`, `postWork` (boolean `true`/`false`; filtra OS por uso no módulo CAMPO, REMOTO ou POS_OBRA).
 - `GET /collaborators`: filtro por `sectorId`.
 - `GET /checklists`: filtros por `module`, `active`, `sectorId`.
 - `GET /inspections`: filtros por `periodFrom`, `periodTo`, `module`, `teamId`, `status`, `osNumber` (busca parcial por número da OS; regra de ocultar rascunho para GESTOR/ADMIN).
@@ -97,9 +99,13 @@ Authorization: Bearer <token>
   - `message`
   - `error`
 
-### Identificadores de vistoria
+### Integração offline (resumo operacional)
 
-- `GET /inspections/:id` aceita `id` do servidor **ou** `externalId`.
+- Use `externalId` para idempotência no `POST /sync/inspections`.
+- `serviceOrderId` é obrigatório para criar nova vistoria no sync (OS deve estar cadastrada previamente).
+- Não enviar `dataUrl` em evidências no sync (assets devem ser enviados antes).
+- Se precisar aplicar penalidade de paralisação no sync, envie `paralyze.reason`.
+- `GET /inspections/:id` aceita `id` do servidor **ou** `externalId`, o que simplifica reconciliação de dados locais.
 
 ### Checklist para novas funcionalidades no frontend
 
@@ -866,8 +872,15 @@ Response 200: `ChecklistItem` atualizado
 ### GET /service-orders
 
 - Auth: JWT + FISCAL ou GESTOR ou ADMIN
-- Response 200: array de `ServiceOrder` ordenados por `osNumber`
-- Uso: listar OS disponíveis para vincular a novas vistorias
+- Query:
+  - `page`, `limit` (paginação padrão)
+  - `osNumber` (opcional; busca parcial por número da OS)
+  - `sectorId` (opcional; UUID do setor)
+  - `field` (opcional; `true` ou `false` — filtra OS já usadas em vistoria CAMPO)
+  - `remote` (opcional; `true` ou `false` — filtra OS já usadas em vistoria REMOTO)
+  - `postWork` (opcional; `true` ou `false` — filtra OS já usadas em vistoria POS_OBRA)
+- Response 200: paginação de `ServiceOrder` com relação `sector`, ordenados por `osNumber`
+- Uso: listar OS disponíveis para vincular a novas vistorias; filtrar por uso por módulo (field/remote/postWork)
 
 ### POST /service-orders/import
 
@@ -1069,7 +1082,7 @@ Response 200: `Inspection` finalizada
 
 Regras:
 
-- Exige assinatura do líder/encarregado.
+- Assinatura do líder/encarregado é opcional.
 - Item `NAO_CONFORME` com `requiresPhotoOnNonConformity = true` exige evidência.
 - Calcula `scorePercent` (com penalidade de 25% quando `hasParalysisPenalty = true`).
 - Se houver `NAO_CONFORME`: status `PENDENTE_AJUSTE` e pendência `PENDENTE`.
@@ -1326,16 +1339,58 @@ Response 200:
     "teamName": "Equipe Norte",
     "averagePercent": 95.1,
     "inspectionsCount": 12,
-    "pendingCount": 2
+    "pendingCount": 2,
+    "paralyzedCount": 1,
+    "paralysisRatePercent": 8.33
   },
   {
     "teamId": "uuid-2",
     "teamName": "Equipe Sul",
     "averagePercent": 90.2,
     "inspectionsCount": 10,
-    "pendingCount": 1
+    "pendingCount": 1,
+    "paralyzedCount": 0,
+    "paralysisRatePercent": 0
   }
 ]
+```
+
+- `paralyzedCount`: quantidade de vistorias com penalidade de paralisação no período.
+- `paralysisRatePercent`: percentual de vistorias paralisadas (paralyzedCount / inspectionsCount).
+
+### GET /dashboards/teams/:teamId
+
+- Auth: JWT
+- Path: `teamId` (uuid da equipe).
+- Query:
+  - `from` (`YYYY-MM-DD`)
+  - `to` (`YYYY-MM-DD`)
+  - `module` (`ModuleType`)
+
+Retorna métricas de desempenho de uma equipe específica no período e módulo (mesmos filtros do summary/ranking). Útil para tela de detalhe da equipe ou relatório.
+
+Response 200:
+
+```json
+{
+  "teamId": "uuid",
+  "teamName": "Equipe Norte",
+  "averagePercent": 95.1,
+  "inspectionsCount": 12,
+  "pendingCount": 2,
+  "paralyzedCount": 1,
+  "paralysisRatePercent": 8.33
+}
+```
+
+Response 404 quando a equipe não existe:
+
+```json
+{
+  "statusCode": 404,
+  "message": "Equipe não encontrada",
+  "error": "Not Found"
+}
 ```
 
 ## Permissões por role
@@ -1385,7 +1440,6 @@ Mensagens relevantes do domínio:
 - `reason should not be empty`
 - `Não é possível adicionar assinatura em vistoria finalizada`
 - `Vistoria já foi finalizada`
-- `Assinatura do líder/encarregado é obrigatória para finalizar`
 - `Item "<titulo>" requer foto de evidência quando não conforme`
 - `Vistoria não está pendente de ajuste`
 - `Apenas itens em não conformidade podem ser resolvidos`

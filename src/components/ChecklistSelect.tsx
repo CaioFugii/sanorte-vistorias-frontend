@@ -11,6 +11,7 @@ interface ChecklistSelectProps {
   sectorId?: string;
   disabled?: boolean;
   required?: boolean;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 export function ChecklistSelect({
@@ -20,15 +21,18 @@ export function ChecklistSelect({
   sectorId,
   disabled,
   required,
+  onLoadingChange,
 }: ChecklistSelectProps): JSX.Element {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
 
   useEffect(() => {
     if (!sectorId || !module) {
       setChecklists([]);
+      onLoadingChange?.(false);
       return;
     }
     let cancelled = false;
+    onLoadingChange?.(true);
     appRepository
       .getChecklists({ sectorId, module, page: 1, limit: 100 })
       .then((res) => {
@@ -36,16 +40,21 @@ export function ChecklistSelect({
       })
       .catch(() => {
         if (!cancelled) setChecklists([]);
+      })
+      .finally(() => {
+        if (!cancelled) onLoadingChange?.(false);
       });
     return () => {
       cancelled = true;
+      onLoadingChange?.(false);
     };
-  }, [sectorId, module]);
+  }, [sectorId, module, onLoadingChange]);
 
   const handleChange = (event: SelectChangeEvent<string>) => onChange(event.target.value);
+  const hasNoOptions = checklists.length === 0;
 
   return (
-    <FormControl fullWidth required={required} disabled={disabled}>
+    <FormControl fullWidth required={required} disabled={disabled || hasNoOptions}>
       <InputLabel>Checklist</InputLabel>
       <Select value={value} label="Checklist" onChange={handleChange}>
         {checklists.map((checklist) => (

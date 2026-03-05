@@ -46,6 +46,9 @@ function ListagemTab(): JSX.Element {
   const [limit] = useState(DEFAULT_LIMIT);
   const [osNumber, setOsNumber] = useState("");
   const [sectorId, setSectorId] = useState("");
+  const [field, setField] = useState<"" | "true" | "false">("");
+  const [remote, setRemote] = useState<"" | "true" | "false">("");
+  const [postWork, setPostWork] = useState<"" | "true" | "false">("");
   const [result, setResult] = useState<PaginatedResponse<ServiceOrder> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -62,6 +65,9 @@ function ListagemTab(): JSX.Element {
         limit,
         osNumber: osNumber.trim() || undefined,
         sectorId: sectorId.trim() || undefined,
+        field: field === "" ? undefined : field === "true",
+        remote: remote === "" ? undefined : remote === "true",
+        postWork: postWork === "" ? undefined : postWork === "true",
       })
       .then((res) => {
         if (!cancelled) setResult(res);
@@ -75,7 +81,7 @@ function ListagemTab(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, osNumber, sectorId]);
+  }, [page, limit, osNumber, sectorId, field, remote, postWork]);
 
   const handleSearch = (value: string) => {
     setOsNumber(value);
@@ -84,6 +90,16 @@ function ListagemTab(): JSX.Element {
 
   const handleSectorChange = (value: string) => {
     setSectorId(value);
+    setPage(1);
+  };
+
+  const handleModuleFilter = (
+    key: "field" | "remote" | "postWork",
+    value: "" | "true" | "false"
+  ) => {
+    if (key === "field") setField(value);
+    if (key === "remote") setRemote(value);
+    if (key === "postWork") setPostWork(value);
     setPage(1);
   };
 
@@ -128,6 +144,48 @@ function ListagemTab(): JSX.Element {
             ))}
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Campo</InputLabel>
+          <Select
+            value={field}
+            onChange={(e) => handleModuleFilter("field", e.target.value as "" | "true" | "false")}
+            label="Campo"
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Sim</MenuItem>
+            <MenuItem value="false">Não</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Remoto</InputLabel>
+          <Select
+            value={remote}
+            onChange={(e) => handleModuleFilter("remote", e.target.value as "" | "true" | "false")}
+            label="Remoto"
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Sim</MenuItem>
+            <MenuItem value="false">Não</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Pós-obra</InputLabel>
+          <Select
+            value={postWork}
+            onChange={(e) => handleModuleFilter("postWork", e.target.value as "" | "true" | "false")}
+            label="Pós-obra"
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Sim</MenuItem>
+            <MenuItem value="false">Não</MenuItem>
+          </Select>
+        </FormControl>
         <Button
           variant="outlined"
           startIcon={<Refresh />}
@@ -152,7 +210,7 @@ function ListagemTab(): JSX.Element {
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    {osNumber.trim() || sectorId
+                    {osNumber.trim() || sectorId || field || remote || postWork
                       ? "Nenhuma ordem de serviço encontrada com esse filtro."
                       : "Nenhuma ordem de serviço cadastrada."}
                   </TableCell>

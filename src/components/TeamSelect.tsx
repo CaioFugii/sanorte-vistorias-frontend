@@ -24,9 +24,10 @@ export const TeamSelect = ({
     onChange(event.target.value);
   };
   const filtered = onlyActive ? teams.filter((team) => team.active) : teams;
+  const hasNoOptions = filtered.length === 0;
 
   return (
-    <FormControl fullWidth required={required} disabled={disabled}>
+    <FormControl fullWidth required={required} disabled={disabled || hasNoOptions}>
       <InputLabel>{label}</InputLabel>
       <Select value={value} onChange={handleChange} label={label}>
         {filtered.map((team) => (

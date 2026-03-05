@@ -1,5 +1,6 @@
 import {
   Alert,
+  Backdrop,
   Box,
   Button,
   CircularProgress,
@@ -7,7 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
@@ -23,7 +24,10 @@ export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const serviceOrders = useReferenceStore((state) => state.serviceOrders);
-  const [loading, setLoading] = useState(false);
+  const serviceOrdersLoading = useReferenceStore((state) => state.serviceOrdersLoading);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const loading = submitLoading || serviceOrdersLoading || checklistLoading;
   const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
@@ -43,7 +47,7 @@ export const NewInspectionPage = (): JSX.Element => {
     if (!user || !checklistId || !teamId || !serviceOrderId || !serviceDescription.trim()) {
       return;
     }
-    setLoading(true);
+    setSubmitLoading(true);
     try {
       const inspection = await appRepository.createInspection({
         module,
@@ -56,12 +60,19 @@ export const NewInspectionPage = (): JSX.Element => {
       });
       navigate(`/inspections/${inspection.externalId}/fill`);
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
+  const handleChecklistLoadingChange = useCallback((value: boolean) => {
+    setChecklistLoading(value);
+  }, []);
+
   return (
     <Box>
+      <Backdrop open={loading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
       <Typography variant="h4" gutterBottom>
         Nova Vistoria
       </Typography>
@@ -71,7 +82,12 @@ export const NewInspectionPage = (): JSX.Element => {
             value={module}
             onChange={(value) => {
               setModule(value);
+              setSectorId("");
               setChecklistId("");
+              setTeamId("");
+              setServiceOrderId("");
+              setServiceDescription("");
+              setLocationDescription("");
             }}
             required
           />
@@ -95,6 +111,7 @@ export const NewInspectionPage = (): JSX.Element => {
               sectorId={sectorId}
               disabled={!sectorId}
               required
+              onLoadingChange={handleChecklistLoadingChange}
             />
           </Box>
           <Box sx={{ mt: 2 }}>
@@ -111,6 +128,7 @@ export const NewInspectionPage = (): JSX.Element => {
               value={serviceOrderId}
               onChange={setServiceOrderId}
               sectorId={sectorId || undefined}
+              module={module}
               required
               disabled={!sectorId}
             />
@@ -137,7 +155,7 @@ export const NewInspectionPage = (): JSX.Element => {
               Cancelar
             </Button>
             <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? <CircularProgress size={20} /> : "Criar"}
+              {submitLoading ? <CircularProgress size={20} /> : "Criar"}
             </Button>
           </Box>
         </form>

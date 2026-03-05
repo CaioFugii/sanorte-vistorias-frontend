@@ -255,7 +255,6 @@ export const FillInspectionPage = (): JSX.Element => {
   const handleFinalize = async (): Promise<void> => {
     setFinalizing(true);
     try {
-      await handleSaveSignature();
       const currentSignature = await appRepository.getSignature(currentInspection.externalId);
       const validation = validateFinalize({
         checklist,
