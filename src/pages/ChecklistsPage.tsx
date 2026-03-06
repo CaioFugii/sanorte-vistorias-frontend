@@ -50,7 +50,7 @@ export const ChecklistsPage = (): JSX.Element => {
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [sectorTab, setSectorTab] = useState("all");
-  const [checklistModule, setChecklistModule] = useState<ModuleType | ''>(ModuleType.QUALIDADE);
+  const [checklistModule, setChecklistModule] = useState<ModuleType | ''>(ModuleType.CAMPO);
   const [checklistName, setChecklistName] = useState("");
   const [checklistDescription, setChecklistDescription] = useState("");
   const [checklistSectorId, setChecklistSectorId] = useState("");
@@ -128,7 +128,7 @@ export const ChecklistsPage = (): JSX.Element => {
             startIcon={<Add />}
             onClick={() => {
               setEditingChecklist(null);
-              setChecklistModule(ModuleType.QUALIDADE);
+              setChecklistModule(ModuleType.CAMPO);
               setChecklistName("");
               setChecklistDescription("");
               setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
