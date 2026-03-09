@@ -20,14 +20,19 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { User } from "@/domain";
+import { PaginatedResponse, User } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ListPagination } from "@/components/ListPagination";
+
+const DEFAULT_LIMIT = 10;
 
 export const UsersPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
+  const [result, setResult] = useState<PaginatedResponse<User> | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
@@ -39,16 +44,19 @@ export const UsersPage = (): JSX.Element => {
 
   const load = async () => {
     setLoading(true);
-    const result = await appRepository.getUsers({ page: 1, limit: 100 });
-    setUsers(result.data);
+    const res = await appRepository.getUsers({ page, limit });
+    setResult(res);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, []);
+  }, [page, limit]);
 
-  if (loading) {
+  const users = result?.data ?? [];
+  const meta = result?.meta;
+
+  if (loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -87,7 +95,20 @@ export const UsersPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  Nenhum usuário cadastrado.
+                </TableCell>
+              </TableRow>
+            ) : (
+            users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
@@ -113,9 +134,22 @@ export const UsersPage = (): JSX.Element => {
                   </IconButton>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">

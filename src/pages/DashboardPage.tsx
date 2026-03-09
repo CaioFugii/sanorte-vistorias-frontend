@@ -25,6 +25,7 @@ import { Navigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
+import { ListPagination } from '@/components/ListPagination';
 import { ModuleType } from '@/domain/enums';
 import { TeamSelect } from '@/components/TeamSelect';
 import { ModuleSelect } from '@/components/ModuleSelect';
@@ -75,6 +76,8 @@ export const DashboardPage = (): JSX.Element => {
   const [teamDetailError, setTeamDetailError] = useState<string | null>(null);
   const [orderBy, setOrderBy] = useState<SortKey>(null);
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
+  const [rankingPage, setRankingPage] = useState(1);
+  const [rankingLimit, setRankingLimit] = useState(10);
 
   const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
 
@@ -102,6 +105,7 @@ export const DashboardPage = (): JSX.Element => {
       ]);
       setSummary(summaryData);
       setTeamRanking(rankingData);
+      setRankingPage(1);
     } catch (err) {
       const message =
         (err as { response?: { status?: number } })?.response?.status === 403
@@ -166,6 +170,28 @@ export const DashboardPage = (): JSX.Element => {
       return order === 'asc' ? cmp : -cmp;
     });
   }, [teamRanking, orderBy, order]);
+
+  const rankingMeta = useMemo(() => {
+    const total = sortedRanking.length;
+    const totalPages = Math.max(1, Math.ceil(total / rankingLimit));
+    return {
+      page: rankingPage,
+      limit: rankingLimit,
+      total,
+      totalPages,
+      hasNext: rankingPage < totalPages,
+      hasPrev: rankingPage > 1,
+    };
+  }, [sortedRanking.length, rankingPage, rankingLimit]);
+
+  const pagedRanking = useMemo(
+    () =>
+      sortedRanking.slice(
+        (rankingPage - 1) * rankingLimit,
+        rankingPage * rankingLimit
+      ),
+    [sortedRanking, rankingPage, rankingLimit]
+  );
 
   if (!canAccessDashboard) {
     return <Navigate to="/inspections/mine" replace />;
@@ -362,7 +388,7 @@ export const DashboardPage = (): JSX.Element => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {sortedRanking.map((team) => {
+                    {pagedRanking.map((team) => {
                       return (
                         <TableRow
                           key={team.teamId}
@@ -409,6 +435,18 @@ export const DashboardPage = (): JSX.Element => {
                     })}
                   </TableBody>
                 </Table>
+                {rankingMeta.total > 0 && (
+                  <ListPagination
+                    meta={rankingMeta}
+                    onPageChange={setRankingPage}
+                    onRowsPerPageChange={(newLimit) => {
+                      setRankingLimit(newLimit);
+                      setRankingPage(1);
+                    }}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    disabled={loading}
+                  />
+                )}
               </TableContainer>
             )}
           </Paper>

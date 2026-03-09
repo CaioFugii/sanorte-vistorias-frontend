@@ -22,16 +22,21 @@ import {
 import { Add, Delete, Edit, Refresh } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
-import { Collaborator, Team } from '@/domain';
+import { Collaborator, PaginatedResponse, Team } from '@/domain';
 import { appRepository } from '@/repositories/AppRepository';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ListPagination } from '@/components/ListPagination';
+
+const DEFAULT_LIMIT = 10;
 
 export const TeamsPage = (): JSX.Element => {
-  const teams = useReferenceStore((state) => state.teams);
   const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
   const loadCache = useReferenceStore((state) => state.loadCache);
   const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<PaginatedResponse<Team> | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -42,17 +47,33 @@ export const TeamsPage = (): JSX.Element => {
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
 
+  const loadTeams = async () => {
+    setLoading(true);
+    const res = await appRepository.getTeams({ page, limit });
+    setResult(res);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadTeams();
+  }, [page, limit]);
+
   useEffect(() => {
     const run = async () => {
-      await loadCache();
       const collaboratorsResponse = await appRepository.getCollaborators({ page: 1, limit: 100 });
-      setCollaborators(collaboratorsResponse.data.filter((collaborator) => collaborator.active));
-      setLoading(false);
-  };
+      setCollaborators(collaboratorsResponse.data.filter((c) => c.active));
+    };
     run();
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    loadCache();
+  }, [loadCache]);
+
+  const teams = result?.data ?? [];
+  const meta = result?.meta;
+
+  if (loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -68,7 +89,7 @@ export const TeamsPage = (): JSX.Element => {
           <Button
             variant="outlined"
             startIcon={<Refresh />}
-            onClick={() => refreshFromApi()}
+            onClick={() => refreshFromApi().then(() => loadTeams())}
           >
             Atualizar catálogo
           </Button>
@@ -99,7 +120,20 @@ export const TeamsPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {teams.map((team) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : teams.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  Nenhuma equipe cadastrada.
+                </TableCell>
+              </TableRow>
+            ) : (
+            teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
                 <TableCell>
@@ -128,9 +162,22 @@ export const TeamsPage = (): JSX.Element => {
                   </IconButton>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
@@ -181,6 +228,7 @@ export const TeamsPage = (): JSX.Element => {
                 }
                 setDialogOpen(false);
                 await refreshFromApi();
+                await loadTeams();
               } finally {
                 setSaving(false);
               }
@@ -207,6 +255,7 @@ export const TeamsPage = (): JSX.Element => {
             await appRepository.deleteTeam(deletingTeam.id);
             setDeletingTeam(null);
             await refreshFromApi();
+            await loadTeams();
           } finally {
             setDeleting(false);
           }

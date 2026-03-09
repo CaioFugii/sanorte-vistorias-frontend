@@ -24,15 +24,20 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Collaborator, Sector } from "@/domain";
+import { Collaborator, PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { SectorSelect } from "@/components/SectorSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ListPagination } from "@/components/ListPagination";
+
+const DEFAULT_LIMIT = 10;
 
 export const CollaboratorsPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [result, setResult] = useState<PaginatedResponse<Collaborator> | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Collaborator | null>(null);
@@ -50,14 +55,18 @@ export const CollaboratorsPage = (): JSX.Element => {
         throw new Error("Gestão de colaboradores está disponível apenas online.");
       }
       const [collaboratorsResponse, sectorsData] = await Promise.all([
-        appRepository.getCollaborators({ page: 1, limit: 100 }),
+        appRepository.getCollaborators({
+          page,
+          limit,
+          sectorId: sectorTab === "all" ? undefined : sectorTab,
+        }),
         appRepository.loadSectors(true),
       ]);
-      setCollaborators(collaboratorsResponse.data);
+      setResult(collaboratorsResponse);
       setSectors(sectorsData);
       setError(null);
     } catch (e) {
-      setCollaborators([]);
+      setResult(null);
       setSectors([]);
       setError(e instanceof Error ? e.message : "Não foi possível carregar colaboradores.");
     } finally {
@@ -67,7 +76,7 @@ export const CollaboratorsPage = (): JSX.Element => {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [page, limit, sectorTab]);
 
   useEffect(() => {
     if (sectorTab === "all") return;
@@ -77,12 +86,10 @@ export const CollaboratorsPage = (): JSX.Element => {
     }
   }, [sectors, sectorTab]);
 
-  const visibleCollaborators =
-    sectorTab === "all"
-      ? collaborators
-      : collaborators.filter((collaborator) => collaborator.sectorId === sectorTab);
+  const collaborators = result?.data ?? [];
+  const meta = result?.meta;
 
-  if (loading) {
+  if (loading && !result && !meta) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -117,7 +124,10 @@ export const CollaboratorsPage = (): JSX.Element => {
       <Paper sx={{ mb: 2 }}>
         <Tabs
           value={sectorTab}
-          onChange={(_, value: string) => setSectorTab(value)}
+          onChange={(_, value: string) => {
+            setSectorTab(value);
+            setPage(1);
+          }}
           variant="scrollable"
           scrollButtons="auto"
         >
@@ -139,7 +149,20 @@ export const CollaboratorsPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {visibleCollaborators.map((collaborator) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : collaborators.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                  Nenhum colaborador encontrado.
+                </TableCell>
+              </TableRow>
+            ) : (
+            collaborators.map((collaborator) => (
               <TableRow key={collaborator.id}>
                 <TableCell>{collaborator.name}</TableCell>
                 <TableCell>{collaborator.sector?.name || "-"}</TableCell>
@@ -164,9 +187,22 @@ export const CollaboratorsPage = (): JSX.Element => {
                   </IconButton>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">

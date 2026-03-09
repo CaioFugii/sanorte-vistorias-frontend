@@ -24,6 +24,8 @@ export interface IAppRepository {
   loadTeams(forceApi?: boolean): Promise<Team[]>;
   loadSectors(forceApi?: boolean): Promise<Sector[]>;
   loadChecklists(forceApi?: boolean): Promise<Checklist[]>;
+  getTeams(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Team>>;
+  getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>>;
   getCachedTeams(): Promise<Team[]>;
   getCachedSectors(): Promise<Sector[]>;
   getCachedChecklists(): Promise<Checklist[]>;

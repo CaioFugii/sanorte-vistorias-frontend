@@ -28,15 +28,20 @@ import {
   ExpandMore,
 } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { Checklist, Sector } from '@/domain';
+import { Checklist, PaginatedResponse, Sector } from '@/domain';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { SectorSelect } from '@/components/SectorSelect';
 import { ModuleType } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ListPagination } from '@/components/ListPagination';
+
+const DEFAULT_LIMIT = 10;
 
 export const ChecklistsPage = (): JSX.Element => {
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +76,19 @@ export const ChecklistsPage = (): JSX.Element => {
         throw new Error("Gestão de checklists está disponível apenas online.");
       }
       const [checklistsResponse, sectorsData] = await Promise.all([
-        appRepository.getChecklists({ page: 1, limit: 100 }),
+        appRepository.getChecklists({
+          page,
+          limit,
+          sectorId: sectorTab === "all" ? undefined : sectorTab,
+        }),
         appRepository.loadSectors(true),
       ]);
-      setChecklists(checklistsResponse.data);
+      setResult(checklistsResponse);
       setSectors(sectorsData);
       setError(null);
     } catch (e) {
-      setChecklists([]);
-      setSectors([]);
+      setResult(null);
+      setSectors((prev) => (prev.length === 0 ? [] : prev));
       setError(e instanceof Error ? e.message : "Não foi possível carregar checklists.");
     } finally {
       setLoading(false);
@@ -88,7 +97,7 @@ export const ChecklistsPage = (): JSX.Element => {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [page, limit, sectorTab]);
 
   useEffect(() => {
     if (sectorTab === "all") return;
@@ -98,12 +107,10 @@ export const ChecklistsPage = (): JSX.Element => {
     }
   }, [sectors, sectorTab]);
 
-  const visibleChecklists =
-    sectorTab === "all"
-      ? checklists
-      : checklists.filter((checklist) => checklist.sectorId === sectorTab);
+  const visibleChecklists = result?.data ?? [];
+  const meta = result?.meta;
 
-  if (loading) {
+  if (loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -149,7 +156,10 @@ export const ChecklistsPage = (): JSX.Element => {
       <Paper sx={{ mb: 2 }}>
         <Tabs
           value={sectorTab}
-          onChange={(_, value: string) => setSectorTab(value)}
+          onChange={(_, value: string) => {
+            setSectorTab(value);
+            setPage(1);
+          }}
           variant="scrollable"
           scrollButtons="auto"
         >
@@ -160,6 +170,16 @@ export const ChecklistsPage = (): JSX.Element => {
         </Tabs>
       </Paper>
 
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress size={32} />
+        </Box>
+      ) : visibleChecklists.length === 0 ? (
+        <Box py={4} textAlign="center">
+          <Typography color="text.secondary">Nenhum checklist encontrado.</Typography>
+        </Box>
+      ) : (
+      <>
       {visibleChecklists.map((checklist: Checklist) => (
         <Accordion key={checklist.id} sx={{ mb: 1 }}>
             <AccordionSummary expandIcon={<ExpandMore />}>
@@ -310,6 +330,20 @@ export const ChecklistsPage = (): JSX.Element => {
             </AccordionDetails>
           </Accordion>
       ))}
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
+      </>
+      )}
 
       <Dialog open={checklistDialogOpen} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingChecklist ? "Editar checklist" : "Novo checklist"}</DialogTitle>

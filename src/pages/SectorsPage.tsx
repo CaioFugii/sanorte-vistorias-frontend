@@ -22,12 +22,17 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit, Refresh } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Sector } from "@/domain";
+import { PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ListPagination } from "@/components/ListPagination";
+
+const DEFAULT_LIMIT = 10;
 
 export const SectorsPage = (): JSX.Element => {
-  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [result, setResult] = useState<PaginatedResponse<Sector> | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -44,11 +49,11 @@ export const SectorsPage = (): JSX.Element => {
       if (!navigator.onLine) {
         throw new Error("Gestão de setores está disponível apenas online.");
       }
-      const data = await appRepository.loadSectors(true);
-      setSectors(data);
+      const res = await appRepository.getSectors({ page, limit });
+      setResult(res);
       setError(null);
     } catch (e) {
-      setSectors([]);
+      setResult(null);
       setError(e instanceof Error ? e.message : "Não foi possível carregar setores.");
     } finally {
       setLoading(false);
@@ -57,9 +62,12 @@ export const SectorsPage = (): JSX.Element => {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [page, limit]);
 
-  if (loading) {
+  const sectors = result?.data ?? [];
+  const meta = result?.meta;
+
+  if (loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -72,7 +80,7 @@ export const SectorsPage = (): JSX.Element => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Setores</Typography>
         <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={load}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={() => load()}>
             Atualizar catalogo
           </Button>
           <Button
@@ -105,7 +113,20 @@ export const SectorsPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {sectors.map((sector) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : sectors.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  Nenhum setor cadastrado.
+                </TableCell>
+              </TableRow>
+            ) : (
+            sectors.map((sector) => (
               <TableRow key={sector.id}>
                 <TableCell>{sector.name}</TableCell>
                 <TableCell>{sector.active ? "Ativo" : "Inativo"}</TableCell>
@@ -128,9 +149,22 @@ export const SectorsPage = (): JSX.Element => {
                   </IconButton>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">

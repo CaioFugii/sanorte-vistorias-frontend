@@ -15,7 +15,6 @@ import {
   TableHead,
   TableRow,
   Tab,
-  TablePagination,
   Tabs,
   TextField,
   Typography,
@@ -25,6 +24,7 @@ import { useState, useRef, useEffect } from "react";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { PaginatedResponse, ServiceOrder } from "@/domain";
+import { ListPagination } from "@/components/ListPagination";
 
 const DEFAULT_LIMIT = 10;
 
@@ -43,7 +43,7 @@ function ListagemTab(): JSX.Element {
   const sectors = useReferenceStore((state) => state.sectors);
   const loadCache = useReferenceStore((state) => state.loadCache);
   const [page, setPage] = useState(1);
-  const [limit] = useState(DEFAULT_LIMIT);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [osNumber, setOsNumber] = useState("");
   const [sectorId, setSectorId] = useState("");
   const [field, setField] = useState<"" | "true" | "false">("");
@@ -231,16 +231,15 @@ function ListagemTab(): JSX.Element {
           </Table>
         </TableContainer>
         {meta && (
-          <TablePagination
-            component="div"
-            count={meta.total}
-            page={meta.page - 1}
-            onPageChange={(_, newPage) => setPage(newPage + 1)}
-            rowsPerPage={meta.limit}
-            rowsPerPageOptions={[meta.limit]}
-            labelDisplayedRows={({ from, to, count }) =>
-              `${from}–${to} de ${count !== -1 ? count : `mais de ${to}`}`
-            }
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
           />
         )}
       </Paper>
@@ -253,6 +252,7 @@ function ImportacaoTab(): JSX.Element {
   const [importResult, setImportResult] = useState<{
     inserted: number;
     skipped: number;
+    deleted: number;
     errors: string[];
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +276,7 @@ function ImportacaoTab(): JSX.Element {
       setImportResult({
         inserted: 0,
         skipped: 0,
+        deleted: 0,
         errors: [err instanceof Error ? err.message : "Erro ao importar"],
       });
     } finally {
@@ -314,10 +315,10 @@ function ImportacaoTab(): JSX.Element {
           sx={{ mt: 2 }}
           onClose={() => setImportResult(null)}
         >
-          Inseridas: {importResult.inserted}. Ignoradas (duplicadas): {importResult.skipped}.
+          Inseridas: {importResult.inserted}. Ignoradas (duplicadas): {importResult.skipped}. Deletadas (canceladas): {importResult.deleted}.
           {(importResult.errors ?? []).length > 0 && (
             <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-              {(importResult.errors ?? []).slice(0, 5).map((err, i) => (
+              {(importResult.errors ?? []).slice(0, 10).map((err, i) => (
                 <li key={i}>{err}</li>
               ))}
               {(importResult.errors ?? []).length > 5 && (

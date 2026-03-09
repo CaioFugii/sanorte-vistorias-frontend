@@ -19,28 +19,42 @@ import { InspectionStatus } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
+import { ListPagination } from "@/components/ListPagination";
+
+const DEFAULT_LIMIT = 10;
 
 export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [meta, setMeta] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadPendings = async () => {
     setLoading(true);
     const res = await appRepository.getInspections({
       status: InspectionStatus.PENDENTE_AJUSTE,
-      page: 1,
-      limit: 100,
+      page,
+      limit,
     });
     setInspections(res.data);
+    setMeta(res.meta);
     setLoading(false);
   };
 
   useEffect(() => {
     loadPendings();
-  }, []);
+  }, [page, limit]);
 
-  if (loading) {
+  if (loading && !meta) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -70,7 +84,20 @@ export const PendingsPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {inspections.map((inspection) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : inspections.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  Nenhuma pendência de ajuste.
+                </TableCell>
+              </TableRow>
+            ) : (
+            inspections.map((inspection) => (
               <TableRow key={inspection.externalId}>
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>
@@ -105,9 +132,22 @@ export const PendingsPage = (): JSX.Element => {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+            ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
     </Box>
   );

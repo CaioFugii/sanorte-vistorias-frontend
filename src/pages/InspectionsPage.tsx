@@ -21,30 +21,67 @@ import { useAuthStore } from "@/stores/authStore";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { getModuleLabel } from "@/utils/moduleLabel";
+import { ListPagination } from "@/components/ListPagination";
+
+const DEFAULT_LIMIT = 10;
 
 export const InspectionsPage = (): JSX.Element => {
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [allForFiscal, setAllForFiscal] = useState<Inspection[] | null>(null);
+  const [meta, setMeta] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const isFiscal = hasRole("FISCAL" as any) && user;
 
   useEffect(() => {
-    loadInspections();
-  }, []);
-
-  const loadInspections = async () => {
+    if (!isFiscal || !user) return;
     setLoading(true);
-    let data: Inspection[];
-    if (hasRole("FISCAL" as any) && user) {
-      data = await appRepository.listInspectionsForFiscal(user.id);
-    } else {
-      data = (await appRepository.getInspections({ page: 1, limit: 100 })).data;
-    }
-    setInspections(data);
-    setLoading(false);
-  };
+    appRepository
+      .listInspectionsForFiscal(user.id)
+      .then((all) => setAllForFiscal(all))
+      .finally(() => setLoading(false));
+  }, [isFiscal, user?.id]);
 
-  if (loading) {
+  useEffect(() => {
+    if (isFiscal) return;
+    setAllForFiscal(null);
+    setLoading(true);
+    appRepository
+      .getInspections({ page, limit })
+      .then((res) => {
+        setInspections(res.data);
+        setMeta(res.meta);
+      })
+      .finally(() => setLoading(false));
+  }, [isFiscal, page, limit]);
+
+  useEffect(() => {
+    if (allForFiscal === null) return;
+    const total = allForFiscal.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const start = (page - 1) * limit;
+    setInspections(allForFiscal.slice(start, start + limit));
+    setMeta({
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    });
+  }, [allForFiscal, page, limit]);
+
+  if (loading && !meta) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -66,6 +103,7 @@ export const InspectionsPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Módulo</TableCell>
+              <TableCell>Número da OS</TableCell>
               <TableCell>Serviço</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Status</TableCell>
@@ -75,67 +113,94 @@ export const InspectionsPage = (): JSX.Element => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {inspections.map((inspection) => (
-              <TableRow key={inspection.externalId}>
-                <TableCell>{getModuleLabel(inspection.module)}</TableCell>
-                <TableCell>{inspection.serviceDescription}</TableCell>
-                <TableCell>{inspection.locationDescription || "-"}</TableCell>
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-                    <StatusChip status={inspection.status} />
-                    {inspection.hasParalysisPenalty && (
-                      <Chip size="small" label="Penalizada" color="warning" variant="outlined" />
-                    )}
-                  </Box>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
                 </TableCell>
-                <TableCell>
-                  {inspection.scorePercent !== undefined &&
-                  inspection.scorePercent !== null ? (
-                    <PercentBadge
-                      percent={inspection.scorePercent}
-                      size="small"
-                    />
-                  ) : (
-                    "N/A"
-                  )}
+              </TableRow>
+            ) : inspections.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  Nenhuma vistoria encontrada.
                 </TableCell>
-                <TableCell>
-                  {inspection.finalizedAt
-                    ? new Date(inspection.finalizedAt).toLocaleDateString(
-                        "pt-BR",
-                      )
-                    : new Date(inspection.createdAt).toLocaleDateString(
-                        "pt-BR",
+              </TableRow>
+            ) : (
+              inspections.map((inspection) => (
+                <TableRow key={inspection.externalId}>
+                  <TableCell>{getModuleLabel(inspection.module)}</TableCell>
+                  <TableCell>{inspection.serviceOrder?.osNumber ?? "-"}</TableCell>
+                  <TableCell>{inspection.serviceDescription}</TableCell>
+                  <TableCell>{inspection.locationDescription || "-"}</TableCell>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                      <StatusChip status={inspection.status} />
+                      {inspection.hasParalysisPenalty && (
+                        <Chip size="small" label="Penalizada" color="warning" variant="outlined" />
                       )}
-                </TableCell>
-                <TableCell align="right">
-                  <Button
-                    size="small"
-                    onClick={() =>
-                      navigate(`/inspections/${inspection.externalId}`)
-                    }
-                  >
-                    Ver
-                  </Button>
-                  {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    {inspection.scorePercent !== undefined &&
+                    inspection.scorePercent !== null ? (
+                      <PercentBadge
+                        percent={inspection.scorePercent}
+                        size="small"
+                      />
+                    ) : (
+                      "N/A"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {inspection.finalizedAt
+                      ? new Date(inspection.finalizedAt).toLocaleDateString(
+                          "pt-BR",
+                        )
+                      : new Date(inspection.createdAt).toLocaleDateString(
+                          "pt-BR",
+                        )}
+                  </TableCell>
+                  <TableCell align="right">
                     <Button
                       size="small"
                       onClick={() =>
-                        navigate(
-                          isAdminOrManager
-                            ? `/inspections/${inspection.externalId}/manage`
-                            : `/inspections/${inspection.externalId}/fill`
-                        )
+                        navigate(`/inspections/${inspection.externalId}`)
                       }
                     >
-                      Editar
+                      Ver
                     </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+                    {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
+                      <Button
+                        size="small"
+                        onClick={() =>
+                          navigate(
+                            isAdminOrManager
+                              ? `/inspections/${inspection.externalId}/manage`
+                              : `/inspections/${inspection.externalId}/fill`
+                          )
+                        }
+                      >
+                        Editar
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
+        {meta && meta.total > 0 && (
+          <ListPagination
+            meta={meta}
+            onPageChange={setPage}
+            onRowsPerPageChange={(newLimit) => {
+              setLimit(newLimit);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            disabled={loading}
+          />
+        )}
       </TableContainer>
     </Box>
   );

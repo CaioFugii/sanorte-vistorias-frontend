@@ -71,6 +71,14 @@ export class AppRepository implements IAppRepository {
     return result.data;
   }
 
+  async getTeams(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Team>> {
+    return this.apiRepository.getTeams(params);
+  }
+
+  async getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>> {
+    return this.apiRepository.getSectors(params);
+  }
+
   async loadChecklists(_forceApi = false): Promise<Checklist[]> {
     const result = await this.apiRepository.getChecklists({ page: 1, limit: 100 });
     return result.data;
@@ -276,7 +284,7 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getServiceOrders(params);
   }
 
-  async importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }> {
+  async importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; deleted: number; errors: string[] }> {
     return this.apiRepository.importServiceOrders(file);
   }
 

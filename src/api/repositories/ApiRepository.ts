@@ -339,6 +339,7 @@ export class ApiRepository {
   async importServiceOrders(file: File): Promise<{
     inserted: number;
     skipped: number;
+    deleted: number;
     errors: string[];
   }> {
     const formData = new FormData();
@@ -346,6 +347,7 @@ export class ApiRepository {
     const response = await apiClient.post<{
       inserted: number;
       skipped: number;
+      deleted: number;
       errors: string[];
     }>("/service-orders/import", formData, {
       headers: { "Content-Type": "multipart/form-data" },
