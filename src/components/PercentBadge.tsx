@@ -36,6 +36,8 @@ export const PercentBadge = ({ percent, size = 'medium' }: PercentBadgeProps) =>
         borderRadius: '50%',
         bgcolor: `${color}.light`,
         color: `${color}.contrastText`,
+        border: '1px solid',
+        borderColor: `${color}.main`,
       }}
     >
       <Typography variant={variant} fontWeight="bold">

@@ -7,16 +7,13 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
-  Paper,
   Switch,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
-  Typography,
   CircularProgress,
 } from '@mui/material';
 import { Add, Delete, Edit, Refresh } from '@mui/icons-material';
@@ -27,6 +24,7 @@ import { appRepository } from '@/repositories/AppRepository';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
+import { PageHeader, SectionTable } from '@/components/ui';
 
 const DEFAULT_LIMIT = 10;
 
@@ -83,33 +81,37 @@ export const TeamsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Equipes</Typography>
-        <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={() => refreshFromApi().then(() => loadTeams())}
-          >
-            Atualizar catálogo
-          </Button>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-            onClick={() => {
-              setEditingTeam(null);
-              setName("");
-              setActive(true);
-              setSelectedCollaboratorIds([]);
-              setDialogOpen(true);
-            }}
-        >
-            Nova equipe
-        </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        eyebrow="Administração"
+        title="Equipes"
+        subtitle="Configure equipes de campo e mantenha o catálogo técnico atualizado."
+        actions={
+          <Box display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={() => refreshFromApi().then(() => loadTeams())}
+            >
+              Atualizar catálogo
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                setEditingTeam(null);
+                setName("");
+                setActive(true);
+                setSelectedCollaboratorIds([]);
+                setDialogOpen(true);
+              }}
+            >
+              Nova equipe
+            </Button>
+          </Box>
+        }
+      />
 
-      <TableContainer component={Paper}>
+      <SectionTable title="Lista de equipes">
         <Table>
           <TableHead>
             <TableRow>
@@ -178,7 +180,7 @@ export const TeamsPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingTeam ? "Editar equipe" : "Nova equipe"}</DialogTitle>

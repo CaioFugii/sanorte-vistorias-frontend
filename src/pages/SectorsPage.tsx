@@ -9,16 +9,13 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
-  Paper,
   Switch,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
-  Typography,
 } from "@mui/material";
 import { Add, Delete, Edit, Refresh } from "@mui/icons-material";
 import { useEffect, useState } from "react";
@@ -26,6 +23,7 @@ import { PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -77,33 +75,37 @@ export const SectorsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Setores</Typography>
-        <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={() => load()}>
-            Atualizar catalogo
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => {
-              setEditingSector(null);
-              setName("");
-              setActive(true);
-              setDialogOpen(true);
-            }}
-          >
-            Novo setor
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        eyebrow="Administração"
+        title="Setores"
+        subtitle="Mantenha a estrutura setorial utilizada nas ordens de serviço e checklists."
+        actions={
+          <Box display="flex" gap={1}>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={() => load()}>
+              Atualizar catálogo
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                setEditingSector(null);
+                setName("");
+                setActive(true);
+                setDialogOpen(true);
+              }}
+            >
+              Novo setor
+            </Button>
+          </Box>
+        }
+      />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
+      <SectionTable title="Lista de setores">
         <Table>
           <TableHead>
             <TableRow>
@@ -165,7 +167,7 @@ export const SectorsPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingSector ? "Editar setor" : "Novo setor"}</DialogTitle>

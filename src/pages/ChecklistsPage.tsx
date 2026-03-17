@@ -35,6 +35,7 @@ import { ModuleType } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
+import { DataCard, PageHeader } from '@/components/ui';
 
 const DEFAULT_LIMIT = 10;
 
@@ -120,40 +121,44 @@ export const ChecklistsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Checklists</Typography>
-        <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={load}
-          >
-            Atualizar catálogo
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => {
-              setEditingChecklist(null);
-              setChecklistModule(ModuleType.CAMPO);
-              setChecklistName("");
-              setChecklistDescription("");
-              setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
-              setChecklistActive(true);
-              setChecklistDialogOpen(true);
-            }}
-          >
-            Novo checklist
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        eyebrow="Administração técnica"
+        title="Checklists"
+        subtitle="Estruture checklists por setor e módulo para padronizar inspeções."
+        actions={
+          <Box display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              startIcon={<Refresh />}
+              onClick={load}
+            >
+              Atualizar catálogo
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => {
+                setEditingChecklist(null);
+                setChecklistModule(ModuleType.CAMPO);
+                setChecklistName("");
+                setChecklistDescription("");
+                setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
+                setChecklistActive(true);
+                setChecklistDialogOpen(true);
+              }}
+            >
+              Novo checklist
+            </Button>
+          </Box>
+        }
+      />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <Paper sx={{ mb: 2 }}>
+      <DataCard>
         <Tabs
           value={sectorTab}
           onChange={(_, value: string) => {
@@ -168,7 +173,7 @@ export const ChecklistsPage = (): JSX.Element => {
             <Tab key={sector.id} value={sector.id} label={sector.name} />
           ))}
         </Tabs>
-      </Paper>
+      </DataCard>
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={4}>

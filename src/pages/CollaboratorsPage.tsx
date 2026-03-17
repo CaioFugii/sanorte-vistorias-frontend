@@ -9,18 +9,15 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
-  Paper,
   Switch,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Tab,
   Tabs,
   TextField,
-  Typography,
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
@@ -29,6 +26,7 @@ import { appRepository } from "@/repositories/AppRepository";
 import { SectorSelect } from "@/components/SectorSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -99,29 +97,33 @@ export const CollaboratorsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Colaboradores</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => {
-            setEditing(null);
-            setName("");
-            setSectorId(sectors.find((sector) => sector.active)?.id ?? "");
-            setActive(true);
-            setDialogOpen(true);
-          }}
-        >
-          Novo colaborador
-        </Button>
-      </Box>
+      <PageHeader
+        eyebrow="Administração"
+        title="Colaboradores"
+        subtitle="Gerencie colaboradores por setor para manter a operação organizada."
+        actions={
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              setEditing(null);
+              setName("");
+              setSectorId(sectors.find((sector) => sector.active)?.id ?? "");
+              setActive(true);
+              setDialogOpen(true);
+            }}
+          >
+            Novo colaborador
+          </Button>
+        }
+      />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <Paper sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, bgcolor: "background.paper", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
         <Tabs
           value={sectorTab}
           onChange={(_, value: string) => {
@@ -136,9 +138,9 @@ export const CollaboratorsPage = (): JSX.Element => {
             <Tab key={sector.id} value={sector.id} label={sector.name} />
           ))}
         </Tabs>
-      </Paper>
+      </Box>
 
-      <TableContainer component={Paper}>
+      <SectionTable title="Lista de colaboradores">
         <Table>
           <TableHead>
             <TableRow>
@@ -203,7 +205,7 @@ export const CollaboratorsPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar colaborador" : "Novo colaborador"}</DialogTitle>

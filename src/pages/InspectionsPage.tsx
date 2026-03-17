@@ -3,15 +3,14 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Paper,
+  TextField,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from "@mui/material";
+import { Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Inspection } from "@/domain";
@@ -22,6 +21,7 @@ import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { getModuleLabel } from "@/utils/moduleLabel";
 import { ListPagination } from "@/components/ListPagination";
+import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -30,6 +30,7 @@ export const InspectionsPage = (): JSX.Element => {
   const { user, hasRole } = useAuthStore();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [osNumber, setOsNumber] = useState("");
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [allForFiscal, setAllForFiscal] = useState<Inspection[] | null>(null);
   const [meta, setMeta] = useState<{
@@ -57,20 +58,26 @@ export const InspectionsPage = (): JSX.Element => {
     setAllForFiscal(null);
     setLoading(true);
     appRepository
-      .getInspections({ page, limit })
+      .getInspections({ page, limit, osNumber: osNumber.trim() || undefined })
       .then((res) => {
         setInspections(res.data);
         setMeta(res.meta);
       })
       .finally(() => setLoading(false));
-  }, [isFiscal, page, limit]);
+  }, [isFiscal, page, limit, osNumber]);
 
   useEffect(() => {
     if (allForFiscal === null) return;
-    const total = allForFiscal.length;
+    const normalizedSearch = osNumber.trim().toLowerCase();
+    const filtered = normalizedSearch
+      ? allForFiscal.filter((inspection) =>
+          (inspection.serviceOrder?.osNumber ?? "").toLowerCase().includes(normalizedSearch)
+        )
+      : allForFiscal;
+    const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const start = (page - 1) * limit;
-    setInspections(allForFiscal.slice(start, start + limit));
+    setInspections(filtered.slice(start, start + limit));
     setMeta({
       page,
       limit,
@@ -79,7 +86,7 @@ export const InspectionsPage = (): JSX.Element => {
       hasNext: page < totalPages,
       hasPrev: page > 1,
     });
-  }, [allForFiscal, page, limit]);
+  }, [allForFiscal, page, limit, osNumber]);
 
   if (loading && !meta) {
     return (
@@ -94,11 +101,29 @@ export const InspectionsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Vistorias
-      </Typography>
+      <PageHeader
+        eyebrow="Operação"
+        title="Vistorias"
+        subtitle="Acompanhe o andamento, status e desempenho das vistorias em campo."
+      />
 
-      <TableContainer component={Paper}>
+      <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
+        <TextField
+          size="small"
+          placeholder="Pesquisar por número da OS"
+          value={osNumber}
+          onChange={(e) => {
+            setOsNumber(e.target.value);
+            setPage(1);
+          }}
+          InputProps={{
+            startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
+          }}
+          sx={{ minWidth: 280 }}
+        />
+      </Box>
+
+      <SectionTable title="Lista de vistorias">
         <Table>
           <TableHead>
             <TableRow>
@@ -122,7 +147,9 @@ export const InspectionsPage = (): JSX.Element => {
             ) : inspections.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  Nenhuma vistoria encontrada.
+                  {osNumber.trim()
+                    ? "Nenhuma vistoria encontrada para o número da OS informado."
+                    : "Nenhuma vistoria encontrada."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -201,7 +228,7 @@ export const InspectionsPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
     </Box>
   );
 };

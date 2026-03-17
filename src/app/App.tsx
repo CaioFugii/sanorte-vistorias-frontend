@@ -1,4 +1,4 @@
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { CssBaseline, ThemeProvider } from "@mui/material";
 import { RouterProvider } from "react-router-dom";
 import { useEffect } from "react";
 import { router } from "./router";
@@ -7,17 +7,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { API_ERROR_EVENT } from "@/api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+import { appTheme } from "./theme";
 
 function App(): JSX.Element {
   const loadCache = useReferenceStore((state) => state.loadCache);
@@ -53,7 +43,7 @@ function App(): JSX.Element {
   }, []);
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={appTheme}>
       <CssBaseline />
       <RouterProvider router={router} />
       <ToastContainer

@@ -8,15 +8,12 @@ import {
   DialogTitle,
   IconButton,
   MenuItem,
-  Paper,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
-  Typography,
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
@@ -25,6 +22,7 @@ import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -66,25 +64,29 @@ export const UsersPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Usuários</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => {
-            setEditing(null);
-            setName("");
-            setEmail("");
-            setPassword("");
-            setRole(UserRole.FISCAL);
-            setDialogOpen(true);
-          }}
-        >
-          Novo usuário
-        </Button>
-      </Box>
+      <PageHeader
+        eyebrow="Administração"
+        title="Usuários"
+        subtitle="Gerencie acessos e perfis do sistema corporativo."
+        actions={
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              setEditing(null);
+              setName("");
+              setEmail("");
+              setPassword("");
+              setRole(UserRole.FISCAL);
+              setDialogOpen(true);
+            }}
+          >
+            Novo usuário
+          </Button>
+        }
+      />
 
-      <TableContainer component={Paper}>
+      <SectionTable title="Lista de usuários">
         <Table>
           <TableHead>
             <TableRow>
@@ -150,7 +152,7 @@ export const UsersPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar usuário" : "Novo usuário"}</DialogTitle>

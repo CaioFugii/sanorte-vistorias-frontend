@@ -6,12 +6,10 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Tab,
@@ -25,6 +23,7 @@ import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { PaginatedResponse, ServiceOrder } from "@/domain";
 import { ListPagination } from "@/components/ListPagination";
+import { DataCard, PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -196,40 +195,38 @@ function ListagemTab(): JSX.Element {
         </Button>
       </Box>
 
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>{TABLE_HEAD}</TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    <CircularProgress size={32} />
-                  </TableCell>
+      <SectionTable title="Ordens de serviço cadastradas">
+        <Table>
+          <TableHead>{TABLE_HEAD}</TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                </TableCell>
+              </TableRow>
+            ) : data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  {osNumber.trim() || sectorId || field || remote || postWork
+                    ? "Nenhuma ordem de serviço encontrada com esse filtro."
+                    : "Nenhuma ordem de serviço cadastrada."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              data.map((so) => (
+                <TableRow key={so.id}>
+                  <TableCell>{so.osNumber}</TableCell>
+                  <TableCell>{so.sector?.name ?? "—"}</TableCell>
+                  <TableCell>{so.address}</TableCell>
+                  <TableCell>{so.field ? "Sim" : "Não"}</TableCell>
+                  <TableCell>{so.remote ? "Sim" : "Não"}</TableCell>
+                  <TableCell>{so.postWork ? "Sim" : "Não"}</TableCell>
                 </TableRow>
-              ) : data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                    {osNumber.trim() || sectorId || field || remote || postWork
-                      ? "Nenhuma ordem de serviço encontrada com esse filtro."
-                      : "Nenhuma ordem de serviço cadastrada."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.map((so) => (
-                  <TableRow key={so.id}>
-                    <TableCell>{so.osNumber}</TableCell>
-                    <TableCell>{so.sector?.name ?? "—"}</TableCell>
-                    <TableCell>{so.address}</TableCell>
-                    <TableCell>{so.field ? "Sim" : "Não"}</TableCell>
-                    <TableCell>{so.remote ? "Sim" : "Não"}</TableCell>
-                    <TableCell>{so.postWork ? "Sim" : "Não"}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              ))
+            )}
+          </TableBody>
+        </Table>
         {meta && (
           <ListPagination
             meta={meta}
@@ -242,7 +239,7 @@ function ListagemTab(): JSX.Element {
             disabled={loading}
           />
         )}
-      </Paper>
+      </SectionTable>
     </Box>
   );
 }
@@ -337,9 +334,11 @@ export const ServiceOrdersPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <Typography variant="h4">Ordens de Serviço (OS)</Typography>
-      </Box>
+      <PageHeader
+        eyebrow="Operação"
+        title="Ordens de Serviço (OS)"
+        subtitle="Consulte e importe ordens de serviço para suportar a execução das vistorias."
+      />
 
       {!navigator.onLine && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -347,17 +346,21 @@ export const ServiceOrdersPage = (): JSX.Element => {
         </Alert>
       )}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-        <Tab label="TODOS" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
-        <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
-      </Tabs>
+      <DataCard>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
+          <Tab label="TODOS" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
+          <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
+        </Tabs>
 
-      <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
-        {tab === 0 && <ListagemTab />}
-      </div>
-      <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
-        {tab === 1 && <ImportacaoTab />}
-      </div>
+        <Box sx={{ p: 2 }}>
+          <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
+            {tab === 0 && <ListagemTab />}
+          </div>
+          <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
+            {tab === 1 && <ImportacaoTab />}
+          </div>
+        </Box>
+      </DataCard>
     </Box>
   );
 };

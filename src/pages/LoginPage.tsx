@@ -54,18 +54,64 @@ export const LoginPage = (): JSX.Element => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Paper sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            Vistorias em Campo
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        px: 2,
+        background:
+          "radial-gradient(circle at 15% 15%, rgba(47,111,214,0.32), transparent 38%), radial-gradient(circle at 85% 80%, rgba(154,214,31,0.2), transparent 36%), linear-gradient(130deg, #091744 0%, #0B1F5B 50%, #102A77 100%)",
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          sx={{
+            p: 4,
+            width: "100%",
+            maxWidth: 520,
+            mx: "auto",
+            bgcolor: "#EEF2F7",
+            borderColor: "#C9D8F8",
+            boxShadow: "0 24px 50px rgba(4, 13, 41, 0.4)",
+            backdropFilter: "blur(4px)",
+            color: "#1A2750",
+            "& .MuiOutlinedInput-root": {
+              bgcolor: "#F4F7FF",
+            },
+          }}
+        >
+          <Box
+            sx={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              px: 1.,
+              py: 1,
+              mb: 1.5,
+              borderRadius: 1.5,
+              bgcolor: "#0B1F5B",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 6px 16px rgba(11, 31, 91, 0.28)",
+            }}
+          >
+            <Box
+              component="img"
+              src="https://sanorte.com.br/wp-content/uploads/2025/05/Layer-2.svg"
+              alt="Sanorte"
+              sx={{
+                height: 35,
+                width: "auto",
+                display: "block",
+              }}
+            />
+          </Box>
+          <Typography variant="h5" component="h1" gutterBottom sx={{ color: "#1A2750" }}>
+            Vistorias Operacionais
+          </Typography>
+          <Typography sx={{ mb: 3, color: "#33456F" }}>
+            Acesse o sistema corporativo para acompanhamento técnico das inspeções.
           </Typography>
 
           <form onSubmit={handleLogin}>
@@ -109,7 +155,7 @@ export const LoginPage = (): JSX.Element => {
             </Button>
           </form>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };

@@ -2,14 +2,11 @@ import {
   Box,
   Button,
   CircularProgress,
-  Paper,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Typography,
 } from "@mui/material";
 import { Visibility } from "@mui/icons-material";
 import { useEffect, useState } from "react";
@@ -20,6 +17,7 @@ import { appRepository } from "@/repositories/AppRepository";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
+import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -64,14 +62,13 @@ export const PendingsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Pendências de Ajuste
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Resolva cada item não conforme na tela de detalhes da vistoria. Quando todos os itens estiverem resolvidos, a vistoria será marcada como resolvida.
-      </Typography>
+      <PageHeader
+        eyebrow="Controle de qualidade"
+        title="Pendências de Ajuste"
+        subtitle="Resolva os itens não conformes nas vistorias para concluir o ciclo de qualidade."
+      />
 
-      <TableContainer component={Paper}>
+      <SectionTable title="Pendências ativas">
         <Table>
           <TableHead>
             <TableRow>
@@ -148,7 +145,7 @@ export const PendingsPage = (): JSX.Element => {
             disabled={loading}
           />
         )}
-      </TableContainer>
+      </SectionTable>
     </Box>
   );
 };

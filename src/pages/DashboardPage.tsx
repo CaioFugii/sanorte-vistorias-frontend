@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   CircularProgress,
@@ -31,6 +30,7 @@ import { TeamSelect } from '@/components/TeamSelect';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/domain';
+import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
 
 type TeamRankingItem = {
   teamId: string;
@@ -217,9 +217,11 @@ export const DashboardPage = (): JSX.Element => {
           <CircularProgress />
         </Box>
       )}
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+      <PageHeader
+        eyebrow="Gestão de performance"
+        title="Dashboard Operacional"
+        subtitle="Acompanhe indicadores, desempenho de equipes e pendências em um painel centralizado."
+      />
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -277,7 +279,7 @@ export const DashboardPage = (): JSX.Element => {
             />
           </Grid>
         </Grid>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             startIcon={<Search />}
@@ -307,40 +309,30 @@ export const DashboardPage = (): JSX.Element => {
         <>
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <TrendingUp color="primary" />
-                  Média Geral
-                </Typography>
-                <PercentBadge percent={summary.averagePercent} size="large" />
-              </Paper>
+              <KpiCard
+                icon={<TrendingUp color="primary" />}
+                label="Média Geral"
+                value={<PercentBadge percent={summary.averagePercent} size="large" />}
+              />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <Assignment color="primary" />
-                  Serviços Avaliados
-                </Typography>
-                <Typography variant="h3">{summary.inspectionsCount}</Typography>
-              </Paper>
+              <KpiCard
+                icon={<Assignment color="primary" />}
+                label="Serviços Avaliados"
+                value={<Typography variant="h3" sx={{ color: 'primary.dark' }}>{summary.inspectionsCount}</Typography>}
+              />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <Warning color="warning" />
-                  Pendentes
-                </Typography>
-                <Typography variant="h3" color="warning.main">
-                  {summary.pendingCount}
-                </Typography>
-              </Paper>
+              <KpiCard
+                icon={<Warning color="warning" />}
+                label="Pendentes"
+                tone="warning"
+                value={<Typography variant="h3" color="warning.main">{summary.pendingCount}</Typography>}
+              />
             </Grid>
           </Grid>
 
-          <Paper>
-            <Typography variant="h6" sx={{ p: 2 }}>
-              Ranking por Equipes
-            </Typography>
+          <SectionTable title="Ranking por Equipes">
             {teamRanking.length === 0 ? (
               <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography color="text.secondary">
@@ -348,7 +340,7 @@ export const DashboardPage = (): JSX.Element => {
                 </Typography>
               </Box>
             ) : (
-              <TableContainer>
+              <>
                 <Table>
                   <TableHead>
                     <TableRow>
@@ -390,12 +382,7 @@ export const DashboardPage = (): JSX.Element => {
                   <TableBody>
                     {pagedRanking.map((team) => {
                       return (
-                        <TableRow
-                          key={team.teamId}
-                          sx={{
-                            bgcolor:'transparent'
-                          }}
-                        >
+                        <TableRow key={team.teamId} hover>
                           <TableCell>{team.teamName}</TableCell>
                           <TableCell align="center">
                             <PercentBadge percent={team.averagePercent} size="small" />
@@ -426,7 +413,11 @@ export const DashboardPage = (): JSX.Element => {
                             </Typography>
                           </TableCell>
                           <TableCell align="center" padding="none">
-                            <Button size="small" onClick={() => handleOpenTeamDetail(team.teamId)}>
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => handleOpenTeamDetail(team.teamId)}
+                            >
                               Ver detalhe
                             </Button>
                           </TableCell>
@@ -447,9 +438,9 @@ export const DashboardPage = (): JSX.Element => {
                     disabled={loading}
                   />
                 )}
-              </TableContainer>
+              </>
             )}
-          </Paper>
+          </SectionTable>
         </>
       )}
 
