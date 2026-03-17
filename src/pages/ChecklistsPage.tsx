@@ -386,12 +386,14 @@ export const ChecklistsPage = (): JSX.Element => {
             onClick={async () => {
               if (!checklistModule || !checklistSectorId) return;
               if (editingChecklist) {
-                await appRepository.updateChecklist(editingChecklist.id, {
+                const updateChecklistInput = {
+                  module: checklistModule,
                   name: checklistName,
                   description: checklistDescription || undefined,
                   sectorId: checklistSectorId,
                   active: checklistActive,
-                });
+                };
+                await appRepository.updateChecklist(editingChecklist.id, updateChecklistInput);
               } else {
                 await appRepository.createChecklist({
                   module: checklistModule,

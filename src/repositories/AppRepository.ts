@@ -206,7 +206,7 @@ export class AppRepository implements IAppRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist> {
     const checklist = await this.apiRepository.updateChecklist(checklistId, input);
     await this.loadChecklists(true);

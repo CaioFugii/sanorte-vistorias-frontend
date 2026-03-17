@@ -79,7 +79,7 @@ export interface IAppRepository {
   }): Promise<Checklist>;
   updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist>;
   deleteChecklist(checklistId: string): Promise<void>;
   createChecklistSection(

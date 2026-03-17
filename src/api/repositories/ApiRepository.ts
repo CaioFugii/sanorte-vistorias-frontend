@@ -267,7 +267,7 @@ export class ApiRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
   ): Promise<Checklist> {
     const response = await apiClient.put<Checklist>(`/checklists/${checklistId}`, input);
     return normalizeChecklistSections(response.data);

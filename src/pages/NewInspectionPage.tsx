@@ -1,46 +1,99 @@
 import {
-  Alert,
   Backdrop,
   Box,
   Button,
   CircularProgress,
+  FormControl,
   Paper,
   TextField,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
-import { ServiceOrderSelect } from "@/components/ServiceOrderSelect";
 import { TeamSelect } from "@/components/TeamSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { ModuleType } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
-import { useReferenceStore } from "@/stores/referenceStore";
 
 export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const serviceOrders = useReferenceStore((state) => state.serviceOrders);
-  const serviceOrdersLoading = useReferenceStore((state) => state.serviceOrdersLoading);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [checklistLoading, setChecklistLoading] = useState(false);
-  const loading = submitLoading || serviceOrdersLoading || checklistLoading;
+  const [osSearchLoading, setOsSearchLoading] = useState(false);
+  const loading = submitLoading || checklistLoading || osSearchLoading;
   const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
+  const [osNumberInput, setOsNumberInput] = useState("");
   const [serviceOrderId, setServiceOrderId] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const MIN_OS_SEARCH_LENGTH = 4;
 
   useEffect(() => {
-    if (!serviceOrderId) return;
-    const so = serviceOrders.find((s) => s.id === serviceOrderId);
-    setLocationDescription(so?.address ?? "");
-  }, [serviceOrderId, serviceOrders]);
+    const trimmed = osNumberInput.trim();
+    if (!trimmed || !sectorId?.trim() || trimmed.length < MIN_OS_SEARCH_LENGTH) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      setServiceOrderId("");
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setOsSearchLoading(true);
+      try {
+        const params: {
+          sectorId: string;
+          osNumber: string;
+          page: number;
+          limit: number;
+          field?: boolean;
+          remote?: boolean;
+          postWork?: boolean;
+        } = { sectorId, osNumber: trimmed, page: 1, limit: 20 };
+        if (module === ModuleType.CAMPO) params.field = false;
+        else if (module === ModuleType.REMOTO) params.remote = false;
+        else if (module === ModuleType.POS_OBRA) params.postWork = false;
+
+        const result = await appRepository.getServiceOrders(params);
+        const so = result.data.find(
+          (s) => s.osNumber.trim().toLowerCase() === trimmed.toLowerCase()
+        );
+        if (so) {
+          setServiceOrderId(so.id);
+          setLocationDescription(so.address ?? "");
+        } else {
+          setServiceOrderId("");
+        }
+      } catch {
+        setServiceOrderId("");
+      } finally {
+        setOsSearchLoading(false);
+      }
+      debounceRef.current = null;
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [osNumberInput, sectorId, module]);
+
+  const osNumberError = Boolean(
+    sectorId &&
+      osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH &&
+      !osSearchLoading &&
+      !serviceOrderId
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -85,6 +138,7 @@ export const NewInspectionPage = (): JSX.Element => {
               setSectorId("");
               setChecklistId("");
               setTeamId("");
+              setOsNumberInput("");
               setServiceOrderId("");
               setServiceDescription("");
               setLocationDescription("");
@@ -97,6 +151,7 @@ export const NewInspectionPage = (): JSX.Element => {
               onChange={(value) => {
                 setSectorId(value);
                 setChecklistId("");
+                setOsNumberInput("");
                 setServiceOrderId("");
                 setLocationDescription("");
               }}
@@ -117,21 +172,23 @@ export const NewInspectionPage = (): JSX.Element => {
           <Box sx={{ mt: 2 }}>
             <TeamSelect value={teamId} onChange={setTeamId} required />
           </Box>
-          {sectorId && serviceOrders.length === 0 && navigator.onLine && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Nenhuma Ordem de Serviço cadastrada para este setor. Administradores e gestores podem importar OS via Excel
-              na página &quot;Ordens de Serviço&quot;.
-            </Alert>
-          )}
           <Box sx={{ mt: 2 }}>
-            <ServiceOrderSelect
-              value={serviceOrderId}
-              onChange={setServiceOrderId}
-              sectorId={sectorId || undefined}
-              module={module}
-              required
-              disabled={!sectorId}
-            />
+            <FormControl fullWidth required error={osNumberError} disabled={!sectorId}>
+              <TextField
+                label="Número da OS"
+                value={osNumberInput}
+                onChange={(event) => setOsNumberInput(event.target.value)}
+                placeholder="Digite o número da Ordem de Serviço"
+                error={osNumberError}
+                helperText={
+                  osNumberError
+                    ? "OS não encontrada no setor selecionado. Verifique o número ou importe a OS na página Ordens de Serviço."
+                    : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                      ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
+                      : undefined
+                }
+              />
+            </FormControl>
           </Box>
           <TextField
             fullWidth
@@ -151,7 +208,7 @@ export const NewInspectionPage = (): JSX.Element => {
             margin="normal"
           />
           <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button variant="outlined" onClick={() => navigate("/inspections")}>
+            <Button variant="outlined" onClick={() => navigate("/inspections/mine")}>
               Cancelar
             </Button>
             <Button type="submit" variant="contained" disabled={loading}>
