@@ -15,7 +15,6 @@ import { CheckCircle, PictureAsPdf, PauseCircleOutline, Save } from "@mui/icons-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import jsPDF from "jspdf";
 import { appRepository } from "@/repositories/AppRepository";
 import { useInspectionStore } from "@/stores/inspectionStore";
 import { useReferenceStore } from "@/stores/referenceStore";
@@ -31,6 +30,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { InspectionItem } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
+import { generateInspectionPdf } from "@/utils/inspectionPdf";
 
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
@@ -276,16 +276,16 @@ export const FillInspectionPage = (): JSX.Element => {
     }
   };
 
-  const handleGeneratePdf = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Relatório de Vistoria", 14, 20);
-    doc.setFontSize(11);
-    doc.text(`Serviço: ${currentInspection.serviceDescription}`, 14, 30);
-    doc.text(`Local: ${currentInspection.locationDescription}`, 14, 38);
-    doc.text(`Status: ${currentInspection.status}`, 14, 46);
-    doc.text(`Score: ${currentInspection.scorePercent ?? 0}%`, 14, 54);
-    doc.save(`vistoria-${currentInspection.externalId}.pdf`);
+  const handleGeneratePdf = async (): Promise<void> => {
+    try {
+      await generateInspectionPdf({
+        ...currentInspection,
+        evidences,
+        signatures: signature ? [signature] : [],
+      });
+    } catch {
+      toast.error("Nao foi possivel gerar o PDF.");
+    }
   };
 
   const isAdminOrManager =
@@ -345,7 +345,7 @@ export const FillInspectionPage = (): JSX.Element => {
         </Box>
         <Box display="flex" gap={1}>
           {!canEdit && (
-            <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={handleGeneratePdf}>
+            <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={() => void handleGeneratePdf()}>
               PDF
             </Button>
           )}

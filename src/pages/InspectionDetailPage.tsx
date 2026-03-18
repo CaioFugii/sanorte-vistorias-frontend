@@ -31,7 +31,7 @@ import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
 import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
 import { getModuleLabel } from '@/utils/moduleLabel';
-import jsPDF from 'jspdf';
+import { generateInspectionPdf } from '@/utils/inspectionPdf';
 import { useAuthStore } from '@/stores/authStore';
 
 function formatDateTime(iso: string | undefined): string {
@@ -219,47 +219,12 @@ export const InspectionDetailPage = (): JSX.Element => {
 
   const handleGeneratePDF = async () => {
     if (!inspection) return;
-
-    const inspectionId = inspection.serverId ?? inspection.externalId;
-    if (navigator.onLine && inspection.serverId) {
-      setPdfLoading(true);
-      try {
-        const blob = await appRepository.getInspectionPdf(inspectionId);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `vistoria-${inspection.externalId}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch {
-        // Fallback to local generation
-        generateLocalPdf();
-      } finally {
-        setPdfLoading(false);
-      }
-    } else {
-      generateLocalPdf();
+    setPdfLoading(true);
+    try {
+      await generateInspectionPdf(inspection);
+    } finally {
+      setPdfLoading(false);
     }
-  };
-
-  const generateLocalPdf = () => {
-    if (!inspection) return;
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text('Relatório de Vistoria', 20, 20);
-    doc.setFontSize(12);
-    doc.text(`Serviço: ${inspection.serviceDescription}`, 20, 30);
-    if (inspection.locationDescription) {
-      doc.text(`Localização: ${inspection.locationDescription}`, 20, 40);
-    }
-    doc.text(`Status: ${inspection.status}`, 20, 50);
-    doc.text(`Percentual: ${inspection.scorePercent}%`, 20, 60);
-    doc.text(
-      `Data: ${inspection.finalizedAt || inspection.createdAt}`,
-      20,
-      70
-    );
-    doc.save(`vistoria-${inspection.externalId}.pdf`);
   };
 
   if (loading) {
