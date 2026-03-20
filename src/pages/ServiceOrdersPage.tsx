@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -10,6 +11,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Tab,
@@ -27,6 +29,21 @@ import { DataCard, PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
+function formatDateTime(value?: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("pt-BR").format(value);
+}
+
 const TABLE_HEAD = (
   <TableRow>
     <TableCell>Número da OS</TableCell>
@@ -35,6 +52,12 @@ const TABLE_HEAD = (
     <TableCell>Campo</TableCell>
     <TableCell>Remota</TableCell>
     <TableCell>Pós-obra</TableCell>
+    <TableCell>Status</TableCell>
+    <TableCell>Equipe PDA</TableCell>
+    <TableCell>Fim execução</TableCell>
+    <TableCell>Tempo execução efetivo</TableCell>
+    <TableCell>Resultado</TableCell>
+    <TableCell>Atualizada/Inserida em</TableCell>
   </TableRow>
 );
 
@@ -193,40 +216,69 @@ function ListagemTab(): JSX.Element {
         >
           Atualizar
         </Button>
+        {meta && (
+          <Chip
+            color="primary"
+            variant="filled"
+            label={`Total de itens: ${formatNumber(meta.total)}`}
+          />
+        )}
       </Box>
 
       <SectionTable title="Ordens de serviço cadastradas">
-        <Table>
-          <TableHead>{TABLE_HEAD}</TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <CircularProgress size={32} />
-                </TableCell>
-              </TableRow>
-            ) : data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  {osNumber.trim() || sectorId || field || remote || postWork
-                    ? "Nenhuma ordem de serviço encontrada com esse filtro."
-                    : "Nenhuma ordem de serviço cadastrada."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((so) => (
-                <TableRow key={so.id}>
-                  <TableCell>{so.osNumber}</TableCell>
-                  <TableCell>{so.sector?.name ?? "—"}</TableCell>
-                  <TableCell>{so.address}</TableCell>
-                  <TableCell>{so.field ? "Sim" : "Não"}</TableCell>
-                  <TableCell>{so.remote ? "Sim" : "Não"}</TableCell>
-                  <TableCell>{so.postWork ? "Sim" : "Não"}</TableCell>
+        <TableContainer sx={{ overflowX: "auto" }}>
+          <Table sx={{ minWidth: 1500 }}>
+            <TableHead>{TABLE_HEAD}</TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                    <CircularProgress size={32} />
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                    {osNumber.trim() || sectorId || field || remote || postWork
+                      ? "Nenhuma ordem de serviço encontrada com esse filtro."
+                      : "Nenhuma ordem de serviço cadastrada."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.map((so) => (
+                  <TableRow key={so.id}>
+                    <TableCell>{so.osNumber}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                        sx={{ mr: 1 }}
+                        label={so.sector?.name ?? "Sem setor"}
+                      />
+                    </TableCell>
+                    <TableCell>{so.address}</TableCell>
+                    <TableCell>
+                      <Chip size="small" color={so.field ? "success" : "error"} label={so.field ? "Sim" : "Não"} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" color={so.remote ? "success" : "error"} label={so.remote ? "Sim" : "Não"} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" color={so.postWork ? "success" : "error"} label={so.postWork ? "Sim" : "Não"} />
+                    </TableCell>
+                    <TableCell>{so.status ?? "—"}</TableCell>
+                    <TableCell>{so.equipe ?? "—"}</TableCell>
+                    <TableCell>{formatDateTime(so.fimExecucao)}</TableCell>
+                    <TableCell>{so.tempoExecucaoEfetivo ?? "—"}</TableCell>
+                    <TableCell>{so.resultado ?? "—"}</TableCell>
+                    <TableCell>{formatDateTime(so.updatedAt)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
         {meta && (
           <ListPagination
             meta={meta}
@@ -348,7 +400,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
 
       <DataCard>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
-          <Tab label="TODOS" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
+          <Tab label="Todos" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
           <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
         </Tabs>
 

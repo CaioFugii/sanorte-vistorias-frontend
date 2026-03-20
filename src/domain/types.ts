@@ -56,6 +56,11 @@ export interface ServiceOrder {
   field?: boolean;
   remote?: boolean;
   postWork?: boolean;
+  status?: string | null;
+  equipe?: string | null;
+  tempoExecucaoEfetivo?: string | number | null;
+  resultado?: string | null;
+  fimExecucao?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
