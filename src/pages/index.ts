@@ -1,5 +1,6 @@
 export { LoginPage } from './LoginPage';
 export { DashboardPage } from './DashboardPage';
+export { AnalyticsPage } from './AnalyticsPage';
 export { TeamsPage } from './TeamsPage';
 export { SectorsPage } from './SectorsPage';
 export { CollaboratorsPage } from './CollaboratorsPage';

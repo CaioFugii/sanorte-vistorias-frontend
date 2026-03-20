@@ -583,6 +583,85 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardQualityByService(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId?: string;
+  }): Promise<{
+    period: string[];
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      series: Array<{
+        month: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+      growth: {
+        fromMonth: string;
+        toMonth: string;
+        growthPercent: number;
+        deltaPoints: number;
+      } | null;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      period: string[];
+      services: Array<{
+        serviceKey: string;
+        serviceLabel: string;
+        series: Array<{
+          month: string;
+          qualityPercent: number;
+          inspectionsCount: number;
+        }>;
+        growth: {
+          fromMonth: string;
+          toMonth: string;
+          growthPercent: number;
+          deltaPoints: number;
+        } | null;
+      }>;
+    }>("/dashboards/quality-by-service", { params });
+    return response.data;
+  }
+
+  async getDashboardCurrentMonthByService(params?: {
+    month?: string;
+    module?: ModuleType;
+    teamId?: string;
+  }): Promise<{
+    month: string;
+    summary: {
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingAdjustmentsCount: number;
+    };
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      qualityPercent: number;
+      inspectionsCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      month: string;
+      summary: {
+        averagePercent: number;
+        inspectionsCount: number;
+        pendingAdjustmentsCount: number;
+      };
+      services: Array<{
+        serviceKey: string;
+        serviceLabel: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+    }>("/dashboards/current-month-by-service", { params });
+    return response.data;
+  }
+
   /**
    * Upload de imagem para o Cloudinary (POST /uploads).
    * @param file - Arquivo de imagem

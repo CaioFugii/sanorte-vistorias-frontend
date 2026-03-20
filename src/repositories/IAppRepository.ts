@@ -174,6 +174,47 @@ export interface IAppRepository {
     paralyzedCount: number;
     paralysisRatePercent: number;
   }>;
+  getDashboardQualityByService(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId?: string;
+  }): Promise<{
+    period: string[];
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      series: Array<{
+        month: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+      growth: {
+        fromMonth: string;
+        toMonth: string;
+        growthPercent: number;
+        deltaPoints: number;
+      } | null;
+    }>;
+  }>;
+  getDashboardCurrentMonthByService(params?: {
+    month?: string;
+    module?: ModuleType;
+    teamId?: string;
+  }): Promise<{
+    month: string;
+    summary: {
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingAdjustmentsCount: number;
+    };
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      qualityPercent: number;
+      inspectionsCount: number;
+    }>;
+  }>;
 
   createInspection(input: {
     module: ModuleType;

@@ -1,6 +1,7 @@
 import { Navigate, Outlet, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import {
+  AnalyticsPage,
   ChecklistsPage,
   CollaboratorsPage,
   DashboardPage,
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: "/dashboard", element: <DashboardPage /> },
+      { path: "/dashboard/analytics", element: <AnalyticsPage /> },
       { path: "/teams", element: <TeamsPage /> },
       { path: "/sectors", element: <SectorsPage /> },
       { path: "/users", element: <UsersPage /> },

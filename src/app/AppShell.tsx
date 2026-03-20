@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import {
   Assignment,
+  BarChart,
   Checklist,
   Dashboard,
   Engineering,
@@ -40,6 +41,7 @@ const drawerWidth = 260;
 const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JSX.Element }>> = {
   ADMIN: [
     { path: "/dashboard", label: "Dashboard", icon: <Dashboard fontSize="small" /> },
+    { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
     { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
     { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
     { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
@@ -51,6 +53,7 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JS
   ],
   GESTOR: [
     { path: "/dashboard", label: "Dashboard", icon: <Dashboard fontSize="small" /> },
+    { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
     { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
     { path: "/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
     { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
