@@ -109,7 +109,7 @@ export class ApiRepository {
     await apiClient.delete(`/users/${userId}`);
   }
 
-  async getTeams(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Team>> {
+  async getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>> {
     const response = await apiClient.get<PaginatedResponse<Team> | Team[]>("/teams", { params });
     const data = this.unwrapPaginated(response.data);
     if (Array.isArray(response.data)) {

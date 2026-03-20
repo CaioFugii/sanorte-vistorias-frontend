@@ -1,9 +1,9 @@
 import {
+  Autocomplete,
   Backdrop,
   Box,
   Button,
   CircularProgress,
-  FormControl,
   Paper,
   TextField,
   Typography,
@@ -12,10 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
-import { TeamSelect } from "@/components/TeamSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
-import { ModuleType } from "@/domain";
+import { ModuleType, ServiceOrder, Team } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
 export const NewInspectionPage = (): JSX.Element => {
@@ -29,56 +28,68 @@ export const NewInspectionPage = (): JSX.Element => {
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamSearchInput, setTeamSearchInput] = useState("");
+  const [teamOptions, setTeamOptions] = useState<Team[]>([]);
+  const [teamSearchLoading, setTeamSearchLoading] = useState(false);
   const [osNumberInput, setOsNumberInput] = useState("");
-  const [serviceOrderId, setServiceOrderId] = useState("");
+  const [selectedServiceOrder, setSelectedServiceOrder] = useState<ServiceOrder | null>(null);
+  const [serviceOrderOptions, setServiceOrderOptions] = useState<ServiceOrder[]>([]);
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const osSearchRequestRef = useRef(0);
+  const teamSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const teamSearchRequestRef = useRef(0);
 
   const MIN_OS_SEARCH_LENGTH = 4;
+  const MIN_TEAM_SEARCH_LENGTH = 4;
 
   useEffect(() => {
     const trimmed = osNumberInput.trim();
-    if (!trimmed || !sectorId?.trim() || trimmed.length < MIN_OS_SEARCH_LENGTH) {
+    if (trimmed.length < MIN_OS_SEARCH_LENGTH) {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
-      setServiceOrderId("");
+      setOsSearchLoading(false);
+      setServiceOrderOptions(selectedServiceOrder ? [selectedServiceOrder] : []);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      const requestId = ++osSearchRequestRef.current;
       setOsSearchLoading(true);
       try {
         const params: {
-          sectorId: string;
           osNumber: string;
           page: number;
           limit: number;
           field?: boolean;
           remote?: boolean;
           postWork?: boolean;
-        } = { sectorId, osNumber: trimmed, page: 1, limit: 20 };
+        } = { osNumber: trimmed, page: 1, limit: 20 };
         if (module === ModuleType.CAMPO) params.field = false;
         else if (module === ModuleType.REMOTO) params.remote = false;
         else if (module === ModuleType.POS_OBRA) params.postWork = false;
 
         const result = await appRepository.getServiceOrders(params);
-        const so = result.data.find(
-          (s) => s.osNumber.trim().toLowerCase() === trimmed.toLowerCase()
+        if (requestId !== osSearchRequestRef.current) return;
+        const selectedOptions = selectedServiceOrder ? [selectedServiceOrder] : [];
+        setServiceOrderOptions(
+          [...selectedOptions, ...result.data].filter(
+            (serviceOrder, index, all) =>
+              all.findIndex((existing) => existing.id === serviceOrder.id) === index
+          )
         );
-        if (so) {
-          setServiceOrderId(so.id);
-          setLocationDescription(so.address ?? "");
-        } else {
-          setServiceOrderId("");
-        }
       } catch {
-        setServiceOrderId("");
+        if (requestId !== osSearchRequestRef.current) return;
+        setServiceOrderOptions(selectedServiceOrder ? [selectedServiceOrder] : []);
       } finally {
-        setOsSearchLoading(false);
+        if (requestId === osSearchRequestRef.current) {
+          setOsSearchLoading(false);
+        }
       }
       debounceRef.current = null;
     }, 400);
@@ -86,18 +97,57 @@ export const NewInspectionPage = (): JSX.Element => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [osNumberInput, sectorId, module]);
+  }, [osNumberInput, module, selectedServiceOrder]);
+
+  useEffect(() => {
+    const trimmed = teamSearchInput.trim();
+    if (trimmed.length < MIN_TEAM_SEARCH_LENGTH) {
+      if (teamSearchDebounceRef.current) {
+        clearTimeout(teamSearchDebounceRef.current);
+        teamSearchDebounceRef.current = null;
+      }
+      setTeamSearchLoading(false);
+      setTeamOptions(selectedTeam && selectedTeam.active ? [selectedTeam] : []);
+      return;
+    }
+
+    if (teamSearchDebounceRef.current) clearTimeout(teamSearchDebounceRef.current);
+    teamSearchDebounceRef.current = setTimeout(async () => {
+      const requestId = ++teamSearchRequestRef.current;
+      setTeamSearchLoading(true);
+      try {
+        const result = await appRepository.getTeams({ page: 1, limit: 20, name: trimmed });
+        if (requestId !== teamSearchRequestRef.current) return;
+        const activeTeams = result.data.filter((team) => team.active);
+        const selectedOptions = selectedTeam && selectedTeam.active ? [selectedTeam] : [];
+        setTeamOptions(
+          [...selectedOptions, ...activeTeams].filter(
+            (team, index, all) => all.findIndex((existing) => existing.id === team.id) === index
+          )
+        );
+      } catch {
+        if (requestId !== teamSearchRequestRef.current) return;
+        setTeamOptions(selectedTeam && selectedTeam.active ? [selectedTeam] : []);
+      } finally {
+        if (requestId === teamSearchRequestRef.current) {
+          setTeamSearchLoading(false);
+        }
+      }
+      teamSearchDebounceRef.current = null;
+    }, 400);
+
+    return () => {
+      if (teamSearchDebounceRef.current) clearTimeout(teamSearchDebounceRef.current);
+    };
+  }, [teamSearchInput, selectedTeam]);
 
   const osNumberError = Boolean(
-    sectorId &&
-      osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH &&
-      !osSearchLoading &&
-      !serviceOrderId
+    osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH && !osSearchLoading && !selectedServiceOrder
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user || !checklistId || !teamId || !serviceOrderId || !serviceDescription.trim()) {
+    if (!user || !checklistId || !teamId || !selectedServiceOrder?.id || !serviceDescription.trim()) {
       return;
     }
     setSubmitLoading(true);
@@ -106,7 +156,7 @@ export const NewInspectionPage = (): JSX.Element => {
         module,
         checklistId,
         teamId,
-        serviceOrderId,
+        serviceOrderId: selectedServiceOrder.id,
         serviceDescription,
         locationDescription,
         createdByUserId: user.id,
@@ -138,24 +188,98 @@ export const NewInspectionPage = (): JSX.Element => {
               setSectorId("");
               setChecklistId("");
               setTeamId("");
+              setSelectedTeam(null);
+              setTeamSearchInput("");
+              setTeamOptions([]);
               setOsNumberInput("");
-              setServiceOrderId("");
+              setSelectedServiceOrder(null);
+              setServiceOrderOptions([]);
               setServiceDescription("");
               setLocationDescription("");
             }}
             required
           />
           <Box sx={{ mt: 2 }}>
+            <Autocomplete
+              options={serviceOrderOptions}
+              value={selectedServiceOrder}
+              inputValue={osNumberInput}
+              onChange={(_, value) => {
+                setSelectedServiceOrder(value);
+                const nextSectorId = value?.sectorId ?? value?.sector?.id ?? "";
+                setSectorId(nextSectorId);
+                setChecklistId("");
+                setLocationDescription(value?.address ?? "");
+                if (value) {
+                  setOsNumberInput(value.osNumber);
+                }
+              }}
+              onInputChange={(_, value, reason) => {
+                setOsNumberInput(value);
+                if (reason === "clear") {
+                  setSelectedServiceOrder(null);
+                  setServiceOrderOptions([]);
+                  setSectorId("");
+                  setChecklistId("");
+                  setLocationDescription("");
+                  return;
+                }
+
+                if (reason === "input" && selectedServiceOrder && value !== selectedServiceOrder.osNumber) {
+                  setSelectedServiceOrder(null);
+                  setSectorId("");
+                  setChecklistId("");
+                  setLocationDescription("");
+                }
+              }}
+              loading={osSearchLoading}
+              filterOptions={(options) => options}
+              getOptionLabel={(option) => option.osNumber}
+              renderOption={(props, option) => (
+                <li {...props}>
+                  {option.osNumber} - {option.sector?.name ?? "Setor não informado"}
+                </li>
+              )}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText={
+                osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                  ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres`
+                  : "Nenhuma OS encontrada"
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Número da OS"
+                  required
+                  placeholder="Digite o número da Ordem de Serviço"
+                  error={osNumberError}
+                  helperText={
+                    osNumberError
+                      ? "OS não encontrada. Verifique o número ou importe a OS na página Ordens de Serviço."
+                      : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                        ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
+                        : "Selecione uma OS para preencher o setor automaticamente"
+                  }
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {osSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <SectorSelect
               value={sectorId}
-              onChange={(value) => {
-                setSectorId(value);
-                setChecklistId("");
-                setOsNumberInput("");
-                setServiceOrderId("");
-                setLocationDescription("");
-              }}
+              onChange={() => undefined}
+              label="Setor (definido pela OS)"
               required
+              disabled
             />
           </Box>
           <Box sx={{ mt: 2 }}>
@@ -164,31 +288,59 @@ export const NewInspectionPage = (): JSX.Element => {
               onChange={setChecklistId}
               module={module}
               sectorId={sectorId}
-              disabled={!sectorId}
+              disabled={!selectedServiceOrder || !sectorId}
               required
               onLoadingChange={handleChecklistLoadingChange}
             />
           </Box>
           <Box sx={{ mt: 2 }}>
-            <TeamSelect value={teamId} onChange={setTeamId} required />
-          </Box>
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth required error={osNumberError} disabled={!sectorId}>
-              <TextField
-                label="Número da OS"
-                value={osNumberInput}
-                onChange={(event) => setOsNumberInput(event.target.value)}
-                placeholder="Digite o número da Ordem de Serviço"
-                error={osNumberError}
-                helperText={
-                  osNumberError
-                    ? "OS não encontrada no setor selecionado. Verifique o número ou importe a OS na página Ordens de Serviço."
-                    : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
-                      ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
-                      : undefined
+            <Autocomplete
+              options={teamOptions}
+              value={selectedTeam}
+              inputValue={teamSearchInput}
+              onChange={(_, value) => {
+                setSelectedTeam(value);
+                setTeamId(value?.id ?? "");
+                if (value) {
+                  setTeamSearchInput(value.name);
                 }
-              />
-            </FormControl>
+              }}
+              onInputChange={(_, value, reason) => {
+                setTeamSearchInput(value);
+                if (reason === "clear") {
+                  setSelectedTeam(null);
+                  setTeamId("");
+                  setTeamOptions([]);
+                }
+              }}
+              loading={teamSearchLoading}
+              filterOptions={(options) => options}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText={
+                teamSearchInput.trim().length < MIN_TEAM_SEARCH_LENGTH
+                  ? `Digite pelo menos ${MIN_TEAM_SEARCH_LENGTH} caracteres`
+                  : "Nenhuma equipe encontrada"
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Equipe"
+                  required
+                  placeholder="Digite o nome da equipe"
+                  helperText="Busque equipes pelo nome"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {teamSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
           </Box>
           <TextField
             fullWidth

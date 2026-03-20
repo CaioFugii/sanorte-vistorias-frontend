@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Button,
   Paper,
@@ -19,17 +20,16 @@ import {
   TableSortLabel,
 } from '@mui/material';
 import { Search, Clear, TrendingUp, Assignment, Warning, PauseCircle, Close } from '@mui/icons-material';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
 import { ListPagination } from '@/components/ListPagination';
 import { ModuleType } from '@/domain/enums';
-import { TeamSelect } from '@/components/TeamSelect';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
-import { UserRole } from '@/domain';
+import { Team, UserRole } from '@/domain';
 import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
 
 type TeamRankingItem = {
@@ -43,6 +43,7 @@ type TeamRankingItem = {
 };
 
 type SortKey = 'averagePercent' | 'pendingCount' | 'paralysisRatePercent' | null;
+const MIN_TEAM_SEARCH_LENGTH = 4;
 
 function getDefaultDateRange(): { from: string; to: string } {
   const to = new Date();
@@ -78,6 +79,12 @@ export const DashboardPage = (): JSX.Element => {
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [rankingPage, setRankingPage] = useState(1);
   const [rankingLimit, setRankingLimit] = useState(10);
+  const [teamFilterSearchInput, setTeamFilterSearchInput] = useState('');
+  const [selectedSummaryTeam, setSelectedSummaryTeam] = useState<Team | null>(null);
+  const [teamFilterOptions, setTeamFilterOptions] = useState<Team[]>([]);
+  const [teamFilterLoading, setTeamFilterLoading] = useState(false);
+  const teamFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const teamFilterRequestRef = useRef(0);
 
   const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
 
@@ -86,6 +93,47 @@ export const DashboardPage = (): JSX.Element => {
       loadDashboardData();
     }
   }, []);
+
+  useEffect(() => {
+    const trimmed = teamFilterSearchInput.trim();
+    if (trimmed.length < MIN_TEAM_SEARCH_LENGTH) {
+      if (teamFilterDebounceRef.current) {
+        clearTimeout(teamFilterDebounceRef.current);
+        teamFilterDebounceRef.current = null;
+      }
+      setTeamFilterLoading(false);
+      setTeamFilterOptions(selectedSummaryTeam ? [selectedSummaryTeam] : []);
+      return;
+    }
+
+    if (teamFilterDebounceRef.current) clearTimeout(teamFilterDebounceRef.current);
+    teamFilterDebounceRef.current = setTimeout(async () => {
+      const requestId = ++teamFilterRequestRef.current;
+      setTeamFilterLoading(true);
+      try {
+        const result = await appRepository.getTeams({ page: 1, limit: 20, name: trimmed });
+        if (requestId !== teamFilterRequestRef.current) return;
+        const selectedOptions = selectedSummaryTeam ? [selectedSummaryTeam] : [];
+        setTeamFilterOptions(
+          [...selectedOptions, ...result.data].filter(
+            (team, index, all) => all.findIndex((existing) => existing.id === team.id) === index
+          )
+        );
+      } catch {
+        if (requestId !== teamFilterRequestRef.current) return;
+        setTeamFilterOptions(selectedSummaryTeam ? [selectedSummaryTeam] : []);
+      } finally {
+        if (requestId === teamFilterRequestRef.current) {
+          setTeamFilterLoading(false);
+        }
+      }
+      teamFilterDebounceRef.current = null;
+    }, 400);
+
+    return () => {
+      if (teamFilterDebounceRef.current) clearTimeout(teamFilterDebounceRef.current);
+    };
+  }, [teamFilterSearchInput, selectedSummaryTeam]);
 
   const loadDashboardData = async (overrideFilters?: typeof filters) => {
     const effectiveFilters = overrideFilters ?? filters;
@@ -120,6 +168,9 @@ export const DashboardPage = (): JSX.Element => {
   const handleClearFilters = () => {
     const defaultRange = { ...getDefaultDateRange(), module: undefined as ModuleType | undefined, teamId: undefined };
     setFilters(defaultRange);
+    setSelectedSummaryTeam(null);
+    setTeamFilterSearchInput('');
+    setTeamFilterOptions([]);
     loadDashboardData(defaultRange);
   };
 
@@ -271,11 +322,58 @@ export const DashboardPage = (): JSX.Element => {
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TeamSelect
-              value={filters.teamId || ''}
-              onChange={(value) => setFilters((prev) => ({ ...prev, teamId: value || undefined }))}
-              label="Equipe (resumo)"
-              onlyActive={false}
+            <Autocomplete
+              options={teamFilterOptions}
+              value={selectedSummaryTeam}
+              inputValue={teamFilterSearchInput}
+              onChange={(_, value) => {
+                setSelectedSummaryTeam(value);
+                setFilters((prev) => ({ ...prev, teamId: value?.id || undefined }));
+                if (value) {
+                  setTeamFilterSearchInput(value.name);
+                }
+              }}
+              onInputChange={(_, value, reason) => {
+                setTeamFilterSearchInput(value);
+                if (reason === 'clear') {
+                  setSelectedSummaryTeam(null);
+                  setTeamFilterOptions([]);
+                  setFilters((prev) => ({ ...prev, teamId: undefined }));
+                  return;
+                }
+
+                if (reason === 'input' && selectedSummaryTeam && value !== selectedSummaryTeam.name) {
+                  setSelectedSummaryTeam(null);
+                  setFilters((prev) => ({ ...prev, teamId: undefined }));
+                }
+              }}
+              loading={teamFilterLoading}
+              filterOptions={(options) => options}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText={
+                teamFilterSearchInput.trim().length < MIN_TEAM_SEARCH_LENGTH
+                  ? `Digite pelo menos ${MIN_TEAM_SEARCH_LENGTH} caracteres`
+                  : 'Nenhuma equipe encontrada'
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  label="Equipe (resumo)"
+                  placeholder="Digite o nome da equipe"
+                  helperText="Busque equipes pelo nome"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {teamFilterLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
             />
           </Grid>
         </Grid>

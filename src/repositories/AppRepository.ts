@@ -71,7 +71,7 @@ export class AppRepository implements IAppRepository {
     return result.data;
   }
 
-  async getTeams(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Team>> {
+  async getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>> {
     return this.apiRepository.getTeams(params);
   }
 
