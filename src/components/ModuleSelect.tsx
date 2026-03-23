@@ -10,10 +10,10 @@ interface ModuleSelectProps {
 }
 
 const moduleLabels: Record<ModuleType, string> = {
-  [ModuleType.CAMPO]: 'QUALIDADE - Campo',
+  [ModuleType.CAMPO]: 'Avaliação em Campo',
   [ModuleType.SEGURANCA_TRABALHO]: 'SST - Segurança do Trabalho',
-  [ModuleType.POS_OBRA]: 'QUALIDADE - Pós Obra',
-  [ModuleType.REMOTO]: 'QUALIDADE - Remoto',
+  [ModuleType.POS_OBRA]: 'Avaliação Pós Obra',
+  [ModuleType.REMOTO]: 'Avaliação Remota',
 };
 
 export const ModuleSelect = ({

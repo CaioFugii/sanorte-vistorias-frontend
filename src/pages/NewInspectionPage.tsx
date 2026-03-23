@@ -171,6 +171,19 @@ export const NewInspectionPage = (): JSX.Element => {
     setChecklistLoading(value);
   }, []);
 
+  const formatOsValue = (value?: string | number | null): string => {
+    if (value === null || value === undefined) return "Não informado";
+    const normalized = String(value).trim();
+    return normalized ? normalized : "Não informado";
+  };
+
+  const formatOsDateTime = (value?: string | null): string => {
+    if (!value) return "Não informado";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString("pt-BR");
+  };
+
   return (
     <Box>
       <Backdrop open={loading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}>
@@ -179,196 +192,243 @@ export const NewInspectionPage = (): JSX.Element => {
       <Typography variant="h4" gutterBottom>
         Nova Vistoria
       </Typography>
-      <Paper sx={{ p: 3, maxWidth: 800 }}>
-        <form onSubmit={handleSubmit}>
-          <ModuleSelect
-            value={module}
-            onChange={(value) => {
-              setModule(value);
-              setSectorId("");
-              setChecklistId("");
-              setTeamId("");
-              setSelectedTeam(null);
-              setTeamSearchInput("");
-              setTeamOptions([]);
-              setOsNumberInput("");
-              setSelectedServiceOrder(null);
-              setServiceOrderOptions([]);
-              setServiceDescription("");
-              setLocationDescription("");
-            }}
-            required
-          />
-          <Box sx={{ mt: 2 }}>
-            <Autocomplete
-              options={serviceOrderOptions}
-              value={selectedServiceOrder}
-              inputValue={osNumberInput}
-              onChange={(_, value) => {
-                setSelectedServiceOrder(value);
-                const nextSectorId = value?.sectorId ?? value?.sector?.id ?? "";
-                setSectorId(nextSectorId);
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", lg: "row" },
+          alignItems: "flex-start",
+          gap: 3,
+        }}
+      >
+        <Paper sx={{ p: 3, width: "100%", flex: 1, maxWidth: { lg: 800 } }}>
+          <form onSubmit={handleSubmit}>
+            <ModuleSelect
+              value={module}
+              onChange={(value) => {
+                setModule(value);
+                setSectorId("");
                 setChecklistId("");
-                setLocationDescription(value?.address ?? "");
-                if (value) {
-                  setOsNumberInput(value.osNumber);
-                }
+                setTeamId("");
+                setSelectedTeam(null);
+                setTeamSearchInput("");
+                setTeamOptions([]);
+                setOsNumberInput("");
+                setSelectedServiceOrder(null);
+                setServiceOrderOptions([]);
+                setServiceDescription("");
+                setLocationDescription("");
               }}
-              onInputChange={(_, value, reason) => {
-                setOsNumberInput(value);
-                if (reason === "clear") {
-                  setSelectedServiceOrder(null);
-                  setServiceOrderOptions([]);
-                  setSectorId("");
+              required
+            />
+            <Box sx={{ mt: 2 }}>
+              <Autocomplete
+                options={serviceOrderOptions}
+                value={selectedServiceOrder}
+                inputValue={osNumberInput}
+                onChange={(_, value) => {
+                  setSelectedServiceOrder(value);
+                  const nextSectorId = value?.sectorId ?? value?.sector?.id ?? "";
+                  setSectorId(nextSectorId);
                   setChecklistId("");
-                  setLocationDescription("");
-                  return;
-                }
-
-                if (reason === "input" && selectedServiceOrder && value !== selectedServiceOrder.osNumber) {
-                  setSelectedServiceOrder(null);
-                  setSectorId("");
-                  setChecklistId("");
-                  setLocationDescription("");
-                }
-              }}
-              loading={osSearchLoading}
-              filterOptions={(options) => options}
-              getOptionLabel={(option) => option.osNumber}
-              renderOption={(props, option) => (
-                <li {...props}>
-                  {option.osNumber} - {option.sector?.name ?? "Setor não informado"}
-                </li>
-              )}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              noOptionsText={
-                osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
-                  ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres`
-                  : "Nenhuma OS encontrada"
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Número da OS"
-                  required
-                  placeholder="Digite o número da Ordem de Serviço"
-                  error={osNumberError}
-                  helperText={
-                    osNumberError
-                      ? "OS não encontrada. Verifique o número ou importe a OS na página Ordens de Serviço."
-                      : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
-                        ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
-                        : "Selecione uma OS para preencher o setor automaticamente"
+                  setLocationDescription(value?.address ?? "");
+                  if (value) {
+                    setOsNumberInput(value.osNumber);
                   }
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {osSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-            />
-          </Box>
-          <Box sx={{ mt: 2 }}>
-            <SectorSelect
-              value={sectorId}
-              onChange={() => undefined}
-              label="Setor (definido pela OS)"
-              required
-              disabled
-            />
-          </Box>
-          <Box sx={{ mt: 2 }}>
-            <ChecklistSelect
-              value={checklistId}
-              onChange={setChecklistId}
-              module={module}
-              sectorId={sectorId}
-              disabled={!selectedServiceOrder || !sectorId}
-              required
-              onLoadingChange={handleChecklistLoadingChange}
-            />
-          </Box>
-          <Box sx={{ mt: 2 }}>
-            <Autocomplete
-              options={teamOptions}
-              value={selectedTeam}
-              inputValue={teamSearchInput}
-              onChange={(_, value) => {
-                setSelectedTeam(value);
-                setTeamId(value?.id ?? "");
-                if (value) {
-                  setTeamSearchInput(value.name);
+                }}
+                onInputChange={(_, value, reason) => {
+                  setOsNumberInput(value);
+                  if (reason === "clear") {
+                    setSelectedServiceOrder(null);
+                    setServiceOrderOptions([]);
+                    setSectorId("");
+                    setChecklistId("");
+                    setLocationDescription("");
+                    return;
+                  }
+
+                  if (reason === "input" && selectedServiceOrder && value !== selectedServiceOrder.osNumber) {
+                    setSelectedServiceOrder(null);
+                    setSectorId("");
+                    setChecklistId("");
+                    setLocationDescription("");
+                  }
+                }}
+                loading={osSearchLoading}
+                filterOptions={(options) => options}
+                getOptionLabel={(option) => option.osNumber}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    {option.osNumber} - {option.sector?.name ?? "Setor não informado"}
+                  </li>
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                noOptionsText={
+                  osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                    ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres`
+                    : "Nenhuma OS encontrada"
                 }
-              }}
-              onInputChange={(_, value, reason) => {
-                setTeamSearchInput(value);
-                if (reason === "clear") {
-                  setSelectedTeam(null);
-                  setTeamId("");
-                  setTeamOptions([]);
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Número da OS"
+                    required
+                    placeholder="Digite o número da Ordem de Serviço"
+                    error={osNumberError}
+                    helperText={
+                      osNumberError
+                        ? "OS não encontrada. Verifique o número ou importe a OS na página Ordens de Serviço."
+                        : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                          ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
+                          : "Selecione uma OS para preencher o setor automaticamente"
+                    }
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {osSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <SectorSelect
+                value={sectorId}
+                onChange={() => undefined}
+                label="Setor (definido pela OS)"
+                required
+                disabled
+              />
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <ChecklistSelect
+                value={checklistId}
+                onChange={setChecklistId}
+                module={module}
+                sectorId={sectorId}
+                disabled={!selectedServiceOrder || !sectorId}
+                required
+                onLoadingChange={handleChecklistLoadingChange}
+              />
+            </Box>
+            <Box sx={{ mt: 2 }}>
+              <Autocomplete
+                options={teamOptions}
+                value={selectedTeam}
+                inputValue={teamSearchInput}
+                onChange={(_, value) => {
+                  setSelectedTeam(value);
+                  setTeamId(value?.id ?? "");
+                  if (value) {
+                    setTeamSearchInput(value.name);
+                  }
+                }}
+                onInputChange={(_, value, reason) => {
+                  setTeamSearchInput(value);
+                  if (reason === "clear") {
+                    setSelectedTeam(null);
+                    setTeamId("");
+                    setTeamOptions([]);
+                  }
+                }}
+                loading={teamSearchLoading}
+                filterOptions={(options) => options}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                noOptionsText={
+                  teamSearchInput.trim().length < MIN_TEAM_SEARCH_LENGTH
+                    ? `Digite pelo menos ${MIN_TEAM_SEARCH_LENGTH} caracteres`
+                    : "Nenhuma equipe encontrada"
                 }
-              }}
-              loading={teamSearchLoading}
-              filterOptions={(options) => options}
-              getOptionLabel={(option) => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              noOptionsText={
-                teamSearchInput.trim().length < MIN_TEAM_SEARCH_LENGTH
-                  ? `Digite pelo menos ${MIN_TEAM_SEARCH_LENGTH} caracteres`
-                  : "Nenhuma equipe encontrada"
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Equipe"
-                  required
-                  placeholder="Digite o nome da equipe"
-                  helperText="Busque equipes pelo nome"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {teamSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Equipe"
+                    required
+                    placeholder="Digite o nome da equipe"
+                    helperText="Busque equipes pelo nome"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {teamSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            </Box>
+            <TextField
+              fullWidth
+              label="Descrição do serviço"
+              required
+              value={serviceDescription}
+              onChange={(event) => setServiceDescription(event.target.value)}
+              margin="normal"
+              multiline
+              rows={3}
             />
-          </Box>
-          <TextField
-            fullWidth
-            label="Descrição do serviço"
-            required
-            value={serviceDescription}
-            onChange={(event) => setServiceDescription(event.target.value)}
-            margin="normal"
-            multiline
-            rows={3}
-          />
-          <TextField
-            fullWidth
-            label="Localização"
-            value={locationDescription}
-            onChange={(event) => setLocationDescription(event.target.value)}
-            margin="normal"
-          />
-          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button variant="outlined" onClick={() => navigate("/inspections/mine")}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="contained" disabled={loading}>
-              {submitLoading ? <CircularProgress size={20} /> : "Criar"}
-            </Button>
-          </Box>
-        </form>
-      </Paper>
+            <TextField
+              fullWidth
+              label="Localização"
+              value={locationDescription}
+              onChange={(event) => setLocationDescription(event.target.value)}
+              margin="normal"
+            />
+            <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button variant="outlined" onClick={() => navigate("/inspections/mine")}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="contained" disabled={loading}>
+                {submitLoading ? <CircularProgress size={20} /> : "Criar"}
+              </Button>
+            </Box>
+          </form>
+        </Paper>
+
+        {selectedServiceOrder ? (
+          <Paper
+            sx={{
+              p: 3,
+              width: "100%",
+              maxWidth: { xs: "100%", lg: 360 },
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Dados da OS
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Número:</strong> {formatOsValue(selectedServiceOrder.osNumber)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Setor:</strong> {formatOsValue(selectedServiceOrder.sector?.name)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Endereço:</strong> {formatOsValue(selectedServiceOrder.address)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Status:</strong> {formatOsValue(selectedServiceOrder.status)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Equipe:</strong> {formatOsValue(selectedServiceOrder.equipe)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Tempo de execução:</strong> {formatOsValue(selectedServiceOrder.tempoExecucaoEfetivo)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Resultado:</strong> {formatOsValue(selectedServiceOrder.resultado)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <strong>Fim da execução:</strong> {formatOsDateTime(selectedServiceOrder.fimExecucao)}
+            </Typography>
+          </Paper>
+        ) : null}
+      </Box>
     </Box>
   );
 };
