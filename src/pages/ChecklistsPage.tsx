@@ -52,6 +52,7 @@ export const ChecklistsPage = (): JSX.Element => {
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
   const [deletingChecklist, setDeletingChecklist] = useState<Checklist | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [savingItem, setSavingItem] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -510,33 +511,38 @@ export const ChecklistsPage = (): JSX.Element => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setItemDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={() => setItemDialogOpen(false)} disabled={savingItem}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!selectedChecklist || !selectedSectionId || !itemTitle.trim()}
+            disabled={!selectedChecklist || !selectedSectionId || !itemTitle.trim() || savingItem}
             onClick={async () => {
-              if (!selectedChecklist || !selectedSectionId) return;
-              if (editingItemId) {
-                await appRepository.updateChecklistItem(selectedChecklist.id, editingItemId, {
-                  title: itemTitle,
-                  description: itemDescription || undefined,
-                  order: itemOrder,
-                  requiresPhotoOnNonConformity: itemRequiresPhoto,
-                  active: itemActive,
-                });
-              } else {
-                await appRepository.createChecklistItem(selectedChecklist.id, {
-                  title: itemTitle,
-                  description: itemDescription || undefined,
-                  order: itemOrder,
-                  sectionId: selectedSectionId,
-                  requiresPhotoOnNonConformity: itemRequiresPhoto,
-                  active: itemActive,
-                });
+              if (!selectedChecklist || !selectedSectionId || savingItem) return;
+              setSavingItem(true);
+              try {
+                if (editingItemId) {
+                  await appRepository.updateChecklistItem(selectedChecklist.id, editingItemId, {
+                    title: itemTitle,
+                    description: itemDescription || undefined,
+                    order: itemOrder,
+                    requiresPhotoOnNonConformity: itemRequiresPhoto,
+                    active: itemActive,
+                  });
+                } else {
+                  await appRepository.createChecklistItem(selectedChecklist.id, {
+                    title: itemTitle,
+                    description: itemDescription || undefined,
+                    order: itemOrder,
+                    sectionId: selectedSectionId,
+                    requiresPhotoOnNonConformity: itemRequiresPhoto,
+                    active: itemActive,
+                  });
+                }
+                setItemDialogOpen(false);
+                setEditingItemId(null);
+                await load();
+              } finally {
+                setSavingItem(false);
               }
-              setItemDialogOpen(false);
-              setEditingItemId(null);
-              await load();
             }}
           >
             Salvar
