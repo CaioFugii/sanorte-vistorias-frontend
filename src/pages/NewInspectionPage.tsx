@@ -415,7 +415,7 @@ export const NewInspectionPage = (): JSX.Element => {
               <strong>Status:</strong> {formatOsValue(selectedServiceOrder.status)}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              <strong>Equipe:</strong> {formatOsValue(selectedServiceOrder.equipe)}
+              <strong>Equipe PDA:</strong> {formatOsValue(selectedServiceOrder.equipe)}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               <strong>Tempo de execução:</strong> {formatOsValue(selectedServiceOrder.tempoExecucaoEfetivo)}
