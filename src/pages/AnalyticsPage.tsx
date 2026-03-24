@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Grid, Paper, Stack, TextField, Typography } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
@@ -8,12 +8,26 @@ import { appRepository } from "@/repositories/AppRepository";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
+type SafetyWorkLowScoreCollaboratorsResponse = Awaited<
+  ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
+>;
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
+const DEFAULT_LOW_SCORE_THRESHOLD = 70;
+const DEFAULT_LOW_SCORE_LIMIT = 15;
 
 function getDefaultQualityRange(): { from: string; to: string } {
   const to = new Date();
   const from = new Date(to.getFullYear(), to.getMonth() - 3, 1);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
+function getCurrentMonthRange(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to.getFullYear(), to.getMonth(), 1);
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
@@ -34,40 +48,58 @@ function formatMonthYearLabel(yyyyMM: string): string {
     .replace(/^./, (char) => char.toUpperCase());
 }
 
+function formatPercent(value: number, digits = 2): string {
+  return `${value.toFixed(digits).replace(".", ",")}%`;
+}
+
 export function AnalyticsPage(): JSX.Element {
   const { hasAnyRole } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
+  const initialSafetyFilters = useMemo(() => {
+    const range = getCurrentMonthRange();
+    return {
+      from: range.from,
+      to: range.to,
+      lowScoreThreshold: DEFAULT_LOW_SCORE_THRESHOLD,
+      limit: DEFAULT_LOW_SCORE_LIMIT,
+    };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceResponse | null>(null);
   const [currentMonthByService, setCurrentMonthByService] = useState<CurrentMonthByServiceResponse | null>(null);
+  const [lowScoreFilters, setLowScoreFilters] = useState(initialSafetyFilters);
+  const [lowScoreCollaborators, setLowScoreCollaborators] = useState<SafetyWorkLowScoreCollaboratorsResponse | null>(null);
+  const qualityRange = useMemo(() => getDefaultQualityRange(), []);
+
+  const loadAnalyticsData = async (safetyFilters: typeof lowScoreFilters) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [qualityRes, currentRes, lowScoreRes] = await Promise.all([
+        appRepository.getDashboardQualityByService(qualityRange),
+        appRepository.getDashboardCurrentMonthByService(),
+        appRepository.getDashboardSafetyWorkLowScoreCollaborators(safetyFilters),
+      ]);
+      setQualityByService(qualityRes);
+      setCurrentMonthByService(currentRes);
+      setLowScoreCollaborators(lowScoreRes);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const message =
+        status === 403
+          ? "Você não tem permissão para acessar os gráficos."
+          : "Falha ao carregar os dados de gráficos.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const range = getDefaultQualityRange();
-        const [qualityRes, currentRes] = await Promise.all([
-          appRepository.getDashboardQualityByService(range),
-          appRepository.getDashboardCurrentMonthByService(),
-        ]);
-        setQualityByService(qualityRes);
-        setCurrentMonthByService(currentRes);
-      } catch (err) {
-        const status = (err as { response?: { status?: number } })?.response?.status;
-        const message =
-          status === 403
-            ? "Você não tem permissão para acessar os gráficos."
-            : "Falha ao carregar os dados de gráficos.";
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [canAccessAnalytics]);
+    void loadAnalyticsData(initialSafetyFilters);
+  }, [canAccessAnalytics, initialSafetyFilters, qualityRange]);
 
   const chartMonths = useMemo(
     () =>
@@ -104,6 +136,19 @@ export function AnalyticsPage(): JSX.Element {
     const last = chartMonths[chartMonths.length - 1].label;
     return `CRESCIMENTO ${prev} - ${last}`;
   }, [chartMonths]);
+
+  const lowScoreBarMax = useMemo(
+    () =>
+      Math.max(
+        ...(lowScoreCollaborators?.collaborators.map((item) => item.badScoreRatePercent) || [0]),
+        100
+      ),
+    [lowScoreCollaborators]
+  );
+
+  const handleSearchLowScoreCollaborators = () => {
+    void loadAnalyticsData(lowScoreFilters);
+  };
 
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
@@ -324,6 +369,168 @@ export function AnalyticsPage(): JSX.Element {
             </Paper>
           </Grid>
         </Grid>
+
+        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
+          <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#0b158a", color: "#fff" }}>
+            <Typography variant="h6" fontWeight={800}>
+              Segurança do Trabalho - Colaboradores com Nota Baixa
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Data inicial"
+                  value={lowScoreFilters.from}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ max: lowScoreFilters.to }}
+                  onChange={(event) => {
+                    const from = event.target.value;
+                    setLowScoreFilters((prev) => ({
+                      ...prev,
+                      from,
+                      to: from > prev.to ? from : prev.to,
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Data final"
+                  value={lowScoreFilters.to}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: lowScoreFilters.from }}
+                  onChange={(event) => {
+                    const to = event.target.value;
+                    setLowScoreFilters((prev) => ({
+                      ...prev,
+                      to,
+                      from: to < prev.from ? to : prev.from,
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Limiar nota baixa"
+                  value={lowScoreFilters.lowScoreThreshold}
+                  inputProps={{ min: 0, max: 100, step: 1 }}
+                  onChange={(event) => {
+                    const parsed = Number(event.target.value);
+                    if (!Number.isFinite(parsed)) return;
+                    setLowScoreFilters((prev) => ({
+                      ...prev,
+                      lowScoreThreshold: Math.max(0, Math.min(100, parsed)),
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Limite"
+                  value={lowScoreFilters.limit}
+                  inputProps={{ min: 1, max: 100, step: 1 }}
+                  onChange={(event) => {
+                    const parsed = Number(event.target.value);
+                    if (!Number.isFinite(parsed)) return;
+                    setLowScoreFilters((prev) => ({
+                      ...prev,
+                      limit: Math.max(1, Math.min(100, parsed)),
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={2} display="flex" alignItems="stretch">
+                <Button
+                  variant="contained"
+                  onClick={handleSearchLowScoreCollaborators}
+                  disabled={loading}
+                  sx={{ width: "100%", fontWeight: 700 }}
+                >
+                  Buscar
+                </Button>
+              </Grid>
+            </Grid>
+
+            {lowScoreCollaborators && lowScoreCollaborators.collaborators.length === 0 && (
+              <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+                <Typography color="text.secondary">
+                  Nenhum colaborador encontrado abaixo do limiar selecionado no período.
+                </Typography>
+              </Paper>
+            )}
+
+            {lowScoreCollaborators && lowScoreCollaborators.collaborators.length > 0 && (
+              <Stack spacing={1.5}>
+                {lowScoreCollaborators.collaborators.map((item) => (
+                  <Paper key={item.collaboratorId} sx={{ p: 1.75, border: "1px solid #e2e8f0" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={800}>
+                          {item.collaboratorName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.badScoresCount} notas ruins em {item.inspectionsCount} inspeções
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={800} color="error.main">
+                        {formatPercent(item.badScoreRatePercent)}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ mt: 1.25, height: 10, borderRadius: 999, bgcolor: "#e2e8f0", overflow: "hidden" }}>
+                      <Box
+                        sx={{
+                          width: `${(item.badScoreRatePercent / lowScoreBarMax) * 100}%`,
+                          bgcolor: "#d32f2f",
+                          height: "100%",
+                        }}
+                      />
+                    </Box>
+
+                    <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                      <Grid item xs={4}>
+                        <Typography variant="caption" color="text.secondary">
+                          Média
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700}>
+                          {formatPercent(item.averagePercent)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption" color="text.secondary">
+                          Pior nota
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700} color="error.main">
+                          {formatPercent(item.worstScorePercent, 0)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={4}>
+                        <Typography variant="caption" color="text.secondary">
+                          Melhor nota
+                        </Typography>
+                        <Typography variant="body2" fontWeight={700} color="success.main">
+                          {formatPercent(item.bestScorePercent, 0)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+          </Box>
+        </Paper>
       </Box>
       )}
     </Box>

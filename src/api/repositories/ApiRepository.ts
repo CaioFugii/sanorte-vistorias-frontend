@@ -685,6 +685,44 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkLowScoreCollaborators(params: {
+    from: string;
+    to: string;
+    lowScoreThreshold?: number;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    lowScoreThreshold: number;
+    collaborators: Array<{
+      collaboratorId: string;
+      collaboratorName: string;
+      inspectionsCount: number;
+      badScoresCount: number;
+      badScoreRatePercent: number;
+      averagePercent: number;
+      worstScorePercent: number;
+      bestScorePercent: number;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      lowScoreThreshold: number;
+      collaborators: Array<{
+        collaboratorId: string;
+        collaboratorName: string;
+        inspectionsCount: number;
+        badScoresCount: number;
+        badScoreRatePercent: number;
+        averagePercent: number;
+        worstScorePercent: number;
+        bestScorePercent: number;
+      }>;
+    }>("/dashboards/safety-work/low-score-collaborators", { params });
+    return response.data;
+  }
+
   /**
    * Upload de imagem para o Cloudinary (POST /uploads).
    * @param file - Arquivo de imagem

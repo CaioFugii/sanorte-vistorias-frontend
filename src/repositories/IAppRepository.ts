@@ -232,6 +232,26 @@ export interface IAppRepository {
       inspectionsCount: number;
     }>;
   }>;
+  getDashboardSafetyWorkLowScoreCollaborators(params: {
+    from: string;
+    to: string;
+    lowScoreThreshold?: number;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    lowScoreThreshold: number;
+    collaborators: Array<{
+      collaboratorId: string;
+      collaboratorName: string;
+      inspectionsCount: number;
+      badScoresCount: number;
+      badScoreRatePercent: number;
+      averagePercent: number;
+      worstScorePercent: number;
+      bestScorePercent: number;
+    }>;
+  }>;
 
   createInspection(input: {
     module: ModuleType;

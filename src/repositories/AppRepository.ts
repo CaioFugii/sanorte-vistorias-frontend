@@ -423,6 +423,29 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardCurrentMonthByService(params);
   }
 
+  async getDashboardSafetyWorkLowScoreCollaborators(params: {
+    from: string;
+    to: string;
+    lowScoreThreshold?: number;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    lowScoreThreshold: number;
+    collaborators: Array<{
+      collaboratorId: string;
+      collaboratorName: string;
+      inspectionsCount: number;
+      badScoresCount: number;
+      badScoreRatePercent: number;
+      averagePercent: number;
+      worstScorePercent: number;
+      bestScorePercent: number;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardSafetyWorkLowScoreCollaborators(params);
+  }
+
   async createInspection(input: {
     module: ModuleType;
     inspectionScope?: InspectionScope;
