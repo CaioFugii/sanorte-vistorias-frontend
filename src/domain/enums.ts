@@ -24,3 +24,8 @@ export enum InspectionStatus {
   PENDENTE_AJUSTE = "PENDENTE_AJUSTE",
   RESOLVIDA = "RESOLVIDA",
 }
+
+export enum InspectionScope {
+  TEAM = "TEAM",
+  COLLABORATOR = "COLLABORATOR",
+}

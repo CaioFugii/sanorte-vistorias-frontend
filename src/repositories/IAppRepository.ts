@@ -4,6 +4,7 @@ import {
   Collaborator,
   Evidence,
   Inspection,
+  InspectionScope,
   InspectionStatus,
   InspectionItem,
   ModuleType,
@@ -56,15 +57,21 @@ export interface IAppRepository {
   ): Promise<Sector>;
   deleteSector(sectorId: string): Promise<void>;
 
-  createTeam(input: { name: string; active: boolean; collaboratorIds?: string[] }): Promise<Team>;
+  createTeam(input: {
+    name: string;
+    active: boolean;
+    isContractor?: boolean;
+    collaboratorIds?: string[];
+  }): Promise<Team>;
   updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; collaboratorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
   ): Promise<Team>;
   deleteTeam(teamId: string): Promise<void>;
 
   getChecklists(params?: {
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     sectorId?: string;
     active?: boolean;
     page?: number;
@@ -72,6 +79,7 @@ export interface IAppRepository {
   }): Promise<PaginatedResponse<Checklist>>;
   createChecklist(input: {
     module: ModuleType;
+    inspectionScope?: InspectionScope;
     name: string;
     description?: string;
     sectorId: string;
@@ -79,7 +87,14 @@ export interface IAppRepository {
   }): Promise<Checklist>;
   updateChecklist(
     checklistId: string,
-    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{
+      module: ModuleType;
+      inspectionScope?: InspectionScope;
+      name: string;
+      description?: string;
+      sectorId: string;
+      active: boolean;
+    }>
   ): Promise<Checklist>;
   deleteChecklist(checklistId: string): Promise<void>;
   createChecklistSection(
@@ -130,6 +145,7 @@ export interface IAppRepository {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
@@ -140,6 +156,7 @@ export interface IAppRepository {
     page?: number;
     limit?: number;
     osNumber?: string;
+    inspectionScope?: InspectionScope;
   }): Promise<PaginatedResponse<Inspection>>;
   getDashboardSummary(params?: {
     from?: string;
@@ -218,15 +235,17 @@ export interface IAppRepository {
 
   createInspection(input: {
     module: ModuleType;
-    teamId: string;
+    inspectionScope?: InspectionScope;
+    teamId?: string;
     checklistId: string;
-    serviceOrderId: string;
+    serviceOrderId?: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
     createdByUserId: string;
   }): Promise<Inspection>;
   getInspection(externalId: string, forceApi?: boolean): Promise<Inspection | null>;
+  deleteInspection(externalId: string): Promise<void>;
   listInspections(): Promise<Inspection[]>;
   listInspectionsByUser(userId: string): Promise<Inspection[]>;
   /** Lista para perfil FISCAL: online = API + local (rascunhos); offline = só local. */

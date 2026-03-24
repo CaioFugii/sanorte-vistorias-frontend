@@ -4,6 +4,7 @@ import {
   ChecklistItem,
   Collaborator,
   Inspection,
+  InspectionScope,
   InspectionItem,
   InspectionStatus,
   ModuleType,
@@ -128,14 +129,19 @@ export class ApiRepository {
     return response.data;
   }
 
-  async createTeam(input: { name: string; active: boolean; collaboratorIds?: string[] }): Promise<Team> {
+  async createTeam(input: {
+    name: string;
+    active: boolean;
+    isContractor?: boolean;
+    collaboratorIds?: string[];
+  }): Promise<Team> {
     const response = await apiClient.post<Team>("/teams", input);
     return response.data;
   }
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; collaboratorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
   ): Promise<Team> {
     const response = await apiClient.put<Team>(`/teams/${teamId}`, input);
     return response.data;
@@ -226,6 +232,7 @@ export class ApiRepository {
 
   async getChecklists(params?: {
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     sectorId?: string;
     active?: boolean;
     page?: number;
@@ -256,6 +263,7 @@ export class ApiRepository {
 
   async createChecklist(input: {
     module: ModuleType;
+    inspectionScope?: InspectionScope;
     name: string;
     description?: string;
     sectorId: string;
@@ -267,7 +275,14 @@ export class ApiRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{
+      module: ModuleType;
+      inspectionScope?: InspectionScope;
+      name: string;
+      description?: string;
+      sectorId: string;
+      active: boolean;
+    }>
   ): Promise<Checklist> {
     const response = await apiClient.put<Checklist>(`/checklists/${checklistId}`, input);
     return normalizeChecklistSections(response.data);
@@ -359,6 +374,7 @@ export class ApiRepository {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
@@ -373,6 +389,7 @@ export class ApiRepository {
     page?: number;
     limit?: number;
     osNumber?: string;
+    inspectionScope?: InspectionScope;
   }): Promise<PaginatedResponse<Inspection>> {
     const response = await apiClient.get<PaginatedResponse<Inspection>>("/inspections/mine", { params });
     return response.data;
@@ -383,11 +400,16 @@ export class ApiRepository {
     return response.data;
   }
 
+  async deleteInspection(id: string): Promise<void> {
+    await apiClient.delete(`/inspections/${id}`);
+  }
+
   async createInspection(input: {
     module: ModuleType;
+    inspectionScope?: InspectionScope;
     checklistId: string;
-    teamId: string;
-    serviceOrderId: string;
+    teamId?: string;
+    serviceOrderId?: string;
     serviceDescription: string;
     locationDescription?: string;
     collaboratorIds?: string[];
@@ -397,13 +419,14 @@ export class ApiRepository {
   }): Promise<Inspection> {
     const payload: Record<string, unknown> = {
       module: input.module,
+      inspectionScope: input.inspectionScope,
       checklistId: input.checklistId,
-      teamId: input.teamId,
-      serviceOrderId: input.serviceOrderId,
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription ?? "",
       collaboratorIds: input.collaboratorIds,
     };
+    if (input.teamId) payload.teamId = input.teamId;
+    if (input.serviceOrderId) payload.serviceOrderId = input.serviceOrderId;
     if (input.externalId) payload.externalId = input.externalId;
     if (input.createdOffline !== undefined) payload.createdOffline = input.createdOffline;
     if (input.syncedAt) payload.syncedAt = input.syncedAt;

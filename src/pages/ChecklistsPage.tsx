@@ -2,6 +2,8 @@ import {
   Alert,
   Box,
   Button,
+  FormControl,
+  FormLabel,
   Dialog,
   DialogActions,
   DialogContent,
@@ -19,6 +21,8 @@ import {
   Chip,
   Tab,
   Tabs,
+  RadioGroup,
+  Radio,
 } from '@mui/material';
 import {
   Add,
@@ -27,8 +31,8 @@ import {
   Refresh,
   ExpandMore,
 } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
-import { Checklist, PaginatedResponse, Sector } from '@/domain';
+import { useState, useEffect, useMemo } from 'react';
+import { Checklist, InspectionScope, PaginatedResponse, Sector } from '@/domain';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { SectorSelect } from '@/components/SectorSelect';
 import { ModuleType } from '@/domain/enums';
@@ -38,6 +42,7 @@ import { ListPagination } from '@/components/ListPagination';
 import { DataCard, PageHeader } from '@/components/ui';
 
 const DEFAULT_LIMIT = 10;
+const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
 
 export const ChecklistsPage = (): JSX.Element => {
   const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
@@ -52,12 +57,14 @@ export const ChecklistsPage = (): JSX.Element => {
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
   const [deletingChecklist, setDeletingChecklist] = useState<Checklist | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [savingChecklist, setSavingChecklist] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [sectorTab, setSectorTab] = useState("all");
   const [checklistModule, setChecklistModule] = useState<ModuleType | ''>(ModuleType.CAMPO);
+  const [checklistInspectionScope, setChecklistInspectionScope] = useState<InspectionScope>(InspectionScope.TEAM);
   const [checklistName, setChecklistName] = useState("");
   const [checklistDescription, setChecklistDescription] = useState("");
   const [checklistSectorId, setChecklistSectorId] = useState("");
@@ -70,6 +77,34 @@ export const ChecklistsPage = (): JSX.Element => {
   const [itemOrder, setItemOrder] = useState(1);
   const [itemRequiresPhoto, setItemRequiresPhoto] = useState(true);
   const [itemActive, setItemActive] = useState(true);
+  const isWorkSafetyChecklistModule = checklistModule === ModuleType.SEGURANCA_TRABALHO;
+  const workSafetySectorId = useMemo(
+    () =>
+      sectors.find(
+        (sector) =>
+          sector.name
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .toUpperCase() === WORK_SAFETY_SECTOR_NAME
+      )?.id ?? "",
+    [sectors]
+  );
+  const checklistSectorOptions = useMemo(
+    () =>
+      sectors.filter((sector) => {
+        const normalizedName = sector.name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toUpperCase();
+        if (isWorkSafetyChecklistModule) {
+          return normalizedName === WORK_SAFETY_SECTOR_NAME;
+        }
+        return normalizedName !== WORK_SAFETY_SECTOR_NAME;
+      }),
+    [sectors, isWorkSafetyChecklistModule]
+  );
 
   const load = async () => {
     setLoading(true);
@@ -109,6 +144,19 @@ export const ChecklistsPage = (): JSX.Element => {
     }
   }, [sectors, sectorTab]);
 
+  useEffect(() => {
+    if (!isWorkSafetyChecklistModule || !workSafetySectorId) return;
+    setChecklistSectorId((current) => (current === workSafetySectorId ? current : workSafetySectorId));
+  }, [isWorkSafetyChecklistModule, workSafetySectorId]);
+
+  useEffect(() => {
+    if (isWorkSafetyChecklistModule) return;
+    const selectedIsValid = checklistSectorOptions.some((sector) => sector.id === checklistSectorId);
+    if (selectedIsValid) return;
+    const fallbackSectorId = checklistSectorOptions.find((sector) => sector.active)?.id ?? checklistSectorOptions[0]?.id ?? "";
+    setChecklistSectorId(fallbackSectorId);
+  }, [isWorkSafetyChecklistModule, checklistSectorOptions, checklistSectorId]);
+
   const visibleChecklists = result?.data ?? [];
   const meta = result?.meta;
 
@@ -141,6 +189,7 @@ export const ChecklistsPage = (): JSX.Element => {
               onClick={() => {
                 setEditingChecklist(null);
                 setChecklistModule(ModuleType.CAMPO);
+                setChecklistInspectionScope(InspectionScope.TEAM);
                 setChecklistName("");
                 setChecklistDescription("");
                 setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
@@ -214,6 +263,7 @@ export const ChecklistsPage = (): JSX.Element => {
                       event.stopPropagation();
                       setEditingChecklist(checklist);
                       setChecklistModule(checklist.module);
+                      setChecklistInspectionScope(checklist.inspectionScope ?? InspectionScope.TEAM);
                       setChecklistName(checklist.name);
                       setChecklistDescription(checklist.description || "");
                       setChecklistSectorId(checklist.sectorId);
@@ -355,14 +405,39 @@ export const ChecklistsPage = (): JSX.Element => {
         <DialogTitle>{editingChecklist ? "Editar checklist" : "Novo checklist"}</DialogTitle>
         <DialogContent>
           <Box mt={2}>
-            <ModuleSelect value={checklistModule} onChange={(value) => setChecklistModule(value)} />
+            <ModuleSelect
+              value={checklistModule}
+              onChange={(value) => {
+                setChecklistModule(value);
+                if (value !== ModuleType.SEGURANCA_TRABALHO) {
+                  setChecklistInspectionScope(InspectionScope.TEAM);
+                }
+              }}
+            />
           </Box>
+          {isWorkSafetyChecklistModule && (
+            <Box mt={2}>
+              <FormControl required>
+                <FormLabel id="checklist-inspection-scope-label">Escopo atendido</FormLabel>
+                <RadioGroup
+                  row
+                  aria-labelledby="checklist-inspection-scope-label"
+                  value={checklistInspectionScope}
+                  onChange={(event) => setChecklistInspectionScope(event.target.value as InspectionScope)}
+                >
+                  <FormControlLabel value={InspectionScope.TEAM} control={<Radio />} label="Equipe" />
+                  <FormControlLabel value={InspectionScope.COLLABORATOR} control={<Radio />} label="Colaborador" />
+                </RadioGroup>
+              </FormControl>
+            </Box>
+          )}
           <Box mt={2}>
             <SectorSelect
               value={checklistSectorId}
               onChange={setChecklistSectorId}
-              options={sectors}
+              options={checklistSectorOptions}
               required
+              disabled={isWorkSafetyChecklistModule && Boolean(workSafetySectorId)}
             />
           </Box>
           <TextField
@@ -385,32 +460,43 @@ export const ChecklistsPage = (): JSX.Element => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setChecklistDialogOpen(false)}>Cancelar</Button>
+          <Button onClick={() => setChecklistDialogOpen(false)} disabled={savingChecklist}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!checklistName.trim() || !checklistModule || !checklistSectorId}
+            disabled={!checklistName.trim() || !checklistModule || !checklistSectorId || savingChecklist}
             onClick={async () => {
-              if (!checklistModule || !checklistSectorId) return;
-              if (editingChecklist) {
-                const updateChecklistInput = {
-                  module: checklistModule,
-                  name: checklistName,
-                  description: checklistDescription || undefined,
-                  sectorId: checklistSectorId,
-                  active: checklistActive,
-                };
-                await appRepository.updateChecklist(editingChecklist.id, updateChecklistInput);
-              } else {
-                await appRepository.createChecklist({
-                  module: checklistModule,
-                  name: checklistName,
-                  description: checklistDescription || undefined,
-                  sectorId: checklistSectorId,
-                  active: checklistActive,
-                });
+              if (!checklistModule || !checklistSectorId || savingChecklist) return;
+              setSavingChecklist(true);
+              try {
+                const inspectionScope =
+                  checklistModule === ModuleType.SEGURANCA_TRABALHO
+                    ? checklistInspectionScope
+                    : InspectionScope.TEAM;
+                if (editingChecklist) {
+                  const updateChecklistInput = {
+                    module: checklistModule,
+                    inspectionScope,
+                    name: checklistName,
+                    description: checklistDescription || undefined,
+                    sectorId: checklistSectorId,
+                    active: checklistActive,
+                  };
+                  await appRepository.updateChecklist(editingChecklist.id, updateChecklistInput);
+                } else {
+                  await appRepository.createChecklist({
+                    module: checklistModule,
+                    inspectionScope,
+                    name: checklistName,
+                    description: checklistDescription || undefined,
+                    sectorId: checklistSectorId,
+                    active: checklistActive,
+                  });
+                }
+                setChecklistDialogOpen(false);
+                await load();
+              } finally {
+                setSavingChecklist(false);
               }
-              setChecklistDialogOpen(false);
-              await load();
             }}
           >
             Salvar

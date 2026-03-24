@@ -1,5 +1,5 @@
 import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@mui/material";
-import { ModuleType } from "@/domain";
+import { InspectionScope, ModuleType } from "@/domain";
 import { Checklist } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { useEffect, useState } from "react";
@@ -8,6 +8,7 @@ interface ChecklistSelectProps {
   value: string;
   onChange: (checklistId: string) => void;
   module?: ModuleType;
+  inspectionScope?: InspectionScope;
   sectorId?: string;
   disabled?: boolean;
   required?: boolean;
@@ -18,6 +19,7 @@ export function ChecklistSelect({
   value,
   onChange,
   module,
+  inspectionScope,
   sectorId,
   disabled,
   required,
@@ -34,7 +36,7 @@ export function ChecklistSelect({
     let cancelled = false;
     onLoadingChange?.(true);
     appRepository
-      .getChecklists({ sectorId, module, page: 1, limit: 100 })
+      .getChecklists({ sectorId, module, inspectionScope, page: 1, limit: 100 })
       .then((res) => {
         if (!cancelled) setChecklists(res.data);
       })
@@ -48,7 +50,7 @@ export function ChecklistSelect({
       cancelled = true;
       onLoadingChange?.(false);
     };
-  }, [sectorId, module, onLoadingChange]);
+  }, [sectorId, module, inspectionScope, onLoadingChange]);
 
   const handleChange = (event: SelectChangeEvent<string>) => onChange(event.target.value);
   const hasNoOptions = checklists.length === 0;

@@ -28,8 +28,17 @@ function getFriendlyErrorMessage(error: unknown): string {
   }
 
   const message = maybeAxios.response.data?.message;
-  if (Array.isArray(message) && message.length > 0) return message[0];
-  if (typeof message === "string" && message.trim()) return message;
+  const rawMessage = Array.isArray(message) && message.length > 0 ? message[0] : message;
+  if (typeof rawMessage === "string" && rawMessage.trim()) {
+    const normalized = rawMessage.toLowerCase();
+    if (
+      normalized.includes("equipe empreiteira não pode ter colaboradores vinculados") ||
+      normalized.includes("equipe empreiteira não permite vínculo de colaboradores")
+    ) {
+      return "Equipe empreiteira não permite colaboradores vinculados. Desmarque essa opção ou limpe os colaboradores.";
+    }
+    return rawMessage;
+  }
 
   switch (maybeAxios.response.status) {
     case 400:

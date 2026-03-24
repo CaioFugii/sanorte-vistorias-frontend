@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -44,6 +45,23 @@ export const TeamsPage = (): JSX.Element => {
   const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
+  const [isContractor, setIsContractor] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const getTeamFormFriendlyError = (error: unknown): string | null => {
+    if (!error || typeof error !== "object") return null;
+    const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+    const normalized = Array.isArray(message) ? message[0] : message;
+    if (typeof normalized !== "string") return null;
+    const lower = normalized.toLowerCase();
+    if (
+      lower.includes("equipe empreiteira não pode ter colaboradores vinculados") ||
+      lower.includes("equipe empreiteira não permite vínculo de colaboradores")
+    ) {
+      return "Equipe empreiteira não pode ter colaboradores. Desmarque a opção ou remova os colaboradores selecionados.";
+    }
+    return null;
+  };
 
   const loadTeams = async () => {
     setLoading(true);
@@ -101,7 +119,9 @@ export const TeamsPage = (): JSX.Element => {
                 setEditingTeam(null);
                 setName("");
                 setActive(true);
+                setIsContractor(false);
                 setSelectedCollaboratorIds([]);
+                setFormError(null);
                 setDialogOpen(true);
               }}
             >
@@ -116,6 +136,7 @@ export const TeamsPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
+              <TableCell>Tipo</TableCell>
               <TableCell>Colaboradores</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
@@ -124,13 +145,13 @@ export const TeamsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   Nenhuma equipe cadastrada.
                 </TableCell>
               </TableRow>
@@ -138,6 +159,7 @@ export const TeamsPage = (): JSX.Element => {
             teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
+                <TableCell>{team.isContractor ? "Empreiteira" : "Própria"}</TableCell>
                 <TableCell>
                   {(team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
                 </TableCell>
@@ -148,9 +170,11 @@ export const TeamsPage = (): JSX.Element => {
                       setEditingTeam(team);
                       setName(team.name);
                       setActive(team.active);
+                      setIsContractor(team.isContractor ?? false);
                       setSelectedCollaboratorIds(
                         team.collaboratorIds ?? team.collaborators?.map((collaborator) => collaborator.id) ?? []
                       );
+                      setFormError(null);
                       setDialogOpen(true);
                     }}
                   >
@@ -198,39 +222,78 @@ export const TeamsPage = (): JSX.Element => {
             }
             label="Ativa"
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isContractor}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setIsContractor(checked);
+                  setFormError(null);
+                  if (checked) setSelectedCollaboratorIds([]);
+                }}
+              />
+            }
+            label="É empreiteira?"
+          />
           <Box sx={{ mt: 2 }}>
             <CollaboratorMultiSelect
               value={selectedCollaboratorIds}
               onChange={setSelectedCollaboratorIds}
               collaborators={collaborators}
               label="Colaboradores da equipe"
+              disabled={isContractor}
             />
           </Box>
+          {isContractor && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Equipes empreiteiras não permitem vínculo de colaboradores.
+            </Alert>
+          )}
+          {formError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {formError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
+          <Button
+            onClick={() => {
+              setFormError(null);
+              setDialogOpen(false);
+            }}
+          >
+            Cancelar
+          </Button>
           <Button
             variant="contained"
             disabled={!name.trim() || saving}
             onClick={async () => {
               setSaving(true);
+              setFormError(null);
               try {
                 if (editingTeam) {
                   await appRepository.updateTeam(editingTeam.id, {
                     name,
                     active,
-                    collaboratorIds: selectedCollaboratorIds,
+                    isContractor,
+                    collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                   });
                 } else {
                   await appRepository.createTeam({
                     name,
                     active,
-                    collaboratorIds: selectedCollaboratorIds,
+                    isContractor,
+                    collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                   });
                 }
                 setDialogOpen(false);
                 await refreshFromApi();
                 await loadTeams();
+              } catch (error) {
+                const friendlyError = getTeamFormFriendlyError(error);
+                if (friendlyError) setFormError(friendlyError);
+                else throw error;
               } finally {
                 setSaving(false);
               }

@@ -5,6 +5,7 @@ import {
   Collaborator,
   Evidence,
   Inspection,
+  InspectionScope,
   InspectionStatus,
   InspectionItem,
   ModuleType,
@@ -163,7 +164,12 @@ export class AppRepository implements IAppRepository {
     await this.loadSectors(true);
   }
 
-  async createTeam(input: { name: string; active: boolean; collaboratorIds?: string[] }): Promise<Team> {
+  async createTeam(input: {
+    name: string;
+    active: boolean;
+    isContractor?: boolean;
+    collaboratorIds?: string[];
+  }): Promise<Team> {
     const team = await this.apiRepository.createTeam(input);
     await this.loadTeams(true);
     return team;
@@ -171,7 +177,7 @@ export class AppRepository implements IAppRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; collaboratorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
   ): Promise<Team> {
     const team = await this.apiRepository.updateTeam(teamId, input);
     await this.loadTeams(true);
@@ -185,6 +191,7 @@ export class AppRepository implements IAppRepository {
 
   async getChecklists(params?: {
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     sectorId?: string;
     page?: number;
     limit?: number;
@@ -194,6 +201,7 @@ export class AppRepository implements IAppRepository {
 
   async createChecklist(input: {
     module: ModuleType;
+    inspectionScope?: InspectionScope;
     name: string;
     description?: string;
     sectorId: string;
@@ -206,7 +214,14 @@ export class AppRepository implements IAppRepository {
 
   async updateChecklist(
     checklistId: string,
-    input: Partial<{ module: ModuleType; name: string; description?: string; sectorId: string; active: boolean }>
+    input: Partial<{
+      module: ModuleType;
+      inspectionScope?: InspectionScope;
+      name: string;
+      description?: string;
+      sectorId: string;
+      active: boolean;
+    }>
   ): Promise<Checklist> {
     const checklist = await this.apiRepository.updateChecklist(checklistId, input);
     await this.loadChecklists(true);
@@ -292,6 +307,7 @@ export class AppRepository implements IAppRepository {
     periodFrom?: string;
     periodTo?: string;
     module?: ModuleType;
+    inspectionScope?: InspectionScope;
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
@@ -309,6 +325,7 @@ export class AppRepository implements IAppRepository {
     page?: number;
     limit?: number;
     osNumber?: string;
+    inspectionScope?: InspectionScope;
   }): Promise<PaginatedResponse<Inspection>> {
     const res = await this.apiRepository.getMyInspections(params);
     return {
@@ -408,9 +425,10 @@ export class AppRepository implements IAppRepository {
 
   async createInspection(input: {
     module: ModuleType;
-    teamId: string;
+    inspectionScope?: InspectionScope;
+    teamId?: string;
     checklistId: string;
-    serviceOrderId: string;
+    serviceOrderId?: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
@@ -418,8 +436,9 @@ export class AppRepository implements IAppRepository {
   }): Promise<Inspection> {
     const created = await this.apiRepository.createInspection({
       module: input.module,
+      inspectionScope: input.inspectionScope,
       checklistId: input.checklistId,
-      teamId: input.teamId,
+      ...(input.teamId ? { teamId: input.teamId } : {}),
       serviceOrderId: input.serviceOrderId,
       collaboratorIds: input.collaboratorIds,
       serviceDescription: input.serviceDescription,
@@ -448,6 +467,13 @@ export class AppRepository implements IAppRepository {
     } catch {
       return null;
     }
+  }
+
+  async deleteInspection(externalId: string): Promise<void> {
+    const inspection = await this.getInspection(externalId);
+    if (!inspection) throw new Error("Vistoria não encontrada.");
+    const inspectionId = inspection.serverId ?? externalId;
+    await this.apiRepository.deleteInspection(inspectionId);
   }
 
   async listInspections(): Promise<Inspection[]> {

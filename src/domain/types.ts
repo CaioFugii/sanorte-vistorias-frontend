@@ -1,5 +1,6 @@
 import {
   ChecklistAnswer,
+  InspectionScope,
   InspectionStatus,
   ModuleType,
   UserRole,
@@ -23,6 +24,7 @@ export interface Team {
   id: string;
   name: string;
   active: boolean;
+  isContractor: boolean;
   collaborators?: Collaborator[];
   collaboratorIds?: string[];
   createdAt?: string;
@@ -89,6 +91,7 @@ export interface ChecklistSection {
 export interface Checklist {
   id: string;
   module: ModuleType;
+  inspectionScope?: InspectionScope;
   name: string;
   description?: string;
   sectorId: string;
@@ -104,6 +107,7 @@ export interface Inspection {
   externalId: string;
   serverId?: string;
   module: ModuleType;
+  inspectionScope?: InspectionScope;
   checklistId: string;
   teamId: string;
   serviceOrderId?: string;

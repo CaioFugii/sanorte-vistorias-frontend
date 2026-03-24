@@ -297,9 +297,10 @@ export const FillInspectionPage = (): JSX.Element => {
     user?.role === UserRole.FISCAL &&
     canEdit &&
     currentInspection.hasParalysisPenalty !== true &&
-    currentInspection.module === ModuleType.CAMPO;
+    (currentInspection.module === ModuleType.CAMPO || currentInspection.module === ModuleType.SEGURANCA_TRABALHO);
 
   const isRemotoModule = currentInspection.module === ModuleType.REMOTO;
+  const isWorkSafetyModule = currentInspection.module === ModuleType.SEGURANCA_TRABALHO;
 
   const openParalyzeDialog = () => {
     setParalyzeReason("");
@@ -406,7 +407,7 @@ export const FillInspectionPage = (): JSX.Element => {
         </Paper>
       )}
 
-      {!isRemotoModule && (
+      {!isRemotoModule && !isWorkSafetyModule && (
         <Paper sx={{ p: 2 }}>
           <SignaturePad
             value={signatureDataUrl}

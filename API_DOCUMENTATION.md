@@ -41,7 +41,9 @@ Authorization: Bearer <token>
 
 ### Regras críticas que impactam UI
 
-- Nova vistoria (`POST /inspections` e sync) exige `serviceOrderId` vinculado a uma OS cadastrada via `POST /service-orders/import`.
+- Nova vistoria (`POST /inspections` e sync):
+  - `serviceOrderId` é obrigatório para módulos diferentes de `SEGURANCA_TRABALHO`.
+  - para `SEGURANCA_TRABALHO`, `serviceOrderId` é opcional.
 - `GET /inspections` (GESTOR/ADMIN) não retorna `RASCUNHO`.
 - `GET /inspections/mine` é a listagem do FISCAL (onde rascunho aparece).
 - `PUT /inspections/:id`:
@@ -52,6 +54,7 @@ Authorization: Bearer <token>
   - GESTOR/ADMIN em qualquer status.
   - Sempre recalcula `scorePercent`.
   - Para GESTOR/ADMIN, reavalia status automaticamente (`FINALIZADA` <-> `PENDENTE_AJUSTE`) quando aplicável.
+  - Exceção: para módulo `SEGURANCA_TRABALHO`, o status não vai para `PENDENTE_AJUSTE` (permanece/retorna `FINALIZADA`).
 - `POST /inspections/:id/evidences`:
   - FISCAL só em `RASCUNHO`.
   - GESTOR/ADMIN em qualquer status.
@@ -68,12 +71,14 @@ Authorization: Bearer <token>
 - `RASCUNHO`
   - estado de edição principal do FISCAL.
   - transição via `finalize` para:
-    - `FINALIZADA` (sem não conformidade), ou
-    - `PENDENTE_AJUSTE` (com não conformidade).
+    - `FINALIZADA` (sempre para módulo `SEGURANCA_TRABALHO`);
+    - `FINALIZADA` (sem não conformidade nos demais módulos), ou
+    - `PENDENTE_AJUSTE` (com não conformidade nos demais módulos).
 - `PENDENTE_AJUSTE`
   - pode avançar para `RESOLVIDA` quando pendências são resolvidas.
 - `FINALIZADA`
   - pode voltar para `PENDENTE_AJUSTE` se GESTOR/ADMIN alterarem itens e surgirem não conformidades.
+  - Exceção: no módulo `SEGURANCA_TRABALHO`, não há transição para `PENDENTE_AJUSTE`.
 - `RESOLVIDA`
   - status final após resolução de pendências.
 - Paralisação é um estado paralelo:
@@ -84,7 +89,7 @@ Authorization: Bearer <token>
 - Paginação padrão em listas: `page`, `limit`.
 - `GET /service-orders`: filtros por `osNumber` (busca parcial), `sectorId`, `field`, `remote`, `postWork` (boolean `true`/`false`; filtra OS por uso no módulo CAMPO, REMOTO ou POS_OBRA).
 - `GET /collaborators`: filtro por `sectorId`.
-- `GET /checklists`: filtros por `module`, `active`, `sectorId`.
+- `GET /checklists`: filtros por `module`, `inspectionScope`, `active`, `sectorId`.
 - `GET /inspections`: filtros por `periodFrom`, `periodTo`, `module`, `teamId`, `status`, `osNumber` (busca parcial por número da OS; regra de ocultar rascunho para GESTOR/ADMIN).
 - `GET /inspections/mine`: filtro por `osNumber` (busca parcial por número da OS).
 
@@ -101,7 +106,7 @@ Authorization: Bearer <token>
 ### Integração offline (resumo operacional)
 
 - Use `externalId` para idempotência no `POST /sync/inspections`.
-- `serviceOrderId` é obrigatório para criar nova vistoria no sync (OS deve estar cadastrada previamente).
+- No sync, `serviceOrderId` é obrigatório para criar nova vistoria quando o módulo não é `SEGURANCA_TRABALHO`.
 - Não enviar `dataUrl` em evidências no sync (assets devem ser enviados antes).
 - Se precisar aplicar penalidade de paralisação no sync, envie `paralyze.reason`.
 - `GET /inspections/:id` aceita `id` do servidor **ou** `externalId`, o que simplifica reconciliação de dados locais.
@@ -720,6 +725,7 @@ Response 200: `Collaborator` atualizado
 - Auth: JWT
 - Query:
   - `module` (enum `ModuleType`)
+  - `inspectionScope` (`TEAM` | `COLLABORATOR`)
   - `active` (`true`/`false`)
   - `sectorId` (UUID)
   - `page`, `limit`
@@ -739,6 +745,7 @@ Request JSON:
 ```json
 {
   "module": "QUALIDADE",
+  "inspectionScope": "TEAM",
   "name": "Checklist de Qualidade",
   "description": "Checklist padrão",
   "sectorId": "uuid",
@@ -904,19 +911,23 @@ Response 200:
 ### POST /inspections
 
 - Auth: JWT + FISCAL ou GESTOR
-- Regra: `serviceOrderId` é obrigatório (OS deve existir em `service_orders`)
+- Regras:
+  - `serviceOrderId` é obrigatório para módulos diferentes de `SEGURANCA_TRABALHO`.
+  - para `SEGURANCA_TRABALHO`, `serviceOrderId` é opcional.
+  - `inspectionScope` aceita `TEAM` (padrão) e `COLLABORATOR`.
+  - quando `module = SEGURANCA_TRABALHO` e `inspectionScope = COLLABORATOR`, deve ser enviado exatamente 1 colaborador em `collaboratorIds`, com cadastro existente na plataforma.
 
 Request JSON:
 
 ```json
 {
   "module": "SEGURANCA_TRABALHO",
+  "inspectionScope": "COLLABORATOR",
   "checklistId": "uuid",
   "teamId": "uuid",
-  "serviceOrderId": "uuid",
   "serviceDescription": "Inspeção semanal",
   "locationDescription": "Canteiro principal",
-  "collaboratorIds": ["uuid-1", "uuid-2"],
+  "collaboratorIds": ["uuid-1"],
   "externalId": "uuid",
   "createdOffline": true,
   "syncedAt": "2026-02-19T12:00:00.000Z"
@@ -932,6 +943,7 @@ Response 201: `Inspection` completo (já com `items` baseados no checklist)
   - `periodFrom` (`YYYY-MM-DD`)
   - `periodTo` (`YYYY-MM-DD`)
   - `module`
+  - `inspectionScope` (`TEAM` | `COLLABORATOR`)
   - `teamId`
   - `status`
   - `osNumber` (busca parcial por número da OS; ex.: `?osNumber=OS-001`)
@@ -943,7 +955,7 @@ Response 201: `Inspection` completo (já com `items` baseados no checklist)
 ### GET /inspections/mine
 
 - Auth: JWT + FISCAL
-- Query: `page`, `limit`, `osNumber` (busca parcial por número da OS)
+- Query: `page`, `limit`, `osNumber` (busca parcial por número da OS), `inspectionScope`
 - Response: paginação de `Inspection` do usuário logado com relação `serviceOrder`
 
 ### GET /inspections/:id
@@ -979,6 +991,7 @@ Response 200: `Inspection` atualizado
   - A nota (`scorePercent`) é recalculada automaticamente a cada atualização de itens
   - Se `hasParalysisPenalty = true`, a nota final recebe penalidade persistente de 25%
   - Para GESTOR/ADMIN, se a vistoria estiver em `FINALIZADA` ou `PENDENTE_AJUSTE`, o status é reavaliado automaticamente (`FINALIZADA ↔ PENDENTE_AJUSTE`) com base nos itens
+  - Exceção: para `module = SEGURANCA_TRABALHO`, a reavaliação mantém `status = FINALIZADA` (sem `PENDENTE_AJUSTE`)
 
 Request JSON:
 
@@ -1084,8 +1097,10 @@ Regras:
 - Assinatura do líder/encarregado é opcional.
 - Item `NAO_CONFORME` com `requiresPhotoOnNonConformity = true` exige evidência.
 - Calcula `scorePercent` (com penalidade de 25% quando `hasParalysisPenalty = true`).
-- Se houver `NAO_CONFORME`: status `PENDENTE_AJUSTE` e pendência `PENDENTE`.
-- Se não houver `NAO_CONFORME`: status `FINALIZADA`.
+- Se `module = SEGURANCA_TRABALHO`: status `FINALIZADA` (mesmo com `NAO_CONFORME`) e sem criação de pendência de ajuste.
+- Nos demais módulos:
+  - Se houver `NAO_CONFORME`: status `PENDENTE_AJUSTE` e pendência `PENDENTE`.
+  - Se não houver `NAO_CONFORME`: status `FINALIZADA`.
 
 ### POST /inspections/:id/paralyze
 
@@ -1186,10 +1201,10 @@ Request JSON:
   "inspections": [
     {
       "externalId": "uuid",
-      "module": "QUALIDADE",
+      "module": "SEGURANCA_TRABALHO",
+      "inspectionScope": "COLLABORATOR",
       "checklistId": "uuid",
       "teamId": "uuid",
-      "serviceOrderId": "uuid",
       "serviceDescription": "Vistoria offline",
       "locationDescription": "Frente A",
       "collaboratorIds": ["uuid-1"],
@@ -1254,7 +1269,9 @@ Response 200:
 Regras importantes:
 
 - `externalId` é obrigatório.
-- `serviceOrderId` é obrigatório para criar nova vistoria (OS deve estar cadastrada via `POST /service-orders/import`).
+- `serviceOrderId` é obrigatório para criar nova vistoria quando `module != SEGURANCA_TRABALHO` (OS deve estar cadastrada via `POST /service-orders/import`).
+- `inspectionScope` aceita `TEAM` (padrão) e `COLLABORATOR`.
+- Para `module = SEGURANCA_TRABALHO` e `inspectionScope = COLLABORATOR`, enviar exatamente 1 colaborador em `collaboratorIds`, com cadastro existente na plataforma.
 - Não aceita assets em `dataUrl`/`imageBase64` no sync.
 - Para evidências e assinatura, use `url` e/ou `cloudinaryPublicId`.
 - `paralyze.reason` (quando enviado) marca penalidade persistente de paralisação na vistoria.
@@ -1404,6 +1421,7 @@ Response 404 quando a equipe não existe:
   - `FINALIZADA`
   - `PENDENTE_AJUSTE`
   - `RESOLVIDA`
+- Observação: para `SEGURANCA_TRABALHO`, o fluxo não utiliza `PENDENTE_AJUSTE`.
 - `qualityPercent` é `AVG(scorePercent)` no agrupamento mês + serviço.
 - `growthPercent` é a variação percentual do último mês do período versus o mês anterior.
 
@@ -1446,6 +1464,7 @@ Response 200:
   - `PENDENTE_AJUSTE`
   - `RESOLVIDA`
 - `pendingAdjustmentsCount` contabiliza inspeções do mês com status `PENDENTE_AJUSTE`.
+- Observação: para `SEGURANCA_TRABALHO`, `pendingAdjustmentsCount` tende a 0, pois não há transição para `PENDENTE_AJUSTE`.
 - `qualityPercent` por serviço é `AVG(scorePercent)` no mês.
 
 Response 200:
@@ -1511,6 +1530,8 @@ Mensagens relevantes do domínio:
 - `serviceOrderId é obrigatório. Informe o ID de uma OS cadastrada na tabela de ordens de serviço.`
 - `Ordem de serviço não encontrada. Cadastre a OS via importação de Excel antes de criar a vistoria.`
 - `serviceOrderId é obrigatório para criar nova vistoria. Cadastre a OS via importação de Excel antes de sincronizar.`
+- `Vistoria de Segurança do Trabalho por colaborador exige exatamente 1 colaborador.`
+- `Todos os colaboradores informados devem existir na plataforma.`
 - `Vistoria não encontrada`
 - `Fiscal não pode editar vistoria após finalização`
 - `reason should not be empty`

@@ -9,8 +9,10 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
-import { Search } from "@mui/icons-material";
+import { Delete, Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Inspection } from "@/domain";
@@ -21,6 +23,7 @@ import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { getModuleLabel } from "@/utils/moduleLabel";
 import { ListPagination } from "@/components/ListPagination";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PageHeader, SectionTable } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
@@ -33,6 +36,7 @@ export const InspectionsPage = (): JSX.Element => {
   const [osNumber, setOsNumber] = useState("");
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [allForFiscal, setAllForFiscal] = useState<Inspection[] | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [meta, setMeta] = useState<{
     page: number;
     limit: number;
@@ -42,6 +46,8 @@ export const InspectionsPage = (): JSX.Element => {
     hasPrev: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingInspection, setDeletingInspection] = useState<Inspection | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const isFiscal = hasRole("FISCAL" as any) && user;
 
   useEffect(() => {
@@ -51,7 +57,7 @@ export const InspectionsPage = (): JSX.Element => {
       .listInspectionsForFiscal(user.id)
       .then((all) => setAllForFiscal(all))
       .finally(() => setLoading(false));
-  }, [isFiscal, user?.id]);
+  }, [isFiscal, user?.id, refreshNonce]);
 
   useEffect(() => {
     if (isFiscal) return;
@@ -64,7 +70,7 @@ export const InspectionsPage = (): JSX.Element => {
         setMeta(res.meta);
       })
       .finally(() => setLoading(false));
-  }, [isFiscal, page, limit, osNumber]);
+  }, [isFiscal, page, limit, osNumber, refreshNonce]);
 
   useEffect(() => {
     if (allForFiscal === null) return;
@@ -98,6 +104,20 @@ export const InspectionsPage = (): JSX.Element => {
 
   const isAdminOrManager =
     user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const canDeleteInspection = (inspection: Inspection): boolean =>
+    inspection.status === InspectionStatus.RASCUNHO;
+
+  const handleDeleteInspection = async () => {
+    if (!deletingInspection || deleting) return;
+    setDeleting(true);
+    try {
+      await appRepository.deleteInspection(deletingInspection.externalId);
+      setDeletingInspection(null);
+      setRefreshNonce((current) => current + 1);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <Box>
@@ -210,6 +230,17 @@ export const InspectionsPage = (): JSX.Element => {
                         Editar
                       </Button>
                     )}
+                    {canDeleteInspection(inspection) && (
+                      <Tooltip title="Excluir vistoria em rascunho">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setDeletingInspection(inspection)}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -229,6 +260,18 @@ export const InspectionsPage = (): JSX.Element => {
           />
         )}
       </SectionTable>
+      <ConfirmDialog
+        open={!!deletingInspection}
+        title="Excluir vistoria em rascunho"
+        description={`Deseja excluir a vistoria "${deletingInspection?.serviceDescription ?? ""}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        loading={deleting}
+        onClose={() => {
+          if (deleting) return;
+          setDeletingInspection(null);
+        }}
+        onConfirm={handleDeleteInspection}
+      />
     </Box>
   );
 };

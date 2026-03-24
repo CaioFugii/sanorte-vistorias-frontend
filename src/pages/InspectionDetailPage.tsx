@@ -21,7 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment, PauseCircleOutline } from '@mui/icons-material';
+import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
@@ -33,6 +33,7 @@ import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
 import { getModuleLabel } from '@/utils/moduleLabel';
 import { generateInspectionPdf } from '@/utils/inspectionPdf';
 import { useAuthStore } from '@/stores/authStore';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 function formatDateTime(iso: string | undefined): string {
   if (!iso) return '–';
@@ -72,6 +73,8 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [paralyzeReason, setParalyzeReason] = useState('');
   const [paralyzeError, setParalyzeError] = useState<string | null>(null);
   const [paralyzeLoading, setParalyzeLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const user = useAuthStore((state) => state.user);
 
   const loadInspection = async () => {
@@ -104,6 +107,7 @@ export const InspectionDetailPage = (): JSX.Element => {
   const canParalyzeInspection =
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
     inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
+  const canDeleteInspection = inspection?.status === InspectionStatus.RASCUNHO;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
@@ -217,6 +221,18 @@ export const InspectionDetailPage = (): JSX.Element => {
 
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  const handleDeleteInspection = async () => {
+    if (!inspection || deleteLoading || !canDeleteInspection) return;
+    setDeleteLoading(true);
+    try {
+      await appRepository.deleteInspection(inspection.externalId);
+      setDeleteDialogOpen(false);
+      navigate('/inspections');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!inspection) return;
     setPdfLoading(true);
@@ -270,6 +286,21 @@ export const InspectionDetailPage = (): JSX.Element => {
             >
               Registrar paralisação
             </Button>
+          )}
+          {canDeleteInspection && (
+            <Tooltip title="Excluir vistoria em rascunho">
+              <span>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={deleteLoading}
+                  sx={{ minWidth: 0, width: 40, px: 0 }}
+                >
+                  <Delete />
+                </Button>
+              </span>
+            </Tooltip>
           )}
           {canEditInspection && (
             <Button
@@ -746,6 +777,19 @@ export const InspectionDetailPage = (): JSX.Element => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Excluir vistoria em rascunho"
+        description="Deseja excluir esta vistoria em rascunho? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        loading={deleteLoading}
+        onClose={() => {
+          if (deleteLoading) return;
+          setDeleteDialogOpen(false);
+        }}
+        onConfirm={handleDeleteInspection}
+      />
 
       <Dialog open={resolveModalOpen} onClose={closeResolveModal} maxWidth="sm" fullWidth>
         <DialogTitle>Resolver item não conforme</DialogTitle>
