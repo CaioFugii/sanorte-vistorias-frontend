@@ -1,9 +1,9 @@
-import { Box, Button, CircularProgress, Grid, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Autocomplete, Box, Button, CircularProgress, Grid, Paper, Stack, TextField, Typography } from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { UserRole } from "@/domain";
+import { Team, UserRole } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
@@ -11,6 +11,7 @@ type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.get
 type SafetyWorkLowScoreCollaboratorsResponse = Awaited<
   ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
 >;
+type TeamPerformanceByTeamsResponse = Awaited<ReturnType<typeof appRepository.getDashboardTeamPerformanceByTeams>>;
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
 const DEFAULT_LOW_SCORE_THRESHOLD = 70;
@@ -52,6 +53,77 @@ function formatPercent(value: number, digits = 2): string {
   return `${value.toFixed(digits).replace(".", ",")}%`;
 }
 
+function formatDateBr(yyyyMMdd: string): string {
+  const [year, month, day] = yyyyMMdd.split("-");
+  if (!year || !month || !day) return yyyyMMdd;
+  return `${day}/${month}/${year}`;
+}
+
+function buildFakeTeamPerformanceByTeams(
+  params: {
+    from: string;
+    to: string;
+    teamIds: string[];
+  },
+  teamOptions: Team[]
+): TeamPerformanceByTeamsResponse {
+  const selectedTeams =
+    params.teamIds.length > 0
+      ? teamOptions.filter((team) => params.teamIds.includes(team.id))
+      : teamOptions.slice(0, 3);
+
+  const baseTeams =
+    selectedTeams.length > 0
+      ? selectedTeams
+      : [
+          { id: "fake-team-1", name: "Equipe Alpha", active: true },
+          { id: "fake-team-2", name: "Equipe Beta", active: true },
+          { id: "fake-team-3", name: "Equipe Gama", active: true },
+        ];
+
+  const teams = baseTeams.map((team, teamIndex) => {
+    const collaborators = Array.from({ length: 4 }, (_, collaboratorIndex) => {
+      const qualityPercent = Math.max(52, 88 - teamIndex * 4 - collaboratorIndex * 3.4);
+      const inspectionsCount = 8 + teamIndex * 3 + collaboratorIndex * 4;
+      return {
+        collaboratorId: `${team.id}-fake-c-${collaboratorIndex + 1}`,
+        collaboratorName: `Colaborador ${collaboratorIndex + 1}`,
+        qualityPercent: Number(qualityPercent.toFixed(1)),
+        inspectionsCount,
+      };
+    });
+
+    const averagePercent =
+      collaborators.reduce((acc, collaborator) => acc + collaborator.qualityPercent, 0) / collaborators.length;
+    const inspectionsCount = collaborators.reduce((acc, collaborator) => acc + collaborator.inspectionsCount, 0);
+    const pendingAdjustmentsCount = Math.max(0, Math.round((100 - averagePercent) / 8));
+
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      averagePercent: Number(averagePercent.toFixed(1)),
+      inspectionsCount,
+      pendingAdjustmentsCount,
+      collaborators,
+    };
+  });
+
+  const averagePercent = teams.reduce((acc, team) => acc + team.averagePercent, 0) / Math.max(teams.length, 1);
+
+  return {
+    from: params.from,
+    to: params.to,
+    teamIds: baseTeams.map((team) => team.id),
+    summary: {
+      averagePercent: Number(averagePercent.toFixed(1)),
+      previousAveragePercent: Number((averagePercent - 1.7).toFixed(1)),
+      inspectionsCount: teams.reduce((acc, team) => acc + team.inspectionsCount, 0),
+      pendingAdjustmentsCount: teams.reduce((acc, team) => acc + team.pendingAdjustmentsCount, 0),
+    },
+    teams,
+  };
+}
+
 export function AnalyticsPage(): JSX.Element {
   const { hasAnyRole } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
@@ -64,12 +136,26 @@ export function AnalyticsPage(): JSX.Element {
       limit: DEFAULT_LOW_SCORE_LIMIT,
     };
   }, []);
+  const initialTeamPerformanceFilters = useMemo(() => {
+    const range = getCurrentMonthRange();
+    return {
+      from: range.from,
+      to: range.to,
+      teamIds: [] as string[],
+    };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceResponse | null>(null);
   const [currentMonthByService, setCurrentMonthByService] = useState<CurrentMonthByServiceResponse | null>(null);
   const [lowScoreFilters, setLowScoreFilters] = useState(initialSafetyFilters);
   const [lowScoreCollaborators, setLowScoreCollaborators] = useState<SafetyWorkLowScoreCollaboratorsResponse | null>(null);
+  const [teamOptions, setTeamOptions] = useState<Team[]>([]);
+  const [teamPerformanceFilters, setTeamPerformanceFilters] = useState(initialTeamPerformanceFilters);
+  const [teamPerformanceByTeams, setTeamPerformanceByTeams] = useState<TeamPerformanceByTeamsResponse | null>(null);
+  const [teamPerformanceLoading, setTeamPerformanceLoading] = useState(false);
+  const [teamPerformanceError, setTeamPerformanceError] = useState<string | null>(null);
+  const [usingFakeTeamPerformance, setUsingFakeTeamPerformance] = useState(false);
   const qualityRange = useMemo(() => getDefaultQualityRange(), []);
 
   const loadAnalyticsData = async (safetyFilters: typeof lowScoreFilters) => {
@@ -96,10 +182,77 @@ export function AnalyticsPage(): JSX.Element {
     }
   };
 
+  const loadTeamsOptions = async (): Promise<Team[]> => {
+    try {
+      const result = await appRepository.getTeams({ page: 1, limit: 100 });
+      const activeTeams = result.data.filter((team) => team.active);
+      setTeamOptions(activeTeams);
+      return activeTeams;
+    } catch {
+      setTeamOptions([]);
+      return [];
+    }
+  };
+
+  const loadTeamPerformanceData = async (
+    filters: typeof teamPerformanceFilters,
+    options: Team[] = teamOptions
+  ): Promise<void> => {
+    if (filters.teamIds.length === 0) {
+      setTeamPerformanceByTeams(null);
+      setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+      setUsingFakeTeamPerformance(false);
+      return;
+    }
+
+    setTeamPerformanceLoading(true);
+    setTeamPerformanceError(null);
+    setUsingFakeTeamPerformance(false);
+
+    const payload = { from: filters.from, to: filters.to, teamIds: filters.teamIds };
+
+    try {
+      const result = await appRepository.getDashboardTeamPerformanceByTeams(payload);
+      setTeamPerformanceByTeams(result);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        setTeamPerformanceByTeams(buildFakeTeamPerformanceByTeams(payload, options));
+        setUsingFakeTeamPerformance(true);
+      } else {
+        setTeamPerformanceError("Falha ao carregar o gráfico de desempenho por equipes.");
+      }
+    } finally {
+      setTeamPerformanceLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!canAccessAnalytics) return;
     void loadAnalyticsData(initialSafetyFilters);
   }, [canAccessAnalytics, initialSafetyFilters, qualityRange]);
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+
+    const bootstrapTeamPerformance = async () => {
+      const teams = await loadTeamsOptions();
+      const nextFilters = {
+        ...initialTeamPerformanceFilters,
+        teamIds: [],
+      };
+      setTeamPerformanceFilters(nextFilters);
+      setTeamPerformanceByTeams(null);
+      setUsingFakeTeamPerformance(false);
+      if (teams.length === 0) {
+        setTeamPerformanceError("Nenhuma equipe ativa encontrada para pesquisa.");
+      } else {
+        setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+      }
+    };
+
+    void bootstrapTeamPerformance();
+  }, [canAccessAnalytics, initialTeamPerformanceFilters]);
 
   const chartMonths = useMemo(
     () =>
@@ -146,8 +299,22 @@ export function AnalyticsPage(): JSX.Element {
     [lowScoreCollaborators]
   );
 
+  const teamPerformanceRows = useMemo(() => {
+    if (!teamPerformanceByTeams) return [];
+    return [...teamPerformanceByTeams.teams].sort((a, b) => b.averagePercent - a.averagePercent);
+  }, [teamPerformanceByTeams]);
+
+  const teamPerformanceBarMax = useMemo(
+    () => Math.max(...(teamPerformanceRows.map((row) => row.averagePercent) || [0]), 100),
+    [teamPerformanceRows]
+  );
+
   const handleSearchLowScoreCollaborators = () => {
     void loadAnalyticsData(lowScoreFilters);
+  };
+
+  const handleSearchTeamPerformance = () => {
+    void loadTeamPerformanceData(teamPerformanceFilters);
   };
 
   if (!canAccessAnalytics) {
@@ -177,7 +344,7 @@ export function AnalyticsPage(): JSX.Element {
       {!loading && !error && qualityByService && currentMonthByService && (
       <Box sx={{ minWidth: 1180 }}>
         <Grid container spacing={3}>
-          <Grid item xs={7}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
               <Box sx={{ px: 2.5, py: 2, bgcolor: "#9bc400", color: "#fff" }}>
                 <Typography variant="h6" fontWeight={800} align="center">
@@ -272,7 +439,7 @@ export function AnalyticsPage(): JSX.Element {
             </Paper>
           </Grid>
 
-          <Grid item xs={5}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
               <Box sx={{ px: 2, py: 1.5, bgcolor: "#9bc400", color: "#fff" }}>
                 <Typography variant="subtitle1" fontWeight={800} align="center">
@@ -369,6 +536,241 @@ export function AnalyticsPage(): JSX.Element {
             </Paper>
           </Grid>
         </Grid>
+
+        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
+          <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#9bc400", color: "#fff" }}>
+            <Typography variant="h6" fontWeight={800}>
+              Desempenho por Equipe (Multi-equipes)
+            </Typography>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Período: {formatDateBr(teamPerformanceFilters.from)} a {formatDateBr(teamPerformanceFilters.to)}
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Data inicial"
+                  value={teamPerformanceFilters.from}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ max: teamPerformanceFilters.to }}
+                  onChange={(event) => {
+                    const from = event.target.value;
+                    setTeamPerformanceFilters((prev) => ({
+                      ...prev,
+                      from,
+                      to: from > prev.to ? from : prev.to,
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Data final"
+                  value={teamPerformanceFilters.to}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: teamPerformanceFilters.from }}
+                  onChange={(event) => {
+                    const to = event.target.value;
+                    setTeamPerformanceFilters((prev) => ({
+                      ...prev,
+                      to,
+                      from: to < prev.from ? to : prev.from,
+                    }));
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  multiple
+                  disableCloseOnSelect
+                  options={teamOptions}
+                  value={teamOptions.filter((team) => teamPerformanceFilters.teamIds.includes(team.id))}
+                  onChange={(_, selectedTeams) => {
+                    setTeamPerformanceFilters((prev) => ({
+                      ...prev,
+                      teamIds: selectedTeams.map((team) => team.id),
+                    }));
+                  }}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Equipes"
+                      placeholder={teamOptions.length === 0 ? "Sem equipes ativas" : "Selecione as equipes"}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={2} display="flex" alignItems="stretch">
+                <Button
+                  variant="contained"
+                  onClick={handleSearchTeamPerformance}
+                  disabled={
+                    teamPerformanceLoading ||
+                    teamPerformanceFilters.from === "" ||
+                    teamPerformanceFilters.to === "" ||
+                    teamPerformanceFilters.teamIds.length === 0
+                  }
+                  sx={{ width: "100%", fontWeight: 700 }}
+                >
+                  Buscar
+                </Button>
+              </Grid>
+            </Grid>
+
+            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
+                  setTeamPerformanceByTeams(null);
+                  setUsingFakeTeamPerformance(false);
+                  setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+                }}
+                disabled={teamPerformanceFilters.teamIds.length === 0 || teamPerformanceLoading}
+              >
+                Limpar equipes
+              </Button>
+            </Box>
+
+            {usingFakeTeamPerformance && (
+              <Paper sx={{ p: 1.5, mb: 2, bgcolor: "#fff8e1", border: "1px solid #ffe082" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Dados fake em uso para este gráfico porque a rota ainda não está disponível no backend.
+                </Typography>
+              </Paper>
+            )}
+
+            {teamPerformanceError && (
+              <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
+                <Typography variant="body2" color="error.contrastText">
+                  {teamPerformanceError}
+                </Typography>
+              </Paper>
+            )}
+
+            {teamPerformanceLoading && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress size={28} />
+              </Box>
+            )}
+
+            {!teamPerformanceLoading && teamPerformanceByTeams && (
+              <Paper sx={{ p: 0, overflow: "hidden", border: "1px solid #dbe1ea" }}>
+                <Box sx={{ display: "flex", bgcolor: "#f6f8fb" }}>
+                  <Box
+                    sx={{
+                      width: 210,
+                      bgcolor: "#001970",
+                      color: "#fff",
+                      borderRight: "1px solid rgba(255,255,255,0.2)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Box sx={{ px: 2, py: 1.6, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
+                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                        Média Geral
+                      </Typography>
+                      <Typography variant="h4" fontWeight={900}>
+                        {teamPerformanceByTeams.summary.averagePercent.toFixed(1).replace(".", ",")}%
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "#ff8a80" }}>
+                        Anterior: {teamPerformanceByTeams.summary.previousAveragePercent.toFixed(1).replace(".", ",")}%
+                      </Typography>
+                    </Box>
+                    <Box sx={{ px: 2, py: 1.6, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
+                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                        Serviços Avaliados
+                      </Typography>
+                      <Typography variant="h4" fontWeight={900}>
+                        {teamPerformanceByTeams.summary.inspectionsCount.toLocaleString("pt-BR")}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ px: 2, py: 1.6 }}>
+                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                        Pendentes de Ajuste
+                      </Typography>
+                      <Typography variant="h4" fontWeight={900}>
+                        {teamPerformanceByTeams.summary.pendingAdjustmentsCount.toLocaleString("pt-BR")}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ flex: 1, px: 2, py: 1.5 }}>
+                    {teamPerformanceRows.length === 0 ? (
+                      <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+                        <Typography color="text.secondary">
+                          Nenhuma equipe com dados no período selecionado.
+                        </Typography>
+                      </Paper>
+                    ) : (
+                      <Stack spacing={1.1}>
+                        {teamPerformanceRows.map((row) => (
+                          <Box key={row.teamId} sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                            <Typography
+                              variant="caption"
+                              fontWeight={700}
+                              sx={{
+                                width: 210,
+                                textTransform: "uppercase",
+                                lineHeight: 1.1,
+                              }}
+                            >
+                              {row.teamName}
+                            </Typography>
+
+                            <Box sx={{ flex: 1, height: 28, bgcolor: "#e2e8f0", borderRadius: 1, overflow: "hidden" }}>
+                              <Box
+                                sx={{
+                                  width: `${(row.averagePercent / teamPerformanceBarMax) * 100}%`,
+                                  bgcolor: "#030a79",
+                                  height: "100%",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "flex-end",
+                                  px: 1,
+                                }}
+                              >
+                                <Typography variant="caption" fontWeight={800} sx={{ color: "#fff" }}>
+                                  {row.averagePercent.toFixed(1).replace(".", ",")}%
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
+                </Box>
+
+                <Box sx={{ px: 2, py: 1.4, bgcolor: "#001970", color: "#fff" }}>
+                  <Stack direction="row" spacing={3} useFlexGap flexWrap="wrap">
+                    {teamPerformanceRows.map((row) => (
+                      <Box key={`${row.teamId}-inspections`} sx={{ minWidth: 118 }}>
+                        <Typography variant="caption" fontWeight={700}>
+                          {row.teamName.toUpperCase()}
+                        </Typography>
+                        <Typography variant="subtitle1" fontWeight={800}>
+                          {row.inspectionsCount}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              </Paper>
+            )}
+          </Box>
+        </Paper>
 
         <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
           <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#0b158a", color: "#fff" }}>

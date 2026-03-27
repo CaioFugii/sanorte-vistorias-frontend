@@ -446,6 +446,37 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardSafetyWorkLowScoreCollaborators(params);
   }
 
+  async getDashboardTeamPerformanceByTeams(params: {
+    from: string;
+    to: string;
+    teamIds: string[];
+  }): Promise<{
+    from: string;
+    to: string;
+    teamIds: string[];
+    summary: {
+      averagePercent: number;
+      previousAveragePercent: number;
+      inspectionsCount: number;
+      pendingAdjustmentsCount: number;
+    };
+    teams: Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingAdjustmentsCount: number;
+      collaborators: Array<{
+        collaboratorId: string;
+        collaboratorName: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardTeamPerformanceByTeams(params);
+  }
+
   async createInspection(input: {
     module: ModuleType;
     inspectionScope?: InspectionScope;
