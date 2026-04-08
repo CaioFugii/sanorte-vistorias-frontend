@@ -23,9 +23,10 @@ import { CloudUpload, Refresh, Search } from "@mui/icons-material";
 import { useState, useRef, useEffect } from "react";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { PaginatedResponse, ServiceOrder } from "@/domain";
+import { PaginatedResponse, ServiceOrder, UserRole } from "@/domain";
 import { ListPagination } from "@/components/ListPagination";
 import { DataCard, PageHeader, SectionTable } from "@/components/ui";
+import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_LIMIT = 10;
 
@@ -296,8 +297,13 @@ function ListagemTab(): JSX.Element {
   );
 }
 
-function ImportacaoTab(): JSX.Element {
+interface ImportacaoTabProps {
+  contracts: Array<{ id: string; name: string }>;
+}
+
+function ImportacaoTab({ contracts }: ImportacaoTabProps): JSX.Element {
   const [importing, setImporting] = useState(false);
+  const [selectedContractId, setSelectedContractId] = useState("");
   const [importResult, setImportResult] = useState<{
     inserted: number;
     skipped: number;
@@ -306,7 +312,16 @@ function ImportacaoTab(): JSX.Element {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!contracts.length) {
+      setSelectedContractId("");
+      return;
+    }
+    setSelectedContractId((current) => (contracts.some((contract) => contract.id === current) ? current : contracts[0].id));
+  }, [contracts]);
+
   const handleImportClick = () => {
+    if (!selectedContractId) return;
     setImportResult(null);
     fileInputRef.current?.click();
   };
@@ -319,7 +334,7 @@ function ImportacaoTab(): JSX.Element {
     setImporting(true);
     setImportResult(null);
     try {
-      const res = await appRepository.importServiceOrders(file);
+      const res = await appRepository.importServiceOrders(file, selectedContractId);
       setImportResult(res);
     } catch (err) {
       setImportResult({
@@ -336,11 +351,28 @@ function ImportacaoTab(): JSX.Element {
   return (
     <Box>
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 280 }}>
+          <InputLabel>Contrato da importação</InputLabel>
+          <Select
+            value={selectedContractId}
+            onChange={(e) => setSelectedContractId(e.target.value)}
+            label="Contrato da importação"
+          >
+            <MenuItem value="">
+              <em>Selecione um contrato</em>
+            </MenuItem>
+            {contracts.map((contract) => (
+              <MenuItem key={contract.id} value={contract.id}>
+                {contract.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <Button
           variant="contained"
           startIcon={importing ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
           onClick={handleImportClick}
-          disabled={importing || !navigator.onLine}
+          disabled={importing || !navigator.onLine || !selectedContractId}
         >
           {importing ? "Importando..." : "Importar Excel"}
         </Button>
@@ -352,11 +384,16 @@ function ImportacaoTab(): JSX.Element {
           onChange={handleFileChange}
         />
       </Box>
+      {contracts.length === 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Nenhum contrato disponível no seu perfil. Solicite o vínculo de contrato para importar ordens de serviço.
+        </Alert>
+      )}
 
       {!importResult ? (
         <Typography color="text.secondary" sx={{ mt: 2 }}>
           Envie um arquivo Excel (.xlsx ou .xls) com as colunas necessárias para importar ordens de
-          serviço. O resultado da importação será exibido abaixo.
+          serviço. Selecione o contrato da importação antes de enviar o arquivo.
         </Typography>
       ) : (
         <Alert
@@ -383,6 +420,15 @@ function ImportacaoTab(): JSX.Element {
 
 export const ServiceOrdersPage = (): JSX.Element => {
   const [tab, setTab] = useState(0);
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.role === UserRole.ADMIN;
+  const availableContracts = user?.contracts ?? [];
+
+  useEffect(() => {
+    if (isAdmin && tab !== 0) {
+      setTab(0);
+    }
+  }, [isAdmin, tab]);
 
   return (
     <Box>
@@ -401,16 +447,18 @@ export const ServiceOrdersPage = (): JSX.Element => {
       <DataCard>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
           <Tab label="Todos" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
-          <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
+          {!isAdmin && <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />}
         </Tabs>
 
         <Box sx={{ p: 2 }}>
           <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
             {tab === 0 && <ListagemTab />}
           </div>
-          <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
-            {tab === 1 && <ImportacaoTab />}
-          </div>
+          {!isAdmin && (
+            <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
+              {tab === 1 && <ImportacaoTab contracts={availableContracts} />}
+            </div>
+          )}
         </Box>
       </DataCard>
     </Box>

@@ -1,4 +1,5 @@
 import {
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -17,7 +18,7 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { PaginatedResponse, User } from "@/domain";
+import { Contract, PaginatedResponse, User } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -39,6 +40,8 @@ export const UsersPage = (): JSX.Element => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>(UserRole.FISCAL);
+  const [contractOptions, setContractOptions] = useState<Contract[]>([]);
+  const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -50,6 +53,18 @@ export const UsersPage = (): JSX.Element => {
   useEffect(() => {
     load();
   }, [page, limit]);
+
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        setContractOptions(result.data);
+      } catch {
+        setContractOptions([]);
+      }
+    };
+    void loadContracts();
+  }, []);
 
   const users = result?.data ?? [];
   const meta = result?.meta;
@@ -78,6 +93,7 @@ export const UsersPage = (): JSX.Element => {
               setEmail("");
               setPassword("");
               setRole(UserRole.FISCAL);
+              setSelectedContractIds([]);
               setDialogOpen(true);
             }}
           >
@@ -123,6 +139,7 @@ export const UsersPage = (): JSX.Element => {
                       setEmail(user.email);
                       setPassword("");
                       setRole(user.role);
+                      setSelectedContractIds(user.contractIds ?? user.contracts?.map((contract) => contract.id) ?? []);
                       setDialogOpen(true);
                     }}
                   >
@@ -188,16 +205,34 @@ export const UsersPage = (): JSX.Element => {
             value={role}
             onChange={(event) => setRole(event.target.value as UserRole)}
           >
-            <MenuItem value={UserRole.ADMIN}>ADMIN</MenuItem>
+            {/* <MenuItem value={UserRole.ADMIN}>ADMIN</MenuItem> */}
             <MenuItem value={UserRole.GESTOR}>GESTOR</MenuItem>
             <MenuItem value={UserRole.FISCAL}>FISCAL</MenuItem>
           </TextField>
+          <Autocomplete
+            multiple
+            options={contractOptions}
+            value={contractOptions.filter((contract) => selectedContractIds.includes(contract.id))}
+            onChange={(_, selectedContracts) => setSelectedContractIds(selectedContracts.map((contract) => contract.id))}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                margin="normal"
+                fullWidth
+                label="Contratos"
+                placeholder="Selecione os contratos"
+                helperText="Selecione ao menos um contrato"
+              />
+            )}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!name.trim() || !email.trim() || (!editing && !password.trim())}
+            disabled={!name.trim() || !email.trim() || (!editing && !password.trim()) || selectedContractIds.length === 0}
             onClick={async () => {
               if (editing) {
                 await appRepository.updateUser(editing.id, {
@@ -205,9 +240,16 @@ export const UsersPage = (): JSX.Element => {
                   email,
                   role,
                   password: password.trim() ? password : undefined,
+                  contractIds: selectedContractIds,
                 });
               } else {
-                await appRepository.createUser({ name, email, password, role });
+                await appRepository.createUser({
+                  name,
+                  email,
+                  password,
+                  role,
+                  contractIds: selectedContractIds,
+                });
               }
               setDialogOpen(false);
               await load();

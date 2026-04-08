@@ -2,6 +2,7 @@ import {
   Checklist,
   ChecklistItem,
   Collaborator,
+  Contract,
   Evidence,
   Inspection,
   InspectionScope,
@@ -31,12 +32,23 @@ export interface IAppRepository {
   getCachedSectors(): Promise<Sector[]>;
   getCachedChecklists(): Promise<Checklist[]>;
   getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>>;
-  createUser(input: { name: string; email: string; password: string; role: UserRole }): Promise<User>;
+  createUser(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    contractIds: string[];
+  }): Promise<User>;
   updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole }>
+    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
   ): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>>;
+  getContract(contractId: string): Promise<Contract>;
+  createContract(input: { name: string }): Promise<Contract>;
+  updateContract(contractId: string, input: Partial<{ name: string }>): Promise<Contract>;
+  deleteContract(contractId: string): Promise<void>;
 
   getCollaborators(params?: {
     page?: number;
@@ -62,10 +74,17 @@ export interface IAppRepository {
     active: boolean;
     isContractor?: boolean;
     collaboratorIds?: string[];
+    contractIds: string[];
   }): Promise<Team>;
   updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
+    input: Partial<{
+      name: string;
+      active: boolean;
+      isContractor: boolean;
+      collaboratorIds?: string[];
+      contractIds: string[];
+    }>
   ): Promise<Team>;
   deleteTeam(teamId: string): Promise<void>;
 
@@ -139,7 +158,12 @@ export interface IAppRepository {
     remote?: boolean;
     postWork?: boolean;
   }): Promise<PaginatedResponse<ServiceOrder>>;
-  importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; errors: string[] }>;
+  importServiceOrders(file: File, contractId: string): Promise<{
+    inserted: number;
+    skipped: number;
+    deleted: number;
+    errors: string[];
+  }>;
 
   getInspections(params?: {
     periodFrom?: string;

@@ -11,6 +11,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  contracts?: Pick<Contract, "id" | "name">[];
+  contractIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -25,6 +27,8 @@ export interface Team {
   name: string;
   active: boolean;
   isContractor: boolean;
+  contracts?: Pick<Contract, "id" | "name">[];
+  contractIds?: string[];
   collaborators?: Collaborator[];
   collaboratorIds?: string[];
   createdAt?: string;
@@ -52,6 +56,8 @@ export interface Collaborator {
 export interface ServiceOrder {
   id: string;
   osNumber: string;
+  contractId?: string;
+  contract?: Pick<Contract, "id" | "name">;
   sectorId?: string;
   sector?: Sector;
   address: string;
@@ -63,6 +69,13 @@ export interface ServiceOrder {
   tempoExecucaoEfetivo?: string | number | null;
   resultado?: string | null;
   fimExecucao?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Contract {
+  id: string;
+  name: string;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -19,6 +19,7 @@ import {
 import {
   Assignment,
   BarChart,
+  BusinessCenter,
   Checklist,
   Dashboard,
   Engineering,
@@ -44,6 +45,7 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JS
     { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
     { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
     { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
+    { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" /> },
     { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
     { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" /> },
     { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" /> },

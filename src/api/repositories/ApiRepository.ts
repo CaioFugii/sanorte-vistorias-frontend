@@ -3,6 +3,7 @@ import {
   Checklist,
   ChecklistItem,
   Collaborator,
+  Contract,
   Inspection,
   InspectionScope,
   InspectionItem,
@@ -93,6 +94,7 @@ export class ApiRepository {
     email: string;
     password: string;
     role: UserRole;
+    contractIds: string[];
   }): Promise<User> {
     const response = await apiClient.post<User>("/users", input);
     return response.data;
@@ -100,7 +102,7 @@ export class ApiRepository {
 
   async updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole }>
+    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
   ): Promise<User> {
     const response = await apiClient.put<User>(`/users/${userId}`, input);
     return response.data;
@@ -109,6 +111,45 @@ export class ApiRepository {
   async deleteUser(userId: string): Promise<void> {
     await apiClient.delete(`/users/${userId}`);
   }
+
+  async getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>> {
+    const response = await apiClient.get<PaginatedResponse<Contract> | Contract[]>("/contracts", { params });
+    const data = this.unwrapPaginated(response.data);
+    if (Array.isArray(response.data)) {
+      return {
+        data,
+        meta: {
+          page: 1,
+          limit: data.length,
+          total: data.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+    return response.data;
+  }
+
+  async getContract(contractId: string): Promise<Contract> {
+    const response = await apiClient.get<Contract>(`/contracts/${contractId}`);
+    return response.data;
+  }
+
+  async createContract(input: { name: string }): Promise<Contract> {
+    const response = await apiClient.post<Contract>("/contracts", input);
+    return response.data;
+  }
+
+  async updateContract(contractId: string, input: Partial<{ name: string }>): Promise<Contract> {
+    const response = await apiClient.put<Contract>(`/contracts/${contractId}`, input);
+    return response.data;
+  }
+
+  async deleteContract(contractId: string): Promise<void> {
+    await apiClient.delete(`/contracts/${contractId}`);
+  }
+
 
   async getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>> {
     const response = await apiClient.get<PaginatedResponse<Team> | Team[]>("/teams", { params });
@@ -134,6 +175,7 @@ export class ApiRepository {
     active: boolean;
     isContractor?: boolean;
     collaboratorIds?: string[];
+    contractIds: string[];
   }): Promise<Team> {
     const response = await apiClient.post<Team>("/teams", input);
     return response.data;
@@ -141,7 +183,7 @@ export class ApiRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[] }>
   ): Promise<Team> {
     const response = await apiClient.put<Team>(`/teams/${teamId}`, input);
     return response.data;
@@ -351,7 +393,7 @@ export class ApiRepository {
     return response.data;
   }
 
-  async importServiceOrders(file: File): Promise<{
+  async importServiceOrders(file: File, contractId: string): Promise<{
     inserted: number;
     skipped: number;
     deleted: number;
@@ -359,6 +401,7 @@ export class ApiRepository {
   }> {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("contractId", contractId);
     const response = await apiClient.post<{
       inserted: number;
       skipped: number;

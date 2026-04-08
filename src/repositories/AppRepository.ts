@@ -3,6 +3,7 @@ import {
   Checklist,
   ChecklistItem,
   Collaborator,
+  Contract,
   Evidence,
   Inspection,
   InspectionScope,
@@ -106,19 +107,40 @@ export class AppRepository implements IAppRepository {
     email: string;
     password: string;
     role: UserRole;
+    contractIds: string[];
   }): Promise<User> {
     return this.apiRepository.createUser(input);
   }
 
   async updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole }>
+    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
   ): Promise<User> {
     return this.apiRepository.updateUser(userId, input);
   }
 
   async deleteUser(userId: string): Promise<void> {
     return this.apiRepository.deleteUser(userId);
+  }
+
+  async getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>> {
+    return this.apiRepository.getContracts(params);
+  }
+
+  async getContract(contractId: string): Promise<Contract> {
+    return this.apiRepository.getContract(contractId);
+  }
+
+  async createContract(input: { name: string }): Promise<Contract> {
+    return this.apiRepository.createContract(input);
+  }
+
+  async updateContract(contractId: string, input: Partial<{ name: string }>): Promise<Contract> {
+    return this.apiRepository.updateContract(contractId, input);
+  }
+
+  async deleteContract(contractId: string): Promise<void> {
+    return this.apiRepository.deleteContract(contractId);
   }
 
   async getCollaborators(params?: {
@@ -169,6 +191,7 @@ export class AppRepository implements IAppRepository {
     active: boolean;
     isContractor?: boolean;
     collaboratorIds?: string[];
+    contractIds: string[];
   }): Promise<Team> {
     const team = await this.apiRepository.createTeam(input);
     await this.loadTeams(true);
@@ -177,7 +200,7 @@ export class AppRepository implements IAppRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[] }>
   ): Promise<Team> {
     const team = await this.apiRepository.updateTeam(teamId, input);
     await this.loadTeams(true);
@@ -299,8 +322,11 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getServiceOrders(params);
   }
 
-  async importServiceOrders(file: File): Promise<{ inserted: number; skipped: number; deleted: number; errors: string[] }> {
-    return this.apiRepository.importServiceOrders(file);
+  async importServiceOrders(
+    file: File,
+    contractId: string
+  ): Promise<{ inserted: number; skipped: number; deleted: number; errors: string[] }> {
+    return this.apiRepository.importServiceOrders(file, contractId);
   }
 
   async getInspections(params?: {

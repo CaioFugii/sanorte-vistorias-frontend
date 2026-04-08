@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -20,7 +21,7 @@ import {
 import { Add, Delete, Edit, Refresh } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
-import { Collaborator, PaginatedResponse, Team } from '@/domain';
+import { Collaborator, Contract, PaginatedResponse, Team } from '@/domain';
 import { appRepository } from '@/repositories/AppRepository';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -46,6 +47,8 @@ export const TeamsPage = (): JSX.Element => {
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
   const [isContractor, setIsContractor] = useState(false);
+  const [contractOptions, setContractOptions] = useState<Contract[]>([]);
+  const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
   const getTeamFormFriendlyError = (error: unknown): string | null => {
@@ -76,10 +79,14 @@ export const TeamsPage = (): JSX.Element => {
 
   useEffect(() => {
     const run = async () => {
-      const collaboratorsResponse = await appRepository.getCollaborators({ page: 1, limit: 100 });
+      const [collaboratorsResponse, contractsResponse] = await Promise.all([
+        appRepository.getCollaborators({ page: 1, limit: 100 }),
+        appRepository.getContracts({ page: 1, limit: 100 }),
+      ]);
       setCollaborators(collaboratorsResponse.data.filter((c) => c.active));
+      setContractOptions(contractsResponse.data);
     };
-    run();
+    void run();
   }, []);
 
   useEffect(() => {
@@ -121,6 +128,7 @@ export const TeamsPage = (): JSX.Element => {
                 setActive(true);
                 setIsContractor(false);
                 setSelectedCollaboratorIds([]);
+                setSelectedContractIds([]);
                 setFormError(null);
                 setDialogOpen(true);
               }}
@@ -174,6 +182,7 @@ export const TeamsPage = (): JSX.Element => {
                       setSelectedCollaboratorIds(
                         team.collaboratorIds ?? team.collaborators?.map((collaborator) => collaborator.id) ?? []
                       );
+                      setSelectedContractIds(team.contractIds ?? team.contracts?.map((contract) => contract.id) ?? []);
                       setFormError(null);
                       setDialogOpen(true);
                     }}
@@ -245,6 +254,24 @@ export const TeamsPage = (): JSX.Element => {
               disabled={isContractor}
             />
           </Box>
+          <Box sx={{ mt: 2 }}>
+            <Autocomplete
+              multiple
+              options={contractOptions}
+              value={contractOptions.filter((contract) => selectedContractIds.includes(contract.id))}
+              onChange={(_, selectedContracts) => setSelectedContractIds(selectedContracts.map((contract) => contract.id))}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Contratos"
+                  placeholder="Selecione os contratos"
+                  helperText="Selecione ao menos um contrato"
+                />
+              )}
+            />
+          </Box>
           {isContractor && (
             <Alert severity="info" sx={{ mt: 2 }}>
               Equipes empreiteiras não permitem vínculo de colaboradores.
@@ -267,7 +294,7 @@ export const TeamsPage = (): JSX.Element => {
           </Button>
           <Button
             variant="contained"
-            disabled={!name.trim() || saving}
+            disabled={!name.trim() || saving || selectedContractIds.length === 0}
             onClick={async () => {
               setSaving(true);
               setFormError(null);
@@ -278,6 +305,7 @@ export const TeamsPage = (): JSX.Element => {
                     active,
                     isContractor,
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
+                    contractIds: selectedContractIds,
                   });
                 } else {
                   await appRepository.createTeam({
@@ -285,6 +313,7 @@ export const TeamsPage = (): JSX.Element => {
                     active,
                     isContractor,
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
+                    contractIds: selectedContractIds,
                   });
                 }
                 setDialogOpen(false);
