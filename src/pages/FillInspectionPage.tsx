@@ -300,6 +300,7 @@ export const FillInspectionPage = (): JSX.Element => {
     (currentInspection.module === ModuleType.CAMPO || currentInspection.module === ModuleType.SEGURANCA_TRABALHO);
 
   const isRemotoModule = currentInspection.module === ModuleType.REMOTO;
+  const isPostWorkModule = currentInspection.module === ModuleType.POS_OBRA;
   const isWorkSafetyModule = currentInspection.module === ModuleType.SEGURANCA_TRABALHO;
 
   const openParalyzeDialog = () => {
@@ -407,7 +408,7 @@ export const FillInspectionPage = (): JSX.Element => {
         </Paper>
       )}
 
-      {!isRemotoModule && !isWorkSafetyModule && (
+      {!isRemotoModule && !isWorkSafetyModule && !isPostWorkModule && (
         <Paper sx={{ p: 2 }}>
           <SignaturePad
             value={signatureDataUrl}
