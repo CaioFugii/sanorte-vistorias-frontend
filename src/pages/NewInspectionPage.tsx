@@ -271,10 +271,14 @@ export const NewInspectionPage = (): JSX.Element => {
   const osNumberError = Boolean(
     serviceOrderRequired && osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH && !osSearchLoading && !selectedServiceOrder
   );
+  const isRemoteModule = module === ModuleType.REMOTO;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user || !checklistId || !serviceDescription.trim()) {
+    const normalizedServiceDescription = isRemoteModule
+      ? "Vistoria remota"
+      : serviceDescription.trim();
+    if (!user || !checklistId || !normalizedServiceDescription) {
       return;
     }
     if (teamRequired && !teamId) {
@@ -303,7 +307,7 @@ export const NewInspectionPage = (): JSX.Element => {
           : selectedTeam?.isContractor
             ? []
             : undefined,
-        serviceDescription,
+        serviceDescription: normalizedServiceDescription,
         locationDescription,
         createdByUserId: user.id,
       });
@@ -629,16 +633,18 @@ export const NewInspectionPage = (): JSX.Element => {
                 {formError}
               </Alert>
             )}
-            <TextField
-              fullWidth
-              label="Descrição do serviço"
-              required
-              value={serviceDescription}
-              onChange={(event) => setServiceDescription(event.target.value)}
-              margin="normal"
-              multiline
-              rows={3}
-            />
+            {!isRemoteModule && (
+              <TextField
+                fullWidth
+                label="Descrição do serviço"
+                required
+                value={serviceDescription}
+                onChange={(event) => setServiceDescription(event.target.value)}
+                margin="normal"
+                multiline
+                rows={3}
+              />
+            )}
             <TextField
               fullWidth
               label="Localização"

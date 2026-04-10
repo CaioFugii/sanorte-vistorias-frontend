@@ -23,8 +23,6 @@ src/
     enums.ts
     types.ts
     rules/
-      calculateScore.ts
-      determineStatus.ts
       validateFinalize.ts
   api/
     apiClient.ts

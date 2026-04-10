@@ -370,14 +370,6 @@ export const FillInspectionPage = (): JSX.Element => {
               Registrar paralisação
             </Button>
           )}
-          <Button
-            variant="contained"
-            startIcon={<CheckCircle />}
-            disabled={!canFinalize || finalizing}
-            onClick={() => setFinalizeOpen(true)}
-          >
-            Finalizar
-          </Button>
         </Box>
       </Box>
 
@@ -422,6 +414,17 @@ export const FillInspectionPage = (): JSX.Element => {
           />
         </Paper>
       )}
+
+      <Box display="flex" justifyContent="flex-end" mt={2}>
+        <Button
+          variant="contained"
+          startIcon={<CheckCircle />}
+          disabled={!canFinalize || finalizing}
+          onClick={() => setFinalizeOpen(true)}
+        >
+          Finalizar
+        </Button>
+      </Box>
 
       <ConfirmDialog
         open={finalizeOpen}
