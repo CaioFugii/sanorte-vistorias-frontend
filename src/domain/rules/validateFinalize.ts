@@ -17,7 +17,8 @@ export function validateFinalize({
   const errors: string[] = [];
   const isRemotoModule = checklist.module === ModuleType.REMOTO;
   const isWorkSafetyModule = checklist.module === ModuleType.SEGURANCA_TRABALHO;
-  const signatureRequired = !isRemotoModule && !isWorkSafetyModule;
+  const isPostWorkModule = checklist.module === ModuleType.POS_OBRA;
+  const signatureRequired = !isRemotoModule && !isWorkSafetyModule && !isPostWorkModule;
 
   if (signatureRequired && (!signature || !signature.signerName.trim())) {
     errors.push("Assinatura do líder/encarregado é obrigatória.");
