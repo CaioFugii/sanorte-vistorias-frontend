@@ -88,6 +88,8 @@ export interface ChecklistItem {
   description?: string;
   order: number;
   requiresPhotoOnNonConformity: boolean;
+  referenceImageUrl?: string | null;
+  referenceImagePublicId?: string | null;
   active: boolean;
 }
 

@@ -26,12 +26,13 @@ import {
 } from '@mui/material';
 import {
   Add,
+  AddAPhoto,
   Delete,
   Edit,
   Refresh,
   ExpandMore,
 } from '@mui/icons-material';
-import { useState, useEffect, useMemo } from 'react';
+import { ChangeEvent, useState, useEffect, useMemo } from 'react';
 import { Checklist, InspectionScope, PaginatedResponse, Sector } from '@/domain';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { SectorSelect } from '@/components/SectorSelect';
@@ -43,6 +44,8 @@ import { DataCard, PageHeader } from '@/components/ui';
 
 const DEFAULT_LIMIT = 10;
 const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
+const MAX_REFERENCE_IMAGE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_REFERENCE_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const ChecklistsPage = (): JSX.Element => {
   const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
@@ -77,6 +80,9 @@ export const ChecklistsPage = (): JSX.Element => {
   const [itemOrder, setItemOrder] = useState(1);
   const [itemRequiresPhoto, setItemRequiresPhoto] = useState(true);
   const [itemActive, setItemActive] = useState(true);
+  const [itemReferenceImageFile, setItemReferenceImageFile] = useState<File | null>(null);
+  const [itemReferenceImagePreview, setItemReferenceImagePreview] = useState<string | null>(null);
+  const [itemReferenceImageError, setItemReferenceImageError] = useState<string | null>(null);
   const isWorkSafetyChecklistModule = checklistModule === ModuleType.SEGURANCA_TRABALHO;
   const workSafetySectorId = useMemo(
     () =>
@@ -159,6 +165,40 @@ export const ChecklistsPage = (): JSX.Element => {
 
   const visibleChecklists = result?.data ?? [];
   const meta = result?.meta;
+
+  const clearReferenceImageState = (): void => {
+    setItemReferenceImageFile(null);
+    setItemReferenceImagePreview(null);
+    setItemReferenceImageError(null);
+  };
+
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string) ?? "");
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleReferenceImageChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!ALLOWED_REFERENCE_IMAGE_TYPES.includes(file.type)) {
+      setItemReferenceImageError("Formato inválido. Use JPG, PNG ou WEBP.");
+      return;
+    }
+
+    if (file.size > MAX_REFERENCE_IMAGE_SIZE) {
+      setItemReferenceImageError("A imagem deve ter no máximo 10MB.");
+      return;
+    }
+
+    setItemReferenceImageError(null);
+    setItemReferenceImageFile(file);
+    setItemReferenceImagePreview(await readFileAsDataUrl(file));
+  };
 
   if (loading && !result) {
     return (
@@ -337,6 +377,7 @@ export const ChecklistsPage = (): JSX.Element => {
                           );
                           setItemRequiresPhoto(true);
                           setItemActive(true);
+                          clearReferenceImageState();
                           setItemDialogOpen(true);
                         }}
                       >
@@ -363,6 +404,9 @@ export const ChecklistsPage = (): JSX.Element => {
                               setItemOrder(item.order);
                               setItemRequiresPhoto(item.requiresPhotoOnNonConformity);
                               setItemActive(item.active);
+                              setItemReferenceImageFile(null);
+                              setItemReferenceImagePreview(item.referenceImageUrl ?? null);
+                              setItemReferenceImageError(null);
                               setItemDialogOpen(true);
                             }}
                           >
@@ -557,7 +601,15 @@ export const ChecklistsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={itemDialogOpen} onClose={() => setItemDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={itemDialogOpen}
+        onClose={() => {
+          setItemDialogOpen(false);
+          clearReferenceImageState();
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>{editingItemId ? "Editar item" : "Novo item"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -591,13 +643,67 @@ export const ChecklistsPage = (): JSX.Element => {
             }
             label="Requer foto em não conformidade"
           />
+          <Box mt={1}>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<AddAPhoto />}
+              fullWidth
+            >
+              {itemReferenceImageFile ? "Trocar foto de referência" : "Adicionar foto de referência (opcional)"}
+              <input
+                hidden
+                type="file"
+                accept={ALLOWED_REFERENCE_IMAGE_TYPES.join(",")}
+                onChange={(event) => {
+                  void handleReferenceImageChange(event);
+                }}
+              />
+            </Button>
+            {(itemReferenceImagePreview || itemReferenceImageFile) && (
+              <Box mt={1}>
+                <Box
+                  component="img"
+                  src={itemReferenceImagePreview ?? undefined}
+                  alt="Foto de referência do item"
+                  sx={{ width: "100%", maxHeight: 220, objectFit: "contain", borderRadius: 1 }}
+                />
+                {itemReferenceImageFile && (
+                  <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+                    Arquivo selecionado: {itemReferenceImageFile.name}
+                  </Typography>
+                )}
+                <Button
+                  size="small"
+                  color="inherit"
+                  sx={{ mt: 1 }}
+                  onClick={clearReferenceImageState}
+                >
+                  Remover seleção
+                </Button>
+              </Box>
+            )}
+            {itemReferenceImageError && (
+              <Typography variant="caption" color="error" display="block" mt={1}>
+                {itemReferenceImageError}
+              </Typography>
+            )}
+          </Box>
           <FormControlLabel
             control={<Switch checked={itemActive} onChange={(e) => setItemActive(e.target.checked)} />}
             label="Ativo"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setItemDialogOpen(false)} disabled={savingItem}>Cancelar</Button>
+          <Button
+            onClick={() => {
+              setItemDialogOpen(false);
+              clearReferenceImageState();
+            }}
+            disabled={savingItem}
+          >
+            Cancelar
+          </Button>
           <Button
             variant="contained"
             disabled={!selectedChecklist || !selectedSectionId || !itemTitle.trim() || savingItem}
@@ -613,8 +719,15 @@ export const ChecklistsPage = (): JSX.Element => {
                     requiresPhotoOnNonConformity: itemRequiresPhoto,
                     active: itemActive,
                   });
+                  if (itemReferenceImageFile) {
+                    await appRepository.uploadChecklistItemReferenceImage(
+                      selectedChecklist.id,
+                      editingItemId,
+                      itemReferenceImageFile
+                    );
+                  }
                 } else {
-                  await appRepository.createChecklistItem(selectedChecklist.id, {
+                  const createdItem = await appRepository.createChecklistItem(selectedChecklist.id, {
                     title: itemTitle,
                     description: itemDescription || undefined,
                     order: itemOrder,
@@ -622,9 +735,17 @@ export const ChecklistsPage = (): JSX.Element => {
                     requiresPhotoOnNonConformity: itemRequiresPhoto,
                     active: itemActive,
                   });
+                  if (itemReferenceImageFile) {
+                    await appRepository.uploadChecklistItemReferenceImage(
+                      selectedChecklist.id,
+                      createdItem.id,
+                      itemReferenceImageFile
+                    );
+                  }
                 }
                 setItemDialogOpen(false);
                 setEditingItemId(null);
+                clearReferenceImageState();
                 await load();
               } finally {
                 setSavingItem(false);

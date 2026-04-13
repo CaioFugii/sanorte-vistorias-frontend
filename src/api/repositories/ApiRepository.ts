@@ -383,6 +383,21 @@ export class ApiRepository {
     await apiClient.delete(`/checklists/${checklistId}/items/${itemId}`);
   }
 
+  async uploadChecklistItemReferenceImage(
+    checklistId: string,
+    itemId: string,
+    file: File
+  ): Promise<ChecklistItem> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<ChecklistItem>(
+      `/checklists/${checklistId}/items/${itemId}/reference-image`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return response.data;
+  }
+
   async getServiceOrders(
     params?: ServiceOrdersParams
   ): Promise<PaginatedResponse<ServiceOrder>> {

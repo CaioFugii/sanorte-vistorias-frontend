@@ -69,6 +69,27 @@ export const ChecklistRenderer = ({
                     <Typography variant="subtitle1">
                       {index + 1}. {item.title}
                     </Typography>
+                    {item.referenceImageUrl && (
+                      <Box sx={{ mt: 1.5, mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Foto de referência
+                        </Typography>
+                        <Box
+                          component="img"
+                          src={item.referenceImageUrl}
+                          alt={`Referência do item ${item.title}`}
+                          sx={{
+                            width: "100%",
+                            maxHeight: 260,
+                            objectFit: "contain",
+                            borderRadius: 1,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.default",
+                          }}
+                        />
+                      </Box>
+                    )}
                     <AnswerRadioGroup
                       value={inspectionItem.answer}
                       onChange={(value) => onItemChange(inspectionItem.id, { answer: value })}

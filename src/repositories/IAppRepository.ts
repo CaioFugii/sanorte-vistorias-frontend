@@ -148,6 +148,11 @@ export interface IAppRepository {
     }>
   ): Promise<ChecklistItem>;
   deleteChecklistItem(checklistId: string, itemId: string): Promise<void>;
+  uploadChecklistItemReferenceImage(
+    checklistId: string,
+    itemId: string,
+    file: File
+  ): Promise<ChecklistItem>;
 
   getServiceOrders(params?: {
     page?: number;

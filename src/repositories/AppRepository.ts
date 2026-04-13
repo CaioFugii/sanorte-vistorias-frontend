@@ -310,6 +310,16 @@ export class AppRepository implements IAppRepository {
     await this.loadChecklists(true);
   }
 
+  async uploadChecklistItemReferenceImage(
+    checklistId: string,
+    itemId: string,
+    file: File
+  ): Promise<ChecklistItem> {
+    const item = await this.apiRepository.uploadChecklistItemReferenceImage(checklistId, itemId, file);
+    await this.loadChecklists(true);
+    return item;
+  }
+
   async getServiceOrders(params?: {
     page?: number;
     limit?: number;
