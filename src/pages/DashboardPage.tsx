@@ -585,9 +585,6 @@ export const DashboardPage = (): JSX.Element => {
                           <Typography variant="subtitle1" fontWeight={700}>
                             {checklist.checklistName}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Total de não conformidades: {checklist.totalNonConformities}
-                          </Typography>
                         </Box>
 
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
