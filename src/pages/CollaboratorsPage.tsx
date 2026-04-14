@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -21,7 +22,7 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Collaborator, PaginatedResponse, Sector } from "@/domain";
+import { Collaborator, Contract, PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { SectorSelect } from "@/components/SectorSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -37,12 +38,14 @@ export const CollaboratorsPage = (): JSX.Element => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Collaborator | null>(null);
   const [deletingCollaborator, setDeletingCollaborator] = useState<Collaborator | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
   const [sectorId, setSectorId] = useState("");
+  const [contractId, setContractId] = useState("");
   const [sectorTab, setSectorTab] = useState("all");
   const [active, setActive] = useState(true);
 
@@ -52,20 +55,23 @@ export const CollaboratorsPage = (): JSX.Element => {
       if (!navigator.onLine) {
         throw new Error("Gestão de colaboradores está disponível apenas online.");
       }
-      const [collaboratorsResponse, sectorsData] = await Promise.all([
+      const [collaboratorsResponse, sectorsData, contractsResponse] = await Promise.all([
         appRepository.getCollaborators({
           page,
           limit,
           sectorId: sectorTab === "all" ? undefined : sectorTab,
         }),
         appRepository.loadSectors(true),
+        appRepository.getContracts({ page: 1, limit: 100 }),
       ]);
       setResult(collaboratorsResponse);
       setSectors(sectorsData);
+      setContracts(contractsResponse.data);
       setError(null);
     } catch (e) {
       setResult(null);
       setSectors([]);
+      setContracts([]);
       setError(e instanceof Error ? e.message : "Não foi possível carregar colaboradores.");
     } finally {
       setLoading(false);
@@ -109,6 +115,7 @@ export const CollaboratorsPage = (): JSX.Element => {
               setEditing(null);
               setName("");
               setSectorId(sectors.find((sector) => sector.active)?.id ?? "");
+              setContractId(contracts[0]?.id ?? "");
               setActive(true);
               setDialogOpen(true);
             }}
@@ -146,6 +153,7 @@ export const CollaboratorsPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Setor</TableCell>
+              <TableCell>Contrato</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
@@ -153,13 +161,13 @@ export const CollaboratorsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : collaborators.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   Nenhum colaborador encontrado.
                 </TableCell>
               </TableRow>
@@ -168,6 +176,7 @@ export const CollaboratorsPage = (): JSX.Element => {
               <TableRow key={collaborator.id}>
                 <TableCell>{collaborator.name}</TableCell>
                 <TableCell>{collaborator.sector?.name || "-"}</TableCell>
+                <TableCell>{collaborator.contract?.name || "-"}</TableCell>
                 <TableCell>{collaborator.active ? "Ativo" : "Inativo"}</TableCell>
                 <TableCell align="right">
                   <IconButton
@@ -175,6 +184,7 @@ export const CollaboratorsPage = (): JSX.Element => {
                       setEditing(collaborator);
                       setName(collaborator.name);
                       setSectorId(collaborator.sectorId);
+                      setContractId(collaborator.contractId ?? collaborator.contract?.id ?? "");
                       setActive(collaborator.active);
                       setDialogOpen(true);
                     }}
@@ -220,6 +230,23 @@ export const CollaboratorsPage = (): JSX.Element => {
           <Box mt={2}>
             <SectorSelect value={sectorId} onChange={setSectorId} options={sectors} required />
           </Box>
+          <Box mt={2}>
+            <Autocomplete
+              options={contracts}
+              value={contracts.find((contract) => contract.id === contractId) ?? null}
+              onChange={(_, selectedContract) => setContractId(selectedContract?.id ?? "")}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Contrato"
+                  placeholder="Selecione o contrato"
+                  required
+                />
+              )}
+            />
+          </Box>
           <FormControlLabel
             control={<Switch checked={active} onChange={(event) => setActive(event.target.checked)} />}
             label="Ativo"
@@ -229,12 +256,12 @@ export const CollaboratorsPage = (): JSX.Element => {
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!name.trim() || !sectorId}
+            disabled={!name.trim() || !sectorId || !contractId}
             onClick={async () => {
               if (editing) {
-                await appRepository.updateCollaborator(editing.id, { name, sectorId, active });
+                await appRepository.updateCollaborator(editing.id, { name, sectorId, contractId, active });
               } else {
-                await appRepository.createCollaborator({ name, sectorId, active });
+                await appRepository.createCollaborator({ name, sectorId, contractId, active });
               }
               setDialogOpen(false);
               await load();

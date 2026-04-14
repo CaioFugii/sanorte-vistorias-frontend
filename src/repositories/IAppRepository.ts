@@ -53,12 +53,19 @@ export interface IAppRepository {
   getCollaborators(params?: {
     page?: number;
     limit?: number;
+    name?: string;
     sectorId?: string;
+    contractId?: string;
   }): Promise<PaginatedResponse<Collaborator>>;
-  createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator>;
+  createCollaborator(input: {
+    name: string;
+    sectorId: string;
+    contractId: string;
+    active: boolean;
+  }): Promise<Collaborator>;
   updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; sectorId: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; contractId: string; active: boolean }>
   ): Promise<Collaborator>;
   deleteCollaborator(collaboratorId: string): Promise<void>;
 

@@ -239,12 +239,9 @@ export const NewInspectionPage = (): JSX.Element => {
       const requestId = ++collaboratorSearchRequestRef.current;
       setCollaboratorLoading(true);
       try {
-        const result = await appRepository.getCollaborators({ page: 1, limit: 100 });
+        const result = await appRepository.getCollaborators({ page: 1, limit: 20, name: trimmed });
         if (requestId !== collaboratorSearchRequestRef.current) return;
-        const normalizedSearch = trimmed.toLowerCase();
-        const activeCollaborators = result.data.filter(
-          (collaborator) => collaborator.active && collaborator.name.toLowerCase().includes(normalizedSearch)
-        );
+        const activeCollaborators = result.data.filter((collaborator) => collaborator.active);
         const selectedOptions = selectedCollaborator && selectedCollaborator.active ? [selectedCollaborator] : [];
         setCollaboratorOptions(
           [...selectedOptions, ...activeCollaborators].filter(

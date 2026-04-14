@@ -232,7 +232,9 @@ export class ApiRepository {
   async getCollaborators(params?: {
     page?: number;
     limit?: number;
+    name?: string;
     sectorId?: string;
+    contractId?: string;
   }): Promise<PaginatedResponse<Collaborator>> {
     const response = await apiClient.get<PaginatedResponse<Collaborator> | Collaborator[]>(
       "/collaborators",
@@ -255,14 +257,19 @@ export class ApiRepository {
     return response.data;
   }
 
-  async createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator> {
+  async createCollaborator(input: {
+    name: string;
+    sectorId: string;
+    contractId: string;
+    active: boolean;
+  }): Promise<Collaborator> {
     const response = await apiClient.post<Collaborator>("/collaborators", input);
     return response.data;
   }
 
   async updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; sectorId: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; contractId: string; active: boolean }>
   ): Promise<Collaborator> {
     const response = await apiClient.put<Collaborator>(`/collaborators/${collaboratorId}`, input);
     return response.data;

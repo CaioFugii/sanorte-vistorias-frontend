@@ -48,6 +48,8 @@ export interface Collaborator {
   name: string;
   sectorId: string;
   sector?: Sector;
+  contractId?: string;
+  contract?: Pick<Contract, "id" | "name">;
   active: boolean;
   createdAt?: string;
   updatedAt?: string;

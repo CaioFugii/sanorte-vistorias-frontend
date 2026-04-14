@@ -146,18 +146,25 @@ export class AppRepository implements IAppRepository {
   async getCollaborators(params?: {
     page?: number;
     limit?: number;
+    name?: string;
     sectorId?: string;
+    contractId?: string;
   }): Promise<PaginatedResponse<Collaborator>> {
     return this.apiRepository.getCollaborators(params);
   }
 
-  async createCollaborator(input: { name: string; sectorId: string; active: boolean }): Promise<Collaborator> {
+  async createCollaborator(input: {
+    name: string;
+    sectorId: string;
+    contractId: string;
+    active: boolean;
+  }): Promise<Collaborator> {
     return this.apiRepository.createCollaborator(input);
   }
 
   async updateCollaborator(
     collaboratorId: string,
-    input: Partial<{ name: string; sectorId: string; active: boolean }>
+    input: Partial<{ name: string; sectorId: string; contractId: string; active: boolean }>
   ): Promise<Collaborator> {
     return this.apiRepository.updateCollaborator(collaboratorId, input);
   }
