@@ -261,6 +261,31 @@ export interface IAppRepository {
       inspectionsCount: number;
     }>;
   }>;
+  getDashboardNonConformitiesByChecklist(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId?: string;
+    limitPerChecklist: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
+    }>;
+  }>;
   getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;

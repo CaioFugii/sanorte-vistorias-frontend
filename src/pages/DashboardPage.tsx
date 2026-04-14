@@ -42,8 +42,24 @@ type TeamRankingItem = {
   paralysisRatePercent: number;
 };
 
+type NonConformityQuestionItem = {
+  checklistItemId: string;
+  checklistItemTitle: string;
+  nonConformitiesCount: number;
+  answersCount: number;
+  nonConformityRatePercent: number;
+};
+
+type NonConformityChecklist = {
+  checklistId: string;
+  checklistName: string;
+  totalNonConformities: number;
+  questions: NonConformityQuestionItem[];
+};
+
 type SortKey = 'averagePercent' | 'pendingCount' | 'paralysisRatePercent' | null;
 const MIN_TEAM_SEARCH_LENGTH = 4;
+const NON_CONFORMITIES_LIMIT_PER_CHECKLIST = 3;
 
 function getDefaultDateRange(): { from: string; to: string } {
   const to = new Date();
@@ -71,6 +87,7 @@ export const DashboardPage = (): JSX.Element => {
   }));
   const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
   const [teamRanking, setTeamRanking] = useState<TeamRankingItem[]>([]);
+  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<NonConformityChecklist[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [teamDetail, setTeamDetail] = useState<TeamRankingItem | null>(null);
   const [teamDetailLoading, setTeamDetailLoading] = useState(false);
@@ -143,16 +160,24 @@ export const DashboardPage = (): JSX.Element => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, rankingData] = await Promise.all([
+      const [summaryData, rankingData, nonConformitiesData] = await Promise.all([
         appRepository.getDashboardSummary(effectiveFilters),
         appRepository.getDashboardTeamRanking({
           from: effectiveFilters.from,
           to: effectiveFilters.to,
           module: effectiveFilters.module,
         }),
+        appRepository.getDashboardNonConformitiesByChecklist({
+          from: effectiveFilters.from,
+          to: effectiveFilters.to,
+          module: effectiveFilters.module,
+          teamId: effectiveFilters.teamId,
+          limitPerChecklist: NON_CONFORMITIES_LIMIT_PER_CHECKLIST,
+        }),
       ]);
       setSummary(summaryData);
       setTeamRanking(rankingData);
+      setNonConformitiesByChecklist(nonConformitiesData.checklists);
       setRankingPage(1);
     } catch (err) {
       const message =
@@ -537,6 +562,93 @@ export const DashboardPage = (): JSX.Element => {
                   />
                 )}
               </>
+            )}
+          </SectionTable>
+
+          <SectionTable
+            title={`Perguntas com mais NÃO CONFORMIDADES por checklist (TOP ${NON_CONFORMITIES_LIMIT_PER_CHECKLIST})`}
+          >
+            {nonConformitiesByChecklist.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography color="text.secondary">
+                  Nenhuma não conformidade encontrada para os filtros selecionados.
+                </Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={2}>
+                {nonConformitiesByChecklist.map((checklist) => {
+                  const maxCount = Math.max(...checklist.questions.map((question) => question.nonConformitiesCount), 1);
+                  return (
+                    <Grid item xs={12} lg={6} key={checklist.checklistId}>
+                      <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle1" fontWeight={700}>
+                            {checklist.checklistName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Total de não conformidades: {checklist.totalNonConformities}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                          {checklist.questions.map((question) => {
+                            const widthPercent = Math.max((question.nonConformitiesCount / maxCount) * 100, 4);
+                            return (
+                              <Box key={question.checklistItemId}>
+                                <Box
+                                  sx={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'baseline',
+                                    gap: 1,
+                                  }}
+                                >
+                                  <Typography
+                                    variant="body2"
+                                    title={question.checklistItemTitle}
+                                    sx={{
+                                      fontWeight: 500,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    {question.checklistItemTitle}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                                    {question.nonConformitiesCount} Não conformes ({question.nonConformityRatePercent}%)
+                                  </Typography>
+                                </Box>
+                                <Box
+                                  sx={{
+                                    mt: 0.6,
+                                    height: 8,
+                                    borderRadius: 99,
+                                    bgcolor: 'grey.200',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      width: `${widthPercent}%`,
+                                      height: '100%',
+                                      bgcolor: 'error.main',
+                                      borderRadius: 99,
+                                    }}
+                                  />
+                                </Box>
+                                <Typography variant="caption" color="text.secondary">
+                                  {question.answersCount} respostas no período
+                                </Typography>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  );
+                })}
+              </Grid>
             )}
           </SectionTable>
         </>
