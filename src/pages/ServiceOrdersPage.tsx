@@ -19,16 +19,40 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { CloudUpload, Refresh, Search } from "@mui/icons-material";
+import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
 import { useState, useRef, useEffect } from "react";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { PaginatedResponse, ServiceOrder, UserRole } from "@/domain";
+import { Contract, PaginatedResponse, ServiceOrder, UserRole } from "@/domain";
 import { ListPagination } from "@/components/ListPagination";
 import { DataCard, PageHeader, SectionTable } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_LIMIT = 10;
+
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getInitialDateRange(days: number): { from: string; to: string } {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(end.getDate() - days);
+  return {
+    from: formatDateForInput(start),
+    to: formatDateForInput(end),
+  };
+}
+
+function clampDateInput(value: string, min: string, max: string): string {
+  if (!value) return "";
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
 
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
@@ -62,13 +86,26 @@ const TABLE_HEAD = (
   </TableRow>
 );
 
-function ListagemTab(): JSX.Element {
+interface ListagemTabProps {
+  contracts: Array<Pick<Contract, "id" | "name">>;
+}
+
+function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
+  const initialDateRange = getInitialDateRange(30);
+  const maxSelectableDate = formatDateForInput(new Date());
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() - 2);
+  const minSelectableDate = formatDateForInput(minDate);
+  const initialContractId = contracts.length === 1 ? contracts[0].id : "";
   const sectors = useReferenceStore((state) => state.sectors);
   const loadCache = useReferenceStore((state) => state.loadCache);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [osNumber, setOsNumber] = useState("");
   const [sectorId, setSectorId] = useState("");
+  const [contractId, setContractId] = useState(initialContractId);
+  const [from, setPeriodFrom] = useState(initialDateRange.from);
+  const [to, setPeriodTo] = useState(initialDateRange.to);
   const [field, setField] = useState<"" | "true" | "false">("");
   const [remote, setRemote] = useState<"" | "true" | "false">("");
   const [postWork, setPostWork] = useState<"" | "true" | "false">("");
@@ -80,6 +117,12 @@ function ListagemTab(): JSX.Element {
   }, [loadCache]);
 
   useEffect(() => {
+    if (contracts.length === 1) {
+      setContractId((current) => current || contracts[0].id);
+    }
+  }, [contracts]);
+
+  useEffect(() => {
     let cancelled = false;
     setLoading(true);
     appRepository
@@ -88,6 +131,9 @@ function ListagemTab(): JSX.Element {
         limit,
         osNumber: osNumber.trim() || undefined,
         sectorId: sectorId.trim() || undefined,
+        contractId: contractId.trim() || undefined,
+        from: from || undefined,
+        to: to || undefined,
         field: field === "" ? undefined : field === "true",
         remote: remote === "" ? undefined : remote === "true",
         postWork: postWork === "" ? undefined : postWork === "true",
@@ -104,7 +150,7 @@ function ListagemTab(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, osNumber, sectorId, field, remote, postWork]);
+  }, [page, limit, osNumber, sectorId, contractId, from, to, field, remote, postWork]);
 
   const handleSearch = (value: string) => {
     setOsNumber(value);
@@ -116,6 +162,21 @@ function ListagemTab(): JSX.Element {
     setPage(1);
   };
 
+  const handleContractChange = (value: string) => {
+    setContractId(value);
+    setPage(1);
+  };
+
+  const handlePeriodFromChange = (value: string) => {
+    setPeriodFrom(clampDateInput(value, minSelectableDate, maxSelectableDate));
+    setPage(1);
+  };
+
+  const handlePeriodToChange = (value: string) => {
+    setPeriodTo(clampDateInput(value, minSelectableDate, maxSelectableDate));
+    setPage(1);
+  };
+
   const handleModuleFilter = (
     key: "field" | "remote" | "postWork",
     value: "" | "true" | "false"
@@ -123,6 +184,18 @@ function ListagemTab(): JSX.Element {
     if (key === "field") setField(value);
     if (key === "remote") setRemote(value);
     if (key === "postWork") setPostWork(value);
+    setPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setOsNumber("");
+    setSectorId("");
+    setContractId(initialContractId);
+    setPeriodFrom(initialDateRange.from);
+    setPeriodTo(initialDateRange.to);
+    setField("");
+    setRemote("");
+    setPostWork("");
     setPage(1);
   };
 
@@ -167,6 +240,41 @@ function ListagemTab(): JSX.Element {
             ))}
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel>Contrato</InputLabel>
+          <Select
+            value={contractId}
+            onChange={(e) => handleContractChange(e.target.value)}
+            label="Contrato"
+          >
+            <MenuItem value="">
+              <em>Todos os contratos</em>
+            </MenuItem>
+            {contracts.map((contract) => (
+              <MenuItem key={contract.id} value={contract.id}>
+                {contract.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          size="small"
+          label="Data inicial"
+          type="date"
+          value={from}
+          onChange={(e) => handlePeriodFromChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ min: minSelectableDate, max: maxSelectableDate }}
+        />
+        <TextField
+          size="small"
+          label="Data final"
+          type="date"
+          value={to}
+          onChange={(e) => handlePeriodToChange(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ min: minSelectableDate, max: maxSelectableDate }}
+        />
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Campo</InputLabel>
           <Select
@@ -211,11 +319,11 @@ function ListagemTab(): JSX.Element {
         </FormControl>
         <Button
           variant="outlined"
-          startIcon={<Refresh />}
-          onClick={() => setPage(1)}
+          startIcon={<FilterAltOff />}
+          onClick={handleClearFilters}
           disabled={loading || !navigator.onLine}
         >
-          Atualizar
+          Limpar filtros
         </Button>
         {meta && (
           <Chip
@@ -240,7 +348,7 @@ function ListagemTab(): JSX.Element {
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
-                    {osNumber.trim() || sectorId || field || remote || postWork
+                    {osNumber.trim() || sectorId || contractId || from || to || field || remote || postWork
                       ? "Nenhuma ordem de serviço encontrada com esse filtro."
                       : "Nenhuma ordem de serviço cadastrada."}
                   </TableCell>
@@ -422,7 +530,29 @@ export const ServiceOrdersPage = (): JSX.Element => {
   const [tab, setTab] = useState(0);
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
+  const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const availableContracts = user?.contracts ?? [];
+  const contractsForFilters = isAdmin ? allContracts : availableContracts;
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAllContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        if (!cancelled) setAllContracts(result.data);
+      } catch {
+        if (!cancelled) setAllContracts([]);
+      }
+    };
+    void loadContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
 
   useEffect(() => {
     if (isAdmin && tab !== 0) {
@@ -452,7 +582,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
 
         <Box sx={{ p: 2 }}>
           <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
-            {tab === 0 && <ListagemTab />}
+            {tab === 0 && <ListagemTab contracts={contractsForFilters} />}
           </div>
           {!isAdmin && (
             <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">

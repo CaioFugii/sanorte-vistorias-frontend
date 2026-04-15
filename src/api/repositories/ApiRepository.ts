@@ -21,6 +21,9 @@ export interface ServiceOrdersParams {
   limit?: number;
   osNumber?: string;
   sectorId?: string;
+  contractId?: string;
+  periodFrom?: string;
+  periodTo?: string;
   /** Filtra OS já usadas em vistoria CAMPO */
   field?: boolean;
   /** Filtra OS já usadas em vistoria REMOTO */

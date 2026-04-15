@@ -166,6 +166,9 @@ export interface IAppRepository {
     limit?: number;
     osNumber?: string;
     sectorId?: string;
+    contractId?: string;
+    periodFrom?: string;
+    periodTo?: string;
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;

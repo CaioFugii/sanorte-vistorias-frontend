@@ -332,6 +332,9 @@ export class AppRepository implements IAppRepository {
     limit?: number;
     osNumber?: string;
     sectorId?: string;
+    contractId?: string;
+    from?: string;
+    to?: string;
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;
