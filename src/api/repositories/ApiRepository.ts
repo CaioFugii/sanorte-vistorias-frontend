@@ -154,7 +154,12 @@ export class ApiRepository {
   }
 
 
-  async getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>> {
+  async getTeams(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    contractId?: string;
+  }): Promise<PaginatedResponse<Team>> {
     const response = await apiClient.get<PaginatedResponse<Team> | Team[]>("/teams", { params });
     const data = this.unwrapPaginated(response.data);
     if (Array.isArray(response.data)) {
@@ -402,8 +407,7 @@ export class ApiRepository {
     formData.append("file", file);
     const response = await apiClient.post<ChecklistItem>(
       `/checklists/${checklistId}/items/${itemId}/reference-image`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      formData
     );
     return response.data;
   }
@@ -432,9 +436,7 @@ export class ApiRepository {
       skipped: number;
       deleted: number;
       errors: string[];
-    }>("/service-orders/import", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    }>("/service-orders/import", formData);
     return response.data;
   }
 
@@ -558,9 +560,7 @@ export class ApiRepository {
     if (inspectionItemId) {
       formData.append("inspectionItemId", inspectionItemId);
     }
-    const response = await apiClient.post(`/inspections/${inspectionId}/evidences`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await apiClient.post(`/inspections/${inspectionId}/evidences`, formData);
     return response.data;
   }
 
@@ -613,6 +613,7 @@ export class ApiRepository {
     to?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
     const response = await apiClient.get<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>(
       "/dashboards/summary",
@@ -625,6 +626,7 @@ export class ApiRepository {
     from?: string;
     to?: string;
     module?: ModuleType;
+    contractId?: string;
   }): Promise<
     Array<{
       teamId: string;
@@ -652,7 +654,7 @@ export class ApiRepository {
 
   async getDashboardTeam(
     teamId: string,
-    params?: { from?: string; to?: string; module?: ModuleType }
+    params?: { from?: string; to?: string; module?: ModuleType; contractId?: string }
   ): Promise<{
     teamId: string;
     teamName: string;
@@ -679,6 +681,7 @@ export class ApiRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     period: string[];
     services: Array<{
@@ -722,6 +725,7 @@ export class ApiRepository {
     month?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     month: string;
     summary: {
@@ -758,6 +762,7 @@ export class ApiRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
     limitPerChecklist?: number;
   }): Promise<{
     from: string;
@@ -803,6 +808,7 @@ export class ApiRepository {
   async getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
+    contractId?: string;
     lowScoreThreshold?: number;
     limit?: number;
   }): Promise<{
@@ -842,6 +848,7 @@ export class ApiRepository {
     from: string;
     to: string;
     teamIds: string[];
+    contractId?: string;
   }): Promise<{
     from: string;
     to: string;
@@ -914,9 +921,7 @@ export class ApiRepository {
       folder === "evidences" ? "quality/evidences" : folder === "signatures" ? "quality/signatures" : folder;
     formData.append("folder", folderValue);
 
-    const response = await apiClient.post<CloudinaryUploadResult>("/uploads", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await apiClient.post<CloudinaryUploadResult>("/uploads", formData);
     return response.data;
   }
 

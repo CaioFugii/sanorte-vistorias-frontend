@@ -73,7 +73,12 @@ export class AppRepository implements IAppRepository {
     return result.data;
   }
 
-  async getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>> {
+  async getTeams(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    contractId?: string;
+  }): Promise<PaginatedResponse<Team>> {
     return this.apiRepository.getTeams(params);
   }
 
@@ -385,6 +390,7 @@ export class AppRepository implements IAppRepository {
     to?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
     return this.apiRepository.getDashboardSummary(params);
   }
@@ -393,6 +399,7 @@ export class AppRepository implements IAppRepository {
     from?: string;
     to?: string;
     module?: ModuleType;
+    contractId?: string;
   }): Promise<
     Array<{
       teamId: string;
@@ -409,7 +416,7 @@ export class AppRepository implements IAppRepository {
 
   async getDashboardTeam(
     teamId: string,
-    params?: { from?: string; to?: string; module?: ModuleType }
+    params?: { from?: string; to?: string; module?: ModuleType; contractId?: string }
   ): Promise<{
     teamId: string;
     teamName: string;
@@ -427,6 +434,7 @@ export class AppRepository implements IAppRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     period: string[];
     services: Array<{
@@ -452,6 +460,7 @@ export class AppRepository implements IAppRepository {
     month?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     month: string;
     summary: {
@@ -474,6 +483,7 @@ export class AppRepository implements IAppRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
     limitPerChecklist?: number;
   }): Promise<{
     from: string;
@@ -500,6 +510,7 @@ export class AppRepository implements IAppRepository {
   async getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
+    contractId?: string;
     lowScoreThreshold?: number;
     limit?: number;
   }): Promise<{
@@ -524,6 +535,7 @@ export class AppRepository implements IAppRepository {
     from: string;
     to: string;
     teamIds: string[];
+    contractId?: string;
   }): Promise<{
     from: string;
     to: string;

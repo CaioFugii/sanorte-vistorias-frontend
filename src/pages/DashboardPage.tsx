@@ -6,6 +6,10 @@ import {
   Typography,
   Grid,
   TextField,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -29,7 +33,7 @@ import { ListPagination } from '@/components/ListPagination';
 import { ModuleType } from '@/domain/enums';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
-import { Team, UserRole } from '@/domain';
+import { Contract, Team, UserRole } from '@/domain';
 import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
 
 type TeamRankingItem = {
@@ -72,18 +76,24 @@ function getDefaultDateRange(): { from: string; to: string } {
 }
 
 export const DashboardPage = (): JSX.Element => {
-  const { hasAnyRole } = useAuthStore();
+  const { hasAnyRole, user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isAdmin = user?.role === UserRole.ADMIN;
+  const availableContracts = user?.contracts ?? [];
+  const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, 'id' | 'name'>>>([]);
+  const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [filters, setFilters] = useState<{
     from?: string;
     to?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }>(() => ({
     ...getDefaultDateRange(),
     module: undefined,
     teamId: undefined,
+    contractId: undefined,
   }));
   const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
   const [teamRanking, setTeamRanking] = useState<TeamRankingItem[]>([]);
@@ -104,6 +114,46 @@ export const DashboardPage = (): JSX.Element => {
   const teamFilterRequestRef = useRef(0);
 
   const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        if (!cancelled) setAdminContracts(result.data);
+      } catch {
+        if (!cancelled) setAdminContracts([]);
+      }
+    };
+    void loadContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (contractsForFilters.length === 1) {
+      const singleContractId = contractsForFilters[0].id;
+      setFilters((prev) => ({
+        ...prev,
+        contractId: prev.contractId || singleContractId,
+      }));
+      return;
+    }
+    if (
+      filters.contractId &&
+      !contractsForFilters.some((contract) => contract.id === filters.contractId)
+    ) {
+      setFilters((prev) => ({ ...prev, contractId: undefined, teamId: undefined }));
+      setSelectedSummaryTeam(null);
+      setTeamFilterSearchInput('');
+      setTeamFilterOptions([]);
+    }
+  }, [contractsForFilters, filters.contractId]);
 
   useEffect(() => {
     if (canAccessDashboard) {
@@ -128,7 +178,12 @@ export const DashboardPage = (): JSX.Element => {
       const requestId = ++teamFilterRequestRef.current;
       setTeamFilterLoading(true);
       try {
-        const result = await appRepository.getTeams({ page: 1, limit: 20, name: trimmed });
+        const result = await appRepository.getTeams({
+          page: 1,
+          limit: 20,
+          name: trimmed,
+          contractId: filters.contractId,
+        });
         if (requestId !== teamFilterRequestRef.current) return;
         const selectedOptions = selectedSummaryTeam ? [selectedSummaryTeam] : [];
         setTeamFilterOptions(
@@ -150,7 +205,7 @@ export const DashboardPage = (): JSX.Element => {
     return () => {
       if (teamFilterDebounceRef.current) clearTimeout(teamFilterDebounceRef.current);
     };
-  }, [teamFilterSearchInput, selectedSummaryTeam]);
+  }, [teamFilterSearchInput, selectedSummaryTeam, filters.contractId]);
 
   const loadDashboardData = async (overrideFilters?: typeof filters) => {
     const effectiveFilters = overrideFilters ?? filters;
@@ -166,12 +221,14 @@ export const DashboardPage = (): JSX.Element => {
           from: effectiveFilters.from,
           to: effectiveFilters.to,
           module: effectiveFilters.module,
+          contractId: effectiveFilters.contractId,
         }),
         appRepository.getDashboardNonConformitiesByChecklist({
           from: effectiveFilters.from,
           to: effectiveFilters.to,
           module: effectiveFilters.module,
           teamId: effectiveFilters.teamId,
+          contractId: effectiveFilters.contractId,
           limitPerChecklist: NON_CONFORMITIES_LIMIT_PER_CHECKLIST,
         }),
       ]);
@@ -191,7 +248,12 @@ export const DashboardPage = (): JSX.Element => {
   };
 
   const handleClearFilters = () => {
-    const defaultRange = { ...getDefaultDateRange(), module: undefined as ModuleType | undefined, teamId: undefined };
+    const defaultRange = {
+      ...getDefaultDateRange(),
+      module: undefined as ModuleType | undefined,
+      teamId: undefined,
+      contractId: undefined,
+    };
     setFilters(defaultRange);
     setSelectedSummaryTeam(null);
     setTeamFilterSearchInput('');
@@ -204,7 +266,12 @@ export const DashboardPage = (): JSX.Element => {
     setTeamDetail(null);
     setTeamDetailError(null);
     setTeamDetailLoading(true);
-    const query = { from: filters.from, to: filters.to, module: filters.module };
+    const query = {
+      from: filters.from,
+      to: filters.to,
+      module: filters.module,
+      contractId: filters.contractId,
+    };
     appRepository
       .getDashboardTeam(teamId, query)
       .then((data) => {
@@ -345,6 +412,31 @@ export const DashboardPage = (): JSX.Element => {
               onChange={(value) => setFilters((prev) => ({ ...prev, module: value }))}
               label="Módulo"
             />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Contrato</InputLabel>
+              <Select
+                value={filters.contractId || ''}
+                label="Contrato"
+                onChange={(e) => {
+                  const nextContractId = e.target.value || undefined;
+                  setSelectedSummaryTeam(null);
+                  setTeamFilterSearchInput('');
+                  setTeamFilterOptions([]);
+                  setFilters((prev) => ({ ...prev, contractId: nextContractId, teamId: undefined }));
+                }}
+              >
+                <MenuItem value="">
+                  <em>Todos os contratos</em>
+                </MenuItem>
+                {contractsForFilters.map((contract) => (
+                  <MenuItem key={contract.id} value={contract.id}>
+                    {contract.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Autocomplete

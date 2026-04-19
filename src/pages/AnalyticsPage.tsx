@@ -1,9 +1,23 @@
-import { Autocomplete, Box, Button, CircularProgress, Grid, Paper, Stack, TextField, Typography } from "@mui/material";
+import {
+  Autocomplete,
+  Box,
+  Button,
+  CircularProgress,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { Team, UserRole } from "@/domain";
+import { Contract, Team, UserRole } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
@@ -125,8 +139,13 @@ function buildFakeTeamPerformanceByTeams(
 }
 
 export function AnalyticsPage(): JSX.Element {
-  const { hasAnyRole } = useAuthStore();
+  const { hasAnyRole, user } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
+  const isAdmin = user?.role === UserRole.ADMIN;
+  const availableContracts = user?.contracts ?? [];
+  const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
+  const contractsForFilters = isAdmin ? adminContracts : availableContracts;
+  const [selectedContractId, setSelectedContractId] = useState("");
   const initialSafetyFilters = useMemo(() => {
     const range = getCurrentMonthRange();
     return {
@@ -158,14 +177,51 @@ export function AnalyticsPage(): JSX.Element {
   const [usingFakeTeamPerformance, setUsingFakeTeamPerformance] = useState(false);
   const qualityRange = useMemo(() => getDefaultQualityRange(), []);
 
-  const loadAnalyticsData = async (safetyFilters: typeof lowScoreFilters) => {
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        if (!cancelled) setAdminContracts(result.data);
+      } catch {
+        if (!cancelled) setAdminContracts([]);
+      }
+    };
+    void loadContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (contractsForFilters.length === 1) {
+      setSelectedContractId((current) => current || contractsForFilters[0].id);
+    }
+  }, [contractsForFilters]);
+
+  const loadAnalyticsData = async (
+    safetyFilters: typeof lowScoreFilters,
+    contractId?: string
+  ) => {
     setLoading(true);
     setError(null);
     try {
       const [qualityRes, currentRes, lowScoreRes] = await Promise.all([
-        appRepository.getDashboardQualityByService(qualityRange),
-        appRepository.getDashboardCurrentMonthByService(),
-        appRepository.getDashboardSafetyWorkLowScoreCollaborators(safetyFilters),
+        appRepository.getDashboardQualityByService({
+          ...qualityRange,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardCurrentMonthByService({
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardSafetyWorkLowScoreCollaborators({
+          ...safetyFilters,
+          contractId: contractId || undefined,
+        }),
       ]);
       setQualityByService(qualityRes);
       setCurrentMonthByService(currentRes);
@@ -184,7 +240,11 @@ export function AnalyticsPage(): JSX.Element {
 
   const loadTeamsOptions = async (): Promise<Team[]> => {
     try {
-      const result = await appRepository.getTeams({ page: 1, limit: 100 });
+      const result = await appRepository.getTeams({
+        page: 1,
+        limit: 100,
+        contractId: selectedContractId || undefined,
+      });
       const activeTeams = result.data.filter((team) => team.active);
       setTeamOptions(activeTeams);
       return activeTeams;
@@ -209,7 +269,12 @@ export function AnalyticsPage(): JSX.Element {
     setTeamPerformanceError(null);
     setUsingFakeTeamPerformance(false);
 
-    const payload = { from: filters.from, to: filters.to, teamIds: filters.teamIds };
+    const payload = {
+      from: filters.from,
+      to: filters.to,
+      teamIds: filters.teamIds,
+      contractId: selectedContractId || undefined,
+    };
 
     try {
       const result = await appRepository.getDashboardTeamPerformanceByTeams(payload);
@@ -229,8 +294,8 @@ export function AnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    void loadAnalyticsData(initialSafetyFilters);
-  }, [canAccessAnalytics, initialSafetyFilters, qualityRange]);
+    void loadAnalyticsData(initialSafetyFilters, selectedContractId || undefined);
+  }, [canAccessAnalytics, initialSafetyFilters, qualityRange, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -252,7 +317,7 @@ export function AnalyticsPage(): JSX.Element {
     };
 
     void bootstrapTeamPerformance();
-  }, [canAccessAnalytics, initialTeamPerformanceFilters]);
+  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId]);
 
   const chartMonths = useMemo(
     () =>
@@ -310,7 +375,7 @@ export function AnalyticsPage(): JSX.Element {
   );
 
   const handleSearchLowScoreCollaborators = () => {
-    void loadAnalyticsData(lowScoreFilters);
+    void loadAnalyticsData(lowScoreFilters, selectedContractId || undefined);
   };
 
   const handleSearchTeamPerformance = () => {
@@ -328,6 +393,30 @@ export function AnalyticsPage(): JSX.Element {
         title="Central de Gráficos"
         subtitle="Leituras visuais para apoio gerencial. Layout focado em desktop para validação executiva."
       />
+
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Contrato</InputLabel>
+              <Select
+                value={selectedContractId}
+                label="Contrato"
+                onChange={(event) => setSelectedContractId(event.target.value)}
+              >
+                <MenuItem value="">
+                  <em>Todos os contratos</em>
+                </MenuItem>
+                {contractsForFilters.map((contract) => (
+                  <MenuItem key={contract.id} value={contract.id}>
+                    {contract.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>

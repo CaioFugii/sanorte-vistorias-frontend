@@ -26,7 +26,12 @@ export interface IAppRepository {
   loadTeams(forceApi?: boolean): Promise<Team[]>;
   loadSectors(forceApi?: boolean): Promise<Sector[]>;
   loadChecklists(forceApi?: boolean): Promise<Checklist[]>;
-  getTeams(params?: { page?: number; limit?: number; name?: string }): Promise<PaginatedResponse<Team>>;
+  getTeams(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    contractId?: string;
+  }): Promise<PaginatedResponse<Team>>;
   getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>>;
   getCachedTeams(): Promise<Team[]>;
   getCachedSectors(): Promise<Sector[]>;
@@ -202,11 +207,13 @@ export interface IAppRepository {
     to?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>;
   getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;
     module?: ModuleType;
+    contractId?: string;
   }): Promise<
     Array<{
       teamId: string;
@@ -220,7 +227,7 @@ export interface IAppRepository {
   >;
   getDashboardTeam(
     teamId: string,
-    params?: { from?: string; to?: string; module?: ModuleType }
+    params?: { from?: string; to?: string; module?: ModuleType; contractId?: string }
   ): Promise<{
     teamId: string;
     teamName: string;
@@ -235,6 +242,7 @@ export interface IAppRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     period: string[];
     services: Array<{
@@ -257,6 +265,7 @@ export interface IAppRepository {
     month?: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
   }): Promise<{
     month: string;
     summary: {
@@ -276,6 +285,7 @@ export interface IAppRepository {
     to: string;
     module?: ModuleType;
     teamId?: string;
+    contractId?: string;
     limitPerChecklist?: number;
   }): Promise<{
     from: string;
@@ -299,6 +309,7 @@ export interface IAppRepository {
   getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
+    contractId?: string;
     lowScoreThreshold?: number;
     limit?: number;
   }): Promise<{
@@ -320,6 +331,7 @@ export interface IAppRepository {
     from: string;
     to: string;
     teamIds: string[];
+    contractId?: string;
   }): Promise<{
     from: string;
     to: string;
