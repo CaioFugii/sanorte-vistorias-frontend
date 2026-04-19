@@ -41,10 +41,15 @@ import { appRepository } from '@/repositories/AppRepository';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
 import { DataCard, PageHeader } from '@/components/ui';
+import {
+  prepareImageForUpload,
+  PREPARE_IMAGE_MAX_BYTES_UPLOADS,
+} from '@/utils/prepareImageForUpload';
 
 const DEFAULT_LIMIT = 10;
 const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
-const MAX_REFERENCE_IMAGE_SIZE = 10 * 1024 * 1024;
+/** Tamanho máximo do arquivo escolhido antes da compressão (memória). */
+const MAX_REFERENCE_IMAGE_INPUT_SIZE = 32 * 1024 * 1024;
 const ALLOWED_REFERENCE_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const ChecklistsPage = (): JSX.Element => {
@@ -190,14 +195,22 @@ export const ChecklistsPage = (): JSX.Element => {
       return;
     }
 
-    if (file.size > MAX_REFERENCE_IMAGE_SIZE) {
-      setItemReferenceImageError("A imagem deve ter no máximo 10MB.");
+    if (file.size > MAX_REFERENCE_IMAGE_INPUT_SIZE) {
+      setItemReferenceImageError("Imagem muito grande (máx. ~32MB antes da otimização).");
+      return;
+    }
+
+    const prepared = await prepareImageForUpload(file, {
+      maxBytes: PREPARE_IMAGE_MAX_BYTES_UPLOADS,
+    });
+    if (prepared.size > PREPARE_IMAGE_MAX_BYTES_UPLOADS) {
+      setItemReferenceImageError("Não foi possível reduzir a imagem para o limite aceito pelo servidor.");
       return;
     }
 
     setItemReferenceImageError(null);
-    setItemReferenceImageFile(file);
-    setItemReferenceImagePreview(await readFileAsDataUrl(file));
+    setItemReferenceImageFile(prepared);
+    setItemReferenceImagePreview(await readFileAsDataUrl(prepared));
   };
 
   if (loading && !result) {

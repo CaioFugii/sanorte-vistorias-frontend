@@ -32,6 +32,10 @@ import { PercentBadge } from '@/components/PercentBadge';
 import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
 import { getModuleLabel } from '@/utils/moduleLabel';
 import { generateInspectionPdf } from '@/utils/inspectionPdf';
+import {
+  prepareImageForUpload,
+  PREPARE_IMAGE_MAX_BYTES_UPLOADS,
+} from '@/utils/prepareImageForUpload';
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
@@ -146,7 +150,10 @@ export const InspectionDetailPage = (): JSX.Element => {
       photo.fileName || 'evidence.jpg',
       photo.mimeType || 'image/jpeg'
     );
-    const result = await appRepository.uploadToCloudinary(file, 'quality/evidences');
+    const prepared = await prepareImageForUpload(file, {
+      maxBytes: PREPARE_IMAGE_MAX_BYTES_UPLOADS,
+    });
+    const result = await appRepository.uploadToCloudinary(prepared, 'quality/evidences');
     return result.url;
   };
 
@@ -355,7 +362,8 @@ export const InspectionDetailPage = (): JSX.Element => {
             )}
             <Typography variant="body2" gutterBottom>
               <strong>Percentual:</strong>{' '}
-              {inspection.scorePercent !== undefined ? (
+              {inspection.scorePercent !== undefined &&
+              inspection.scorePercent !== null ? (
                 <PercentBadge percent={inspection.scorePercent} />
               ) : (
                 'N/A'

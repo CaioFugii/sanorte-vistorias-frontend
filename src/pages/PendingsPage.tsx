@@ -11,7 +11,7 @@ import {
 import { Visibility } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Inspection } from "@/domain";
+import { InspectionListItem } from "@/domain";
 import { InspectionStatus } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { StatusChip } from "@/components/StatusChip";
@@ -25,7 +25,7 @@ export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
-  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [inspections, setInspections] = useState<InspectionListItem[]>([]);
   const [meta, setMeta] = useState<{
     page: number;
     limit: number;

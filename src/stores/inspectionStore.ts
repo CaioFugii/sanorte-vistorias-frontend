@@ -82,7 +82,11 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
   },
 
   removeEvidence: async (evidenceId) => {
-    await appRepository.removeEvidence(evidenceId);
+    const externalId = get().currentInspection?.externalId;
+    if (!externalId) {
+      return;
+    }
+    await appRepository.removeEvidence(externalId, evidenceId);
     set((state) => ({
       evidences: state.evidences.filter((evidence) => evidence.id !== evidenceId),
     }));

@@ -16,9 +16,11 @@ import { Delete, PauseCircleOutline, PlayCircleOutline, Save } from "@mui/icons-
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
-import { Evidence, Inspection, InspectionItem, Signature } from "@/domain";
+import { Checklist, Evidence, Inspection, InspectionItem, Signature } from "@/domain";
 import { UserRole } from "@/domain/enums";
+import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 import { appRepository } from "@/repositories/AppRepository";
+import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
 
@@ -92,7 +94,10 @@ export const ManageInspectionPage = (): JSX.Element => {
 
   const checklist = useMemo(() => {
     if (!inspection) return undefined;
-    if (inspection.checklist) return inspection.checklist;
+    const embedded = inspection.checklist;
+    if (embedded && "sections" in embedded && Array.isArray((embedded as Checklist).sections)) {
+      return embedded as Checklist;
+    }
     return checklists.find((entry) => entry.id === inspection.checklistId);
   }, [checklists, inspection]);
 
@@ -145,14 +150,9 @@ export const ManageInspectionPage = (): JSX.Element => {
       setDeletingEvidenceId(null);
       return;
     }
-    if (!current.cloudinaryPublicId) {
-      setDeleteDialogOpen(false);
-      setDeletingEvidenceId(null);
-      return;
-    }
     setDeleteLoading(true);
     try {
-      await appRepository.deleteFromCloudinary(current.cloudinaryPublicId);
+      await appRepository.removeEvidence(inspection.externalId, deletingEvidenceId);
       setInspection((prev) => {
         if (!prev) return prev;
         return {
@@ -226,14 +226,19 @@ export const ManageInspectionPage = (): JSX.Element => {
     if (!inspection) return;
     const files = event.target.files;
     if (!files || files.length === 0) return;
+    const generalCount = evidences.filter((e) => !e.inspectionItemId).length;
+    const remainingSlots = Math.max(0, MAX_GENERAL_INSPECTION_PHOTOS - generalCount);
+    if (remainingSlots === 0) return;
     setUploadingEvidence(true);
     try {
       const uploaded: Evidence[] = [];
-      for (const file of Array.from(files)) {
+      const slice = Array.from(files).slice(0, remainingSlots);
+      for (const file of slice) {
+        const prepared = await prepareImageForUpload(file);
         const created = await appRepository.addInspectionEvidenceOnline(
           inspection.serverId ?? inspection.externalId,
           inspection.externalId,
-          file
+          prepared
         );
         uploaded.push(created);
       }

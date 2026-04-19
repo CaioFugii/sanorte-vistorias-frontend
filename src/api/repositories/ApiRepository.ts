@@ -5,6 +5,7 @@ import {
   Collaborator,
   Contract,
   Inspection,
+  InspectionListItem,
   InspectionScope,
   InspectionItem,
   InspectionStatus,
@@ -450,8 +451,8 @@ export class ApiRepository {
     osNumber?: string;
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResponse<Inspection>> {
-    const response = await apiClient.get<PaginatedResponse<Inspection>>("/inspections", { params });
+  }): Promise<PaginatedResponse<InspectionListItem>> {
+    const response = await apiClient.get<PaginatedResponse<InspectionListItem>>("/inspections", { params });
     return response.data;
   }
 
@@ -460,8 +461,8 @@ export class ApiRepository {
     limit?: number;
     osNumber?: string;
     inspectionScope?: InspectionScope;
-  }): Promise<PaginatedResponse<Inspection>> {
-    const response = await apiClient.get<PaginatedResponse<Inspection>>("/inspections/mine", { params });
+  }): Promise<PaginatedResponse<InspectionListItem>> {
+    const response = await apiClient.get<PaginatedResponse<InspectionListItem>>("/inspections/mine", { params });
     return response.data;
   }
 
@@ -562,6 +563,10 @@ export class ApiRepository {
     }
     const response = await apiClient.post(`/inspections/${inspectionId}/evidences`, formData);
     return response.data;
+  }
+
+  async deleteInspectionEvidence(inspectionId: string, evidenceId: string): Promise<void> {
+    await apiClient.delete(`/inspections/${inspectionId}/evidences/${evidenceId}`);
   }
 
   async updateInspection(id: string, input: Partial<Inspection>): Promise<Inspection> {

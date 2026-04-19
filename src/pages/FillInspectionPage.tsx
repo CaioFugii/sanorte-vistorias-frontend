@@ -31,6 +31,7 @@ import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { InspectionItem } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
 import { generateInspectionPdf } from "@/utils/inspectionPdf";
+import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
@@ -148,8 +149,8 @@ export const FillInspectionPage = (): JSX.Element => {
       file,
       inspectionItemId
     );
-    addEvidence(evidence);
     return {
+      id: evidence.id,
       publicId: evidence.cloudinaryPublicId ?? "",
       url: evidence.url ?? "",
       bytes: evidence.bytes ?? 0,
@@ -396,6 +397,7 @@ export const FillInspectionPage = (): JSX.Element => {
             onChange={handleGeneralEvidencesChange}
             onUpload={canEdit ? handleUploadEvidence : undefined}
             disabled={!canEdit}
+            maxPhotos={MAX_GENERAL_INSPECTION_PHOTOS}
           />
         </Paper>
       )}

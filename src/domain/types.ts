@@ -120,40 +120,53 @@ export interface Checklist {
   updatedAt?: string;
 }
 
-export interface Inspection {
+/**
+ * Linha enxuta nas listagens (`GET /inspections/mine`, `GET /inspections` paginado).
+ * Ver `API_DOCUMENTATION.md` — payload reduzido para tabela do app.
+ */
+export interface InspectionListItem {
   externalId: string;
   serverId?: string;
   module: ModuleType;
-  inspectionScope?: InspectionScope;
-  checklistId: string;
-  teamId: string;
-  serviceOrderId?: string;
-  serviceOrder?: Pick<ServiceOrder, "id" | "osNumber" | "address">;
-  collaboratorIds?: string[];
   serviceDescription: string;
   locationDescription: string;
   status: InspectionStatus;
-  scorePercent?: number;
+  scorePercent?: number | null;
   hasParalysisPenalty?: boolean;
+  finalizedAt?: string | null;
+  createdAt: string;
+  /** API pode retornar só `{ osNumber }` ou `null` sem OS vinculada. */
+  serviceOrder?: { osNumber: string } | null;
+}
+
+/**
+ * Detalhe da vistoria (`GET /inspections/:id`, criação, finalize, paralyze, etc.).
+ * Contrato enxuto da API; `team` / `checklist` costumam trazer só `{ name }` para PDF.
+ */
+export interface Inspection extends InspectionListItem {
+  checklistId: string;
+  updatedAt: string;
+  inspectionScope?: InspectionScope;
+  teamId?: string;
+  serviceOrderId?: string;
+  /** OS: detalhe pode incluir id/endereço; listagem costuma trazer só `osNumber`. */
+  serviceOrder?: Pick<ServiceOrder, "id" | "osNumber" | "address"> | { osNumber: string } | null;
+  collaboratorIds?: string[];
+  createdByUserId?: string;
   paralyzedReason?: string | null;
   paralyzedAt?: string | null;
   paralyzedByUserId?: string | null;
   paralyzedBy?: User | null;
-  createdByUserId: string;
   pendingResolutionNotes?: string;
   pendingResolutionEvidenceId?: string;
-  createdAt: string;
-  updatedAt: string;
-  finalizedAt?: string;
-  /** Itens da vistoria (preenchido quando a API retorna a vistoria completa, ex.: GET /inspections/:id). */
+  /** Itens (resposta enxuta sem `checklistItem` aninhado — usar checklist em cache). */
   items?: InspectionItem[];
-  /** Relações opcionais retornadas pela API (GET /inspections/:id). */
-  team?: Team;
-  checklist?: Checklist;
-  createdBy?: User;
-  collaborators?: Collaborator[];
   evidences?: Evidence[];
   signatures?: Signature[];
+  team?: Pick<Team, "name"> | Team;
+  checklist?: Pick<Checklist, "name"> | Checklist;
+  createdBy?: User;
+  collaborators?: Collaborator[];
 }
 
 export interface InspectionItem {

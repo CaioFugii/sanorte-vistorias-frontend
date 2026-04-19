@@ -15,7 +15,7 @@ import {
 import { Delete, Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Inspection } from "@/domain";
+import { InspectionListItem } from "@/domain";
 import { InspectionStatus, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -34,8 +34,8 @@ export const InspectionsPage = (): JSX.Element => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [osNumber, setOsNumber] = useState("");
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [allForFiscal, setAllForFiscal] = useState<Inspection[] | null>(null);
+  const [inspections, setInspections] = useState<InspectionListItem[]>([]);
+  const [allForFiscal, setAllForFiscal] = useState<InspectionListItem[] | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [meta, setMeta] = useState<{
     page: number;
@@ -46,7 +46,7 @@ export const InspectionsPage = (): JSX.Element => {
     hasPrev: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deletingInspection, setDeletingInspection] = useState<Inspection | null>(null);
+  const [deletingInspection, setDeletingInspection] = useState<InspectionListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const isFiscal = hasRole("FISCAL" as any) && user;
 
@@ -104,7 +104,7 @@ export const InspectionsPage = (): JSX.Element => {
 
   const isAdminOrManager =
     user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
-  const canDeleteInspection = (inspection: Inspection): boolean =>
+  const canDeleteInspection = (inspection: InspectionListItem): boolean =>
     inspection.status === InspectionStatus.RASCUNHO;
 
   const handleDeleteInspection = async () => {

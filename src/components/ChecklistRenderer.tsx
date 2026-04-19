@@ -1,5 +1,6 @@
 import { Alert, Box, Paper, TextField, Typography } from "@mui/material";
 import { Checklist, Evidence, InspectionItem } from "@/domain";
+import { MAX_PHOTOS_PER_CHECKLIST_ITEM } from "@/domain/photoLimits";
 import { ChecklistAnswer } from "@/domain/enums";
 import { evidenceToPhotoFile, PhotoFile, PhotoUploader } from "./PhotoUploader";
 import { AnswerRadioGroup } from "./AnswerRadioGroup";
@@ -9,12 +10,13 @@ interface ChecklistRendererProps {
   inspectionItems: InspectionItem[];
   evidences: Evidence[];
   onItemChange: (itemId: string, updates: Partial<InspectionItem>) => void;
-  onEvidencesChange: (itemId: string, photos: PhotoFile[]) => void;
+  onEvidencesChange: (itemId: string, photos: PhotoFile[]) => void | Promise<void>;
   disabled?: boolean;
-  /** Quando false, oculta o upload de fotos nos itens do checklist. */
+  /** Quando false, oculta o upload por item. Quando true, fotos por item só aparecem se a resposta for NÃO_CONFORME. */
   showItemEvidenceUploader?: boolean;
   /** Quando informado, fotos são enviadas ao Cloudinary/API antes de adicionar. */
   onUploadEvidence?: (file: File, inspectionItemId?: string) => Promise<{
+    id?: string;
     publicId: string;
     url: string;
     bytes: number;
@@ -57,11 +59,13 @@ export const ChecklistRenderer = ({
                 if (!inspectionItem) {
                   return null;
                 }
+                const isNonConforme = inspectionItem.answer === ChecklistAnswer.NAO_CONFORME;
                 const itemEvidences: PhotoFile[] = evidences
                   .filter((evidence) => evidence.inspectionItemId === inspectionItem.id)
                   .map(evidenceToPhotoFile);
+                const showPerItemPhotos = showItemEvidenceUploader && isNonConforme;
                 const requiresPhoto =
-                  inspectionItem.answer === ChecklistAnswer.NAO_CONFORME &&
+                  isNonConforme &&
                   item.requiresPhotoOnNonConformity &&
                   itemEvidences.length === 0;
                 return (
@@ -92,7 +96,12 @@ export const ChecklistRenderer = ({
                     )}
                     <AnswerRadioGroup
                       value={inspectionItem.answer}
-                      onChange={(value) => onItemChange(inspectionItem.id, { answer: value })}
+                      onChange={(value) => {
+                        onItemChange(inspectionItem.id, { answer: value });
+                        if (value !== ChecklistAnswer.NAO_CONFORME) {
+                          void onEvidencesChange(inspectionItem.id, []);
+                        }
+                      }}
                       disabled={disabled}
                     />
                     <TextField
@@ -107,7 +116,7 @@ export const ChecklistRenderer = ({
                       disabled={disabled}
                       sx={{ mb: 2 }}
                     />
-                    {showItemEvidenceUploader && (
+                    {showPerItemPhotos && (
                       <>
                         {requiresPhoto && (
                           <Alert severity="warning" sx={{ mb: 2 }}>
@@ -118,6 +127,7 @@ export const ChecklistRenderer = ({
                           photos={itemEvidences}
                           onChange={(photos) => onEvidencesChange(inspectionItem.id, photos)}
                           disabled={disabled}
+                          maxPhotos={MAX_PHOTOS_PER_CHECKLIST_ITEM}
                           onUpload={onUploadEvidence ? (file) => onUploadEvidence(file, inspectionItem.id) : undefined}
                         />
                       </>

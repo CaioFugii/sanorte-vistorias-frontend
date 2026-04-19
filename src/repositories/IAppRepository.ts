@@ -5,6 +5,7 @@ import {
   Contract,
   Evidence,
   Inspection,
+  InspectionListItem,
   InspectionScope,
   InspectionStatus,
   InspectionItem,
@@ -195,13 +196,13 @@ export interface IAppRepository {
     osNumber?: string;
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResponse<Inspection>>;
+  }): Promise<PaginatedResponse<InspectionListItem>>;
   getMyInspections(params?: {
     page?: number;
     limit?: number;
     osNumber?: string;
     inspectionScope?: InspectionScope;
-  }): Promise<PaginatedResponse<Inspection>>;
+  }): Promise<PaginatedResponse<InspectionListItem>>;
   getDashboardSummary(params?: {
     from?: string;
     to?: string;
@@ -370,11 +371,11 @@ export interface IAppRepository {
   }): Promise<Inspection>;
   getInspection(externalId: string, forceApi?: boolean): Promise<Inspection | null>;
   deleteInspection(externalId: string): Promise<void>;
-  listInspections(): Promise<Inspection[]>;
-  listInspectionsByUser(userId: string): Promise<Inspection[]>;
+  listInspections(): Promise<InspectionListItem[]>;
+  listInspectionsByUser(userId: string): Promise<InspectionListItem[]>;
   /** Lista para perfil FISCAL: online = API + local (rascunhos); offline = só local. */
-  listInspectionsForFiscal(userId: string): Promise<Inspection[]>;
-  listPendingAdjustments(): Promise<Inspection[]>;
+  listInspectionsForFiscal(userId: string): Promise<InspectionListItem[]>;
+  listPendingAdjustments(): Promise<InspectionListItem[]>;
   updateInspection(externalId: string, updates: Partial<Inspection>): Promise<Inspection>;
   updateInspectionOnline(externalId: string, updates: Partial<Inspection>): Promise<Inspection>;
   setInspectionItemsOnline(externalId: string, items: InspectionItem[]): Promise<InspectionItem[]>;
@@ -411,7 +412,7 @@ export interface IAppRepository {
   setInspectionItems(externalId: string, items: InspectionItem[]): Promise<void>;
   getInspectionItems(externalId: string): Promise<InspectionItem[]>;
   saveEvidence(evidence: Evidence): Promise<Evidence>;
-  removeEvidence(evidenceId: string): Promise<void>;
+  removeEvidence(externalId: string, evidenceId: string): Promise<void>;
   getEvidences(externalId: string): Promise<Evidence[]>;
   saveSignature(signature: Signature): Promise<Signature>;
   getSignature(externalId: string): Promise<Signature | null>;

@@ -6,6 +6,7 @@ import {
   Contract,
   Evidence,
   Inspection,
+  InspectionListItem,
   InspectionScope,
   InspectionStatus,
   InspectionItem,
@@ -18,10 +19,14 @@ import {
   User,
 } from "@/domain";
 import { UserRole } from "@/domain/enums";
+import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
 import { IAppRepository } from "./IAppRepository";
 
 /** Normaliza inspeção vinda da API: serverId (id interno), externalId e itens. */
-function normalizeInspectionFromApi(inspection: Inspection & { id?: string }, externalId: string): Inspection {
+function normalizeInspectionFromApi(
+  inspection: Partial<Inspection> & { id?: string },
+  externalId: string
+): Inspection {
   const serverId = inspection.id ?? inspection.serverId;
   const routeId = externalId || inspection.externalId || (inspection as { id?: string }).id || "";
   const items = inspection.items?.map((item) => ({
@@ -32,14 +37,32 @@ function normalizeInspectionFromApi(inspection: Inspection & { id?: string }, ex
     ...inspection,
     externalId: routeId,
     serverId,
+    checklistId: inspection.checklistId ?? "",
+    updatedAt: inspection.updatedAt ?? inspection.createdAt ?? new Date().toISOString(),
+    createdAt: inspection.createdAt ?? new Date().toISOString(),
     items: items ?? inspection.items,
-  };
+  } as Inspection;
 }
 
-/** Garante externalId preenchido (id da API como fallback) para itens de listagem. */
-function normalizeInspectionListItem(inspection: Inspection & { id?: string }): Inspection {
+/** Garante externalId preenchido (id da API como fallback) para linhas de listagem enxuta. */
+function normalizeInspectionListItem(
+  inspection: Partial<InspectionListItem> & { id?: string }
+): InspectionListItem {
   const routeId = inspection.externalId ?? inspection.id ?? "";
-  return normalizeInspectionFromApi(inspection, routeId);
+  const serverId = inspection.serverId ?? inspection.id;
+  return {
+    externalId: routeId,
+    serverId,
+    module: inspection.module as ModuleType,
+    serviceDescription: inspection.serviceDescription ?? "",
+    locationDescription: inspection.locationDescription ?? "",
+    status: inspection.status as InspectionStatus,
+    scorePercent: inspection.scorePercent,
+    hasParalysisPenalty: inspection.hasParalysisPenalty,
+    finalizedAt: inspection.finalizedAt,
+    createdAt: inspection.createdAt ?? "",
+    serviceOrder: inspection.serviceOrder ?? null,
+  };
 }
 
 export class AppRepository implements IAppRepository {
@@ -364,11 +387,13 @@ export class AppRepository implements IAppRepository {
     osNumber?: string;
     page?: number;
     limit?: number;
-  }): Promise<PaginatedResponse<Inspection>> {
+  }): Promise<PaginatedResponse<InspectionListItem>> {
     const res = await this.apiRepository.getInspections(params);
     return {
       ...res,
-      data: res.data.map((i) => normalizeInspectionListItem(i as Inspection & { id?: string })),
+      data: res.data.map((i) =>
+        normalizeInspectionListItem(i as Partial<InspectionListItem> & { id?: string })
+      ),
     };
   }
 
@@ -377,11 +402,13 @@ export class AppRepository implements IAppRepository {
     limit?: number;
     osNumber?: string;
     inspectionScope?: InspectionScope;
-  }): Promise<PaginatedResponse<Inspection>> {
+  }): Promise<PaginatedResponse<InspectionListItem>> {
     const res = await this.apiRepository.getMyInspections(params);
     return {
       ...res,
-      data: res.data.map((i) => normalizeInspectionListItem(i as Inspection & { id?: string })),
+      data: res.data.map((i) =>
+        normalizeInspectionListItem(i as Partial<InspectionListItem> & { id?: string })
+      ),
     };
   }
 
@@ -584,7 +611,7 @@ export class AppRepository implements IAppRepository {
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,
     });
-    const createdWithId = created as Inspection & { id?: string };
+    const createdWithId = created as Partial<Inspection> & { id?: string };
     const routeId = createdWithId.externalId ?? createdWithId.id;
     if (!routeId) {
       throw new Error("API retornou vistoria sem id nem externalId");
@@ -603,7 +630,7 @@ export class AppRepository implements IAppRepository {
   async getInspection(externalId: string, _forceApi = false): Promise<Inspection | null> {
     try {
       const inspection = await this.apiRepository.getInspection(externalId);
-      return normalizeInspectionFromApi(inspection as Inspection & { id?: string }, externalId);
+      return normalizeInspectionFromApi(inspection as Partial<Inspection> & { id?: string }, externalId);
     } catch {
       return null;
     }
@@ -616,21 +643,21 @@ export class AppRepository implements IAppRepository {
     await this.apiRepository.deleteInspection(inspectionId);
   }
 
-  async listInspections(): Promise<Inspection[]> {
+  async listInspections(): Promise<InspectionListItem[]> {
     const res = await this.getInspections({ page: 1, limit: 100 });
     return res.data;
   }
 
-  async listInspectionsByUser(_userId: string): Promise<Inspection[]> {
+  async listInspectionsByUser(_userId: string): Promise<InspectionListItem[]> {
     const res = await this.getMyInspections({ page: 1, limit: 100 });
     return res.data;
   }
 
-  async listInspectionsForFiscal(userId: string): Promise<Inspection[]> {
+  async listInspectionsForFiscal(userId: string): Promise<InspectionListItem[]> {
     return this.listInspectionsByUser(userId);
   }
 
-  async listPendingAdjustments(): Promise<Inspection[]> {
+  async listPendingAdjustments(): Promise<InspectionListItem[]> {
     const res = await this.getInspections({
       status: InspectionStatus.PENDENTE_AJUSTE,
       page: 1,
@@ -753,10 +780,11 @@ export class AppRepository implements IAppRepository {
       const res = await fetch(evidence.dataUrl);
       const blob = await res.blob();
       const file = new File([blob], evidence.fileName, { type: evidence.mimeType });
+      const prepared = await prepareImageForUpload(file);
       const inspectionId = (await this.getInspection(evidence.inspectionExternalId))?.serverId ?? evidence.inspectionExternalId;
       const created = await this.apiRepository.addInspectionEvidence(
         inspectionId,
-        file,
+        prepared,
         evidence.inspectionItemId
       );
       return {
@@ -773,8 +801,21 @@ export class AppRepository implements IAppRepository {
     throw new Error("Evidência sem dados para upload (dataUrl ou cloudinaryPublicId).");
   }
 
-  async removeEvidence(_evidenceId: string): Promise<void> {
-    // TODO: Backend não possui endpoint de remoção de evidência; remoção é apenas local.
+  async removeEvidence(externalId: string, evidenceId: string): Promise<void> {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+    const inspection = await this.getInspection(externalId);
+    if (!inspection) return;
+    const inspectionId = inspection.serverId ?? externalId;
+    try {
+      await this.apiRepository.deleteInspectionEvidence(inspectionId, evidenceId);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status !== 404) {
+        throw err;
+      }
+    }
   }
 
   async getEvidences(externalId: string): Promise<Evidence[]> {
