@@ -510,7 +510,7 @@ export const NewInspectionPage = (): JSX.Element => {
                 module={module}
                 inspectionScope={inspectionScope}
                 sectorId={sectorId}
-                disabled={!sectorId}
+                disabled={!sectorId && module !== ModuleType.SEGURANCA_TRABALHO}
                 required
                 onLoadingChange={handleChecklistLoadingChange}
               />

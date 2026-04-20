@@ -2,7 +2,7 @@ import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent } from "@m
 import { InspectionScope, ModuleType } from "@/domain";
 import { Checklist } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ChecklistSelectProps {
   value: string;
@@ -26,9 +26,16 @@ export function ChecklistSelect({
   onLoadingChange,
 }: ChecklistSelectProps): JSX.Element {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
+  const hasMountedRef = useRef(false);
+  const prevModuleRef = useRef<ModuleType | undefined>(module);
 
   useEffect(() => {
-    if (!sectorId || !module) {
+    if (!module) return;
+
+    const moduleChanged = hasMountedRef.current && prevModuleRef.current !== module;
+    const shouldFetch = Boolean(sectorId) || moduleChanged;
+
+    if (!shouldFetch) {
       setChecklists([]);
       onLoadingChange?.(false);
       return;
@@ -36,7 +43,7 @@ export function ChecklistSelect({
     let cancelled = false;
     onLoadingChange?.(true);
     appRepository
-      .getChecklists({ sectorId, module, inspectionScope, page: 1, limit: 100 })
+      .getChecklists({ ...(sectorId ? { sectorId } : {}), module, inspectionScope, page: 1, limit: 100 })
       .then((res) => {
         if (!cancelled) setChecklists(res.data);
       })
@@ -51,6 +58,11 @@ export function ChecklistSelect({
       onLoadingChange?.(false);
     };
   }, [sectorId, module, inspectionScope, onLoadingChange]);
+
+  useEffect(() => {
+    hasMountedRef.current = true;
+    prevModuleRef.current = module;
+  }, [module]);
 
   const handleChange = (event: SelectChangeEvent<string>) => onChange(event.target.value);
   const hasNoOptions = checklists.length === 0;
