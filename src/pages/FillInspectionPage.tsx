@@ -36,7 +36,8 @@ import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
   const navigate = useNavigate();
-  const { checklists, serviceOrders, loadServiceOrders } = useReferenceStore();
+  const { checklists, serviceOrders, loadServiceOrders, loadCache, loading: referencesLoading } =
+    useReferenceStore();
   const {
     currentInspection,
     inspectionItems,
@@ -66,11 +67,15 @@ export const FillInspectionPage = (): JSX.Element => {
     const run = async () => {
       setSignerName("");
       setSignatureDataUrl(null);
-      await load(externalId);
-      setLoading(false);
+      setLoading(true);
+      try {
+        await Promise.all([load(externalId), loadCache()]);
+      } finally {
+        setLoading(false);
+      }
     };
     run();
-  }, [externalId, load]);
+  }, [externalId, load, loadCache]);
 
   useEffect(() => {
     loadServiceOrders();
@@ -123,7 +128,7 @@ export const FillInspectionPage = (): JSX.Element => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checklist?.id, currentInspection?.externalId]);
 
-  if (loading) {
+  if (loading || referencesLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
