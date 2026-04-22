@@ -292,6 +292,7 @@ export const NewInspectionPage = (): JSX.Element => {
     }
     setSubmitLoading(true);
     setFormError(null);
+    let createdInspectionExternalId: string | null = null;
     try {
       const inspection = await appRepository.createInspection({
         module,
@@ -308,7 +309,7 @@ export const NewInspectionPage = (): JSX.Element => {
         locationDescription,
         createdByUserId: user.id,
       });
-      navigate(`/inspections/${inspection.externalId}/fill`);
+      createdInspectionExternalId = inspection.externalId;
     } catch (error) {
       const friendlyError = getInspectionFormFriendlyError(error);
       if (friendlyError) {
@@ -318,6 +319,9 @@ export const NewInspectionPage = (): JSX.Element => {
       throw error;
     } finally {
       setSubmitLoading(false);
+    }
+    if (createdInspectionExternalId) {
+      navigate(`/inspections/${createdInspectionExternalId}/fill`);
     }
   };
 
