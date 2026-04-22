@@ -235,3 +235,76 @@ export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
 }
+
+export type ReportFieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "datetime"
+  | "select"
+  | "radio"
+  | "checkbox"
+  | "image"
+  | "signature";
+
+export interface ReportType {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  version: number;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReportFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface ReportTypeField {
+  id: string;
+  reportTypeId: string;
+  fieldKey: string;
+  label: string;
+  type: ReportFieldType;
+  required: boolean;
+  order: number;
+  placeholder?: string | null;
+  helpText?: string | null;
+  options?: ReportFieldOption[] | null;
+  defaultValue?: unknown;
+  multiple: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReportFileReference {
+  id: string;
+  reportRecordId?: string | null;
+  reportTypeId?: string;
+  fieldKey: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  storageProvider?: string;
+  storageKey?: string;
+  publicId?: string;
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export interface ReportRecord {
+  id: string;
+  reportTypeId: string;
+  userId: string;
+  schemaVersion: number;
+  formData: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  reportType: ReportType;
+  files: ReportFileReference[];
+}

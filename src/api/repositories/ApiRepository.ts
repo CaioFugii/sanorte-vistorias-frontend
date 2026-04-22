@@ -15,6 +15,10 @@ import {
   ServiceOrder,
   Team,
   User,
+  ReportFileReference,
+  ReportRecord,
+  ReportType,
+  ReportTypeField,
 } from "@/domain";
 
 export interface ServiceOrdersParams {
@@ -468,6 +472,48 @@ export class ApiRepository {
 
   async getInspection(id: string): Promise<Inspection> {
     const response = await apiClient.get<Inspection>(`/inspections/${id}`);
+    return response.data;
+  }
+
+  async getReportTypes(): Promise<ReportType[]> {
+    const response = await apiClient.get<ReportType[]>("/reports/types");
+    return response.data;
+  }
+
+  async getReportTypeFields(code: string): Promise<ReportTypeField[]> {
+    const response = await apiClient.get<ReportTypeField[]>(`/reports/types/${code}/fields`);
+    return response.data;
+  }
+
+  async uploadReportFile(
+    file: File,
+    input: {
+      reportTypeCode: string;
+      fieldKey: string;
+      reportRecordId?: string;
+    }
+  ): Promise<ReportFileReference> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("reportTypeCode", input.reportTypeCode);
+    formData.append("fieldKey", input.fieldKey);
+    if (input.reportRecordId) {
+      formData.append("reportRecordId", input.reportRecordId);
+    }
+    const response = await apiClient.post<ReportFileReference>("/reports/files", formData);
+    return response.data;
+  }
+
+  async createReportRecord(input: {
+    reportTypeCode: string;
+    formData: Record<string, unknown>;
+  }): Promise<ReportRecord> {
+    const response = await apiClient.post<ReportRecord>("/reports/records", input);
+    return response.data;
+  }
+
+  async getReportRecord(id: string): Promise<ReportRecord> {
+    const response = await apiClient.get<ReportRecord>(`/reports/records/${id}`);
     return response.data;
   }
 

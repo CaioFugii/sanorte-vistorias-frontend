@@ -22,6 +22,7 @@ import {
   BusinessCenter,
   Checklist,
   Dashboard,
+  Description,
   Engineering,
   Groups,
   Logout,
@@ -51,6 +52,7 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JS
     { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" /> },
     { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
     { path: "/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
     { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
   ],
   GESTOR: [
@@ -88,6 +90,12 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
   }, [logout, navigate]);
 
   const menuItems = user ? menuByRole[user.role] : [];
+  const isItemSelected = (path: string): boolean => {
+    if (path === "/reports/new") {
+      return location.pathname.startsWith("/reports/");
+    }
+    return location.pathname === path;
+  };
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -120,7 +128,7 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
         {menuItems.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
-              selected={location.pathname === item.path}
+              selected={isItemSelected(item.path)}
               sx={{
                 borderRadius: 2,
                 mb: 0.25,

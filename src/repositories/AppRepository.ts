@@ -17,6 +17,10 @@ import {
   Signature,
   Team,
   User,
+  ReportType,
+  ReportTypeField,
+  ReportFileReference,
+  ReportRecord,
 } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
@@ -86,12 +90,14 @@ export class AppRepository implements IAppRepository {
     localStorage.removeItem("auth_user");
   }
 
-  async loadTeams(_forceApi = false): Promise<Team[]> {
+  async loadTeams(forceApi = false): Promise<Team[]> {
+    void forceApi;
     const result = await this.apiRepository.getTeams({ page: 1, limit: 100 });
     return result.data;
   }
 
-  async loadSectors(_forceApi = false): Promise<Sector[]> {
+  async loadSectors(forceApi = false): Promise<Sector[]> {
+    void forceApi;
     const result = await this.apiRepository.getSectors({ page: 1, limit: 100 });
     return result.data;
   }
@@ -109,7 +115,8 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getSectors(params);
   }
 
-  async loadChecklists(_forceApi = false): Promise<Checklist[]> {
+  async loadChecklists(forceApi = false): Promise<Checklist[]> {
+    void forceApi;
     const result = await this.apiRepository.getChecklists({ page: 1, limit: 100 });
     return result.data;
   }
@@ -627,7 +634,8 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getInspectionPdf(inspectionId);
   }
 
-  async getInspection(externalId: string, _forceApi = false): Promise<Inspection | null> {
+  async getInspection(externalId: string, forceApi = false): Promise<Inspection | null> {
+    void forceApi;
     try {
       const inspection = await this.apiRepository.getInspection(externalId);
       return normalizeInspectionFromApi(inspection as Partial<Inspection> & { id?: string }, externalId);
@@ -648,7 +656,8 @@ export class AppRepository implements IAppRepository {
     return res.data;
   }
 
-  async listInspectionsByUser(_userId: string): Promise<InspectionListItem[]> {
+  async listInspectionsByUser(userId: string): Promise<InspectionListItem[]> {
+    void userId;
     const res = await this.getMyInspections({ page: 1, limit: 100 });
     return res.data;
   }
@@ -885,6 +894,38 @@ export class AppRepository implements IAppRepository {
 
   async deleteFromCloudinary(publicId: string): Promise<void> {
     return this.apiRepository.deleteFromCloudinary(publicId);
+  }
+
+  async getReportTypes(): Promise<ReportType[]> {
+    return this.apiRepository.getReportTypes();
+  }
+
+  async getReportTypeFields(code: string): Promise<ReportTypeField[]> {
+    return this.apiRepository.getReportTypeFields(code);
+  }
+
+  async uploadReportFile(input: {
+    file: File;
+    reportTypeCode: string;
+    fieldKey: string;
+    reportRecordId?: string;
+  }): Promise<ReportFileReference> {
+    return this.apiRepository.uploadReportFile(input.file, {
+      reportTypeCode: input.reportTypeCode,
+      fieldKey: input.fieldKey,
+      reportRecordId: input.reportRecordId,
+    });
+  }
+
+  async createReportRecord(input: {
+    reportTypeCode: string;
+    formData: Record<string, unknown>;
+  }): Promise<ReportRecord> {
+    return this.apiRepository.createReportRecord(input);
+  }
+
+  async getReportRecord(id: string): Promise<ReportRecord> {
+    return this.apiRepository.getReportRecord(id);
   }
 }
 

@@ -13,6 +13,8 @@ import {
   ManageInspectionPage,
   NewInspectionPage,
   PendingsPage,
+  ReportFormPage,
+  ReportTypesPage,
   SectorsPage,
   ServiceOrdersPage,
   TeamsPage,
@@ -55,6 +57,9 @@ export const router = createBrowserRouter([
       { path: "/inspections/:externalId/fill", element: <FillInspectionPage /> },
       { path: "/inspections/:externalId/manage", element: <ManageInspectionPage /> },
       { path: "/pendings", element: <PendingsPage /> },
+      { path: "/reports/new", element: <ReportTypesPage /> },
+      { path: "/reports/new/:code", element: <ReportFormPage /> },
+      { path: "/reports/records/:recordId", element: <ReportFormPage /> },
     ],
   },
 ]);

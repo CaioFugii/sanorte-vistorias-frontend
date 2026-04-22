@@ -17,6 +17,10 @@ import {
   Team,
   User,
   UserRole,
+  ReportType,
+  ReportTypeField,
+  ReportFileReference,
+  ReportRecord,
 } from "@/domain";
 
 export interface IAppRepository {
@@ -430,4 +434,18 @@ export interface IAppRepository {
     height: number;
   }>;
   deleteFromCloudinary(publicId: string): Promise<void>;
+
+  getReportTypes(): Promise<ReportType[]>;
+  getReportTypeFields(code: string): Promise<ReportTypeField[]>;
+  uploadReportFile(input: {
+    file: File;
+    reportTypeCode: string;
+    fieldKey: string;
+    reportRecordId?: string;
+  }): Promise<ReportFileReference>;
+  createReportRecord(input: {
+    reportTypeCode: string;
+    formData: Record<string, unknown>;
+  }): Promise<ReportRecord>;
+  getReportRecord(id: string): Promise<ReportRecord>;
 }
