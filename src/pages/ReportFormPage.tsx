@@ -19,17 +19,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Delete, PictureAsPdf, Save } from "@mui/icons-material";
+import { Delete, PictureAsPdf } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import {
-  ReportFieldOption,
-  ReportFileReference,
-  ReportRecord,
-  ReportType,
-  ReportTypeField,
-} from "@/domain";
+import { ReportFieldOption, ReportType, ReportTypeField } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { generateReportPdf } from "@/utils/reportPdf";
 
@@ -47,34 +41,26 @@ function parseFieldOptions(options: unknown): ReportFieldOption[] {
     .filter((entry): entry is ReportFieldOption => Boolean(entry));
 }
 
-function toReportFileReference(value: unknown, fallbackFieldKey: string): ReportFileReference | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as Partial<ReportFileReference>;
-  if (typeof raw.id !== "string" || typeof raw.url !== "string") return null;
-  return {
-    id: raw.id,
-    fieldKey: typeof raw.fieldKey === "string" ? raw.fieldKey : fallbackFieldKey,
-    originalName: typeof raw.originalName === "string" ? raw.originalName : "arquivo",
-    mimeType: typeof raw.mimeType === "string" ? raw.mimeType : "image/jpeg",
-    size: typeof raw.size === "number" ? raw.size : 0,
-    url: raw.url,
-    publicId: raw.publicId,
-    reportRecordId: raw.reportRecordId,
-    reportTypeId: raw.reportTypeId,
-    storageKey: raw.storageKey,
-    storageProvider: raw.storageProvider,
-    createdAt: raw.createdAt,
-    createdBy: raw.createdBy,
-  };
+interface LocalMediaFile {
+  id: string;
+  name: string;
+  dataUrl: string;
 }
 
-function toFileArray(value: unknown, fieldKey: string): ReportFileReference[] {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => toReportFileReference(entry, fieldKey))
-      .filter((entry): entry is ReportFileReference => Boolean(entry));
+function toLocalMediaFile(value: unknown): LocalMediaFile | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<LocalMediaFile>;
+  if (typeof raw.id !== "string" || typeof raw.name !== "string" || typeof raw.dataUrl !== "string") {
+    return null;
   }
-  const single = toReportFileReference(value, fieldKey);
+  return { id: raw.id, name: raw.name, dataUrl: raw.dataUrl };
+}
+
+function toFileArray(value: unknown): LocalMediaFile[] {
+  if (Array.isArray(value)) {
+    return value.map(toLocalMediaFile).filter((entry): entry is LocalMediaFile => Boolean(entry));
+  }
+  const single = toLocalMediaFile(value);
   return single ? [single] : [];
 }
 
@@ -85,20 +71,9 @@ function getDefaultValue(field: ReportTypeField): unknown {
   return "";
 }
 
-function buildInitialValues(fields: ReportTypeField[], source?: Record<string, unknown>): Record<string, unknown> {
+function buildInitialValues(fields: ReportTypeField[]): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const field of fields) {
-    const sourceValue = source?.[field.fieldKey];
-    if (sourceValue !== undefined) {
-      if (field.type === "image" || field.type === "signature") {
-        values[field.fieldKey] = field.multiple
-          ? toFileArray(sourceValue, field.fieldKey)
-          : toFileArray(sourceValue, field.fieldKey)[0] ?? null;
-      } else {
-        values[field.fieldKey] = sourceValue;
-      }
-      continue;
-    }
     values[field.fieldKey] = getDefaultValue(field);
   }
   return values;
@@ -107,7 +82,7 @@ function buildInitialValues(fields: ReportTypeField[], source?: Record<string, u
 function hasRequiredValue(field: ReportTypeField, value: unknown): boolean {
   if (!field.required) return true;
   if (field.type === "image" || field.type === "signature") {
-    const files = toFileArray(value, field.fieldKey);
+    const files = toFileArray(value);
     return files.length > 0;
   }
   if (field.multiple && Array.isArray(value)) {
@@ -123,34 +98,21 @@ function hasRequiredValue(field: ReportTypeField, value: unknown): boolean {
 }
 
 export const ReportFormPage = (): JSX.Element => {
-  const { code = "", recordId = "" } = useParams();
+  const { code = "" } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [uploadingByField, setUploadingByField] = useState<Record<string, boolean>>({});
   const [reportType, setReportType] = useState<ReportType | null>(null);
   const [fields, setFields] = useState<ReportTypeField[]>([]);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
-  const [savedRecord, setSavedRecord] = useState<ReportRecord | null>(null);
 
   useEffect(() => {
     const run = async () => {
       setLoading(true);
       setError(null);
       try {
-        if (recordId) {
-          const record = await appRepository.getReportRecord(recordId);
-          const schema = await appRepository.getReportTypeFields(record.reportType.code);
-          setReportType(record.reportType);
-          setFields(schema.sort((a, b) => a.order - b.order));
-          setSavedRecord(record);
-          setFormValues(buildInitialValues(schema, record.formData));
-          setValidationErrors({});
-          return;
-        }
-
         const [types, schema] = await Promise.all([
           appRepository.getReportTypes(),
           appRepository.getReportTypeFields(code),
@@ -174,12 +136,9 @@ export const ReportFormPage = (): JSX.Element => {
       }
     };
     void run();
-  }, [code, recordId]);
+  }, [code]);
 
-  const isUploading = useMemo(
-    () => Object.values(uploadingByField).some(Boolean),
-    [uploadingByField]
-  );
+  const isGenerating = useMemo(() => generatingPdf, [generatingPdf]);
 
   const updateFieldValue = (fieldKey: string, value: unknown) => {
     setFormValues((current) => ({ ...current, [fieldKey]: value }));
@@ -191,36 +150,43 @@ export const ReportFormPage = (): JSX.Element => {
     });
   };
 
+  const readFileAsDataUrl = async (file: File): Promise<string> =>
+    await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const uploadFiles = async (field: ReportTypeField, selectedFiles: FileList | null) => {
-    if (!selectedFiles || !reportType) return;
+    if (!selectedFiles) return;
     const files = Array.from(selectedFiles);
     if (files.length === 0) return;
-    setUploadingByField((current) => ({ ...current, [field.fieldKey]: true }));
     try {
-      const uploaded: ReportFileReference[] = [];
+      const uploaded: LocalMediaFile[] = [];
       for (const file of files) {
-        const result = await appRepository.uploadReportFile({
-          file,
-          reportTypeCode: reportType.code,
-          fieldKey: field.fieldKey,
-          reportRecordId: savedRecord?.id,
+        if (!file.type.startsWith("image/")) {
+          continue;
+        }
+        const dataUrl = await readFileAsDataUrl(file);
+        uploaded.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          dataUrl,
         });
-        uploaded.push(result);
       }
-      const currentFiles = toFileArray(formValues[field.fieldKey], field.fieldKey);
+      const currentFiles = toFileArray(formValues[field.fieldKey]);
       updateFieldValue(
         field.fieldKey,
         field.multiple ? [...currentFiles, ...uploaded] : uploaded[0] ?? null
       );
     } catch {
-      toast.error("Falha ao enviar imagem. Tente novamente.");
-    } finally {
-      setUploadingByField((current) => ({ ...current, [field.fieldKey]: false }));
+      toast.error("Falha ao processar imagem localmente.");
     }
   };
 
   const removeFile = (field: ReportTypeField, fileId: string) => {
-    const next = toFileArray(formValues[field.fieldKey], field.fieldKey).filter((file) => file.id !== fileId);
+    const next = toFileArray(formValues[field.fieldKey]).filter((file) => file.id !== fileId);
     updateFieldValue(field.fieldKey, field.multiple ? next : next[0] ?? null);
   };
 
@@ -235,57 +201,23 @@ export const ReportFormPage = (): JSX.Element => {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const buildPayload = (): Record<string, unknown> => {
-    const payload: Record<string, unknown> = {};
-    for (const field of fields) {
-      const value = formValues[field.fieldKey];
-      if (field.type === "image" || field.type === "signature") {
-        const files = toFileArray(value, field.fieldKey);
-        payload[field.fieldKey] = field.multiple ? files.map((file) => file.id) : files[0]?.id ?? null;
-        continue;
-      }
-      if (field.type === "number") {
-        payload[field.fieldKey] = value === "" || value === null || value === undefined ? null : Number(value);
-        continue;
-      }
-      payload[field.fieldKey] = value;
-    }
-    return payload;
-  };
-
-  const handleSave = async () => {
+  const handleGeneratePdf = async () => {
     if (!reportType) return;
     if (!validateForm()) {
       toast.error("Preencha os campos obrigatorios.");
       return;
     }
-    setSaving(true);
+    setGeneratingPdf(true);
     try {
-      const created = await appRepository.createReportRecord({
-        reportTypeCode: reportType.code,
-        formData: buildPayload(),
+      await generateReportPdf({
+        reportType,
+        fields,
+        formData: formValues,
       });
-      setSavedRecord(created);
-      setReportType(created.reportType);
-      setFormValues(buildInitialValues(fields, created.formData));
-      toast.success("Relatorio salvo com sucesso.");
-      if (!recordId) {
-        navigate(`/reports/records/${created.id}`, { replace: true });
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleGeneratePdf = async () => {
-    if (!savedRecord) {
-      toast.info("Salve o relatorio antes de gerar o PDF.");
-      return;
-    }
-    try {
-      await generateReportPdf({ record: savedRecord, fields });
     } catch {
       toast.error("Nao foi possivel gerar o PDF.");
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -307,14 +239,8 @@ export const ReportFormPage = (): JSX.Element => {
         {reportType.name}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Preencha os campos abaixo, envie as imagens necessarias e salve para gerar o PDF.
+        Preencha os campos abaixo e gere o PDF diretamente no frontend.
       </Typography>
-
-      {savedRecord && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Registro salvo com ID: {savedRecord.id}
-        </Alert>
-      )}
 
       <Card>
         <CardContent>
@@ -457,7 +383,7 @@ export const ReportFormPage = (): JSX.Element => {
                 );
               }
 
-              const files = toFileArray(value, field.fieldKey);
+              const files = toFileArray(value);
               return (
                 <FormControl key={field.id} error={Boolean(requiredError)} required={field.required}>
                   <FormLabel>{field.label}</FormLabel>
@@ -465,9 +391,9 @@ export const ReportFormPage = (): JSX.Element => {
                     <Button
                       variant="outlined"
                       component="label"
-                      disabled={Boolean(uploadingByField[field.fieldKey]) || saving}
+                      disabled={isGenerating}
                     >
-                      {uploadingByField[field.fieldKey] ? "Enviando..." : "Selecionar imagem"}
+                      Selecionar imagem
                       <input
                         hidden
                         type="file"
@@ -476,7 +402,6 @@ export const ReportFormPage = (): JSX.Element => {
                         onChange={(event) => void uploadFiles(field, event.target.files)}
                       />
                     </Button>
-                    {uploadingByField[field.fieldKey] && <CircularProgress size={20} />}
                   </Stack>
 
                   {files.length > 0 && (
@@ -484,8 +409,8 @@ export const ReportFormPage = (): JSX.Element => {
                       {files.map((file) => (
                         <Box key={file.id} sx={{ position: "relative" }}>
                           <img
-                            src={file.url}
-                            alt={file.originalName}
+                            src={file.dataUrl}
+                            alt={file.name}
                             style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 6 }}
                           />
                           <IconButton
@@ -514,20 +439,12 @@ export const ReportFormPage = (): JSX.Element => {
           Voltar
         </Button>
         <Button
-          variant="outlined"
-          startIcon={<PictureAsPdf />}
-          onClick={() => void handleGeneratePdf()}
-          disabled={!savedRecord}
-        >
-          Gerar PDF
-        </Button>
-        <Button
           variant="contained"
-          startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-          onClick={() => void handleSave()}
-          disabled={saving || isUploading}
+          startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <PictureAsPdf />}
+          onClick={() => void handleGeneratePdf()}
+          disabled={isGenerating}
         >
-          {saving ? "Salvando..." : "Salvar relatorio"}
+          {isGenerating ? "Gerando..." : "Gerar PDF"}
         </Button>
       </Box>
     </Box>

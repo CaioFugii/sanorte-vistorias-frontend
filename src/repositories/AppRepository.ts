@@ -19,8 +19,6 @@ import {
   User,
   ReportType,
   ReportTypeField,
-  ReportFileReference,
-  ReportRecord,
 } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
@@ -902,30 +900,6 @@ export class AppRepository implements IAppRepository {
 
   async getReportTypeFields(code: string): Promise<ReportTypeField[]> {
     return this.apiRepository.getReportTypeFields(code);
-  }
-
-  async uploadReportFile(input: {
-    file: File;
-    reportTypeCode: string;
-    fieldKey: string;
-    reportRecordId?: string;
-  }): Promise<ReportFileReference> {
-    return this.apiRepository.uploadReportFile(input.file, {
-      reportTypeCode: input.reportTypeCode,
-      fieldKey: input.fieldKey,
-      reportRecordId: input.reportRecordId,
-    });
-  }
-
-  async createReportRecord(input: {
-    reportTypeCode: string;
-    formData: Record<string, unknown>;
-  }): Promise<ReportRecord> {
-    return this.apiRepository.createReportRecord(input);
-  }
-
-  async getReportRecord(id: string): Promise<ReportRecord> {
-    return this.apiRepository.getReportRecord(id);
   }
 }
 

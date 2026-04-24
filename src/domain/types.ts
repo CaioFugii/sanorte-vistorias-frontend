@@ -281,30 +281,3 @@ export interface ReportTypeField {
   updatedAt?: string;
 }
 
-export interface ReportFileReference {
-  id: string;
-  reportRecordId?: string | null;
-  reportTypeId?: string;
-  fieldKey: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  url: string;
-  storageProvider?: string;
-  storageKey?: string;
-  publicId?: string;
-  createdBy?: string;
-  createdAt?: string;
-}
-
-export interface ReportRecord {
-  id: string;
-  reportTypeId: string;
-  userId: string;
-  schemaVersion: number;
-  formData: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-  reportType: ReportType;
-  files: ReportFileReference[];
-}

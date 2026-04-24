@@ -59,7 +59,6 @@ export const router = createBrowserRouter([
       { path: "/pendings", element: <PendingsPage /> },
       { path: "/reports/new", element: <ReportTypesPage /> },
       { path: "/reports/new/:code", element: <ReportFormPage /> },
-      { path: "/reports/records/:recordId", element: <ReportFormPage /> },
     ],
   },
 ]);
