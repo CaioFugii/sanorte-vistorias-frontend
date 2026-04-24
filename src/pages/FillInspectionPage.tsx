@@ -58,6 +58,7 @@ export const FillInspectionPage = (): JSX.Element => {
   const [signatureDirty, setSignatureDirty] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
   const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
   const [paralyzeReason, setParalyzeReason] = useState("");
   const [paralyzeError, setParalyzeError] = useState<string | null>(null);
@@ -211,56 +212,80 @@ export const FillInspectionPage = (): JSX.Element => {
     setSaving(true);
     try {
       await saveItems();
-      await handleSaveSignature();
+      await handleSaveSignature({ silentIfMissing: true });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSaveSignature = async (): Promise<void> => {
+  const handleSaveSignature = async ({
+    silentIfMissing = false,
+  }: { silentIfMissing?: boolean } = {}): Promise<boolean> => {
     if (!signatureDataUrl || !signerName.trim()) {
-      return;
-    }
-    const base: {
-      id: string;
-      inspectionExternalId: string;
-      signerName: string;
-      signedAt: string;
-      dataUrl?: string;
-      cloudinaryPublicId?: string;
-      url?: string;
-    } = {
-      id: signature?.id ?? crypto.randomUUID(),
-      inspectionExternalId: currentInspection.externalId,
-      signerName,
-      signedAt: new Date().toISOString(),
-    };
-    if (navigator.onLine && signatureDataUrl.startsWith("data:")) {
-      if (signature?.cloudinaryPublicId && signature?.url && !signatureDirty) {
-        base.cloudinaryPublicId = signature.cloudinaryPublicId;
-        base.url = signature.url;
-      } else {
-        try {
-          const res = await fetch(signatureDataUrl);
-          const blob = await res.blob();
-          const file = new File([blob], "signature.png", { type: "image/png" });
-          const result = await appRepository.uploadToCloudinary(file, "quality/signatures");
-          base.cloudinaryPublicId = result.publicId;
-          base.url = result.url;
-        } catch {
-          base.dataUrl = signatureDataUrl;
-        }
+      if (!silentIfMissing) {
+        toast.error("Preencha o nome e a assinatura antes de salvar.");
       }
-    } else {
-      base.dataUrl = signatureDataUrl;
+      return false;
     }
-    await saveSignature(base as Parameters<typeof saveSignature>[0]);
-    setSignatureDirty(false);
+    setSavingSignature(true);
+    try {
+      const base: {
+        id: string;
+        inspectionExternalId: string;
+        signerName: string;
+        signedAt: string;
+        dataUrl?: string;
+        cloudinaryPublicId?: string;
+        url?: string;
+      } = {
+        id: signature?.id ?? crypto.randomUUID(),
+        inspectionExternalId: currentInspection.externalId,
+        signerName,
+        signedAt: new Date().toISOString(),
+      };
+      if (navigator.onLine && signatureDataUrl.startsWith("data:")) {
+        if (signature?.cloudinaryPublicId && signature?.url && !signatureDirty) {
+          base.cloudinaryPublicId = signature.cloudinaryPublicId;
+          base.url = signature.url;
+        } else {
+          try {
+            const res = await fetch(signatureDataUrl);
+            const blob = await res.blob();
+            const file = new File([blob], "signature.png", { type: "image/png" });
+            const result = await appRepository.uploadToCloudinary(file, "quality/signatures");
+            base.cloudinaryPublicId = result.publicId;
+            base.url = result.url;
+          } catch {
+            base.dataUrl = signatureDataUrl;
+          }
+        }
+      } else {
+        base.dataUrl = signatureDataUrl;
+      }
+      await saveSignature(base as Parameters<typeof saveSignature>[0]);
+      setSignatureDirty(false);
+      if (!silentIfMissing) {
+        toast.success("Assinatura salva com sucesso.");
+      }
+      return true;
+    } catch {
+      toast.error("Nao foi possivel salvar a assinatura.");
+      return false;
+    } finally {
+      setSavingSignature(false);
+    }
   };
 
   const handleFinalize = async (): Promise<void> => {
     setFinalizing(true);
     try {
+      if (signatureDataUrl && signerName.trim() && signatureDirty) {
+        const signatureSaved = await handleSaveSignature({ silentIfMissing: true });
+        if (!signatureSaved) {
+          toast.error("Nao foi possivel persistir a assinatura antes de finalizar.");
+          return;
+        }
+      }
       const currentSignature = await appRepository.getSignature(currentInspection.externalId);
       const validation = validateFinalize({
         checklist,
@@ -419,6 +444,18 @@ export const FillInspectionPage = (): JSX.Element => {
             onSignerNameChange={setSignerName}
             disabled={!canEdit}
           />
+          {canEdit && (
+            <Box display="flex" justifyContent="flex-end" mt={2}>
+              <Button
+                variant="outlined"
+                onClick={() => void handleSaveSignature()}
+                disabled={savingSignature}
+                startIcon={savingSignature ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              >
+                {savingSignature ? "Salvando assinatura..." : "Salvar assinatura"}
+              </Button>
+            </Box>
+          )}
         </Paper>
       )}
 
