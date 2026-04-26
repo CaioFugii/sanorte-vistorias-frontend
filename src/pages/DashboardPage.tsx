@@ -540,7 +540,7 @@ export const DashboardPage = (): JSX.Element => {
             <Grid item xs={12} md={4}>
               <KpiCard
                 icon={<Warning color="warning" />}
-                label="Pendentes"
+                label="Pendentes de Ajuste"
                 tone="warning"
                 value={<Typography variant="h3" color="warning.main">{summary.pendingCount}</Typography>}
               />

@@ -1,9 +1,15 @@
 import { ReportPdfBuilder, ReportPdfInput } from "./types";
-import { generateAceitePavimentoPdf } from "./templates/aceitePavimentoPdf";
+import {
+  generateAceitePavimentoPdf,
+  generateRegularizacaoPavimentoPdf,
+  generateRecomposicaoPavimentoPdf,
+} from "./templates/aceitePavimentoPdf";
 import { generateGenericReportPdf } from "./templates/genericReportPdf";
 
 const reportTemplateMap: Record<string, ReportPdfBuilder> = {
   ACEITE_PAVIMENTO: generateAceitePavimentoPdf,
+  RECOMPOSICAO: generateRecomposicaoPavimentoPdf,
+  REGULARIZACAO: generateRegularizacaoPavimentoPdf,
 };
 
 export async function generateReportPdf(input: ReportPdfInput): Promise<void> {
