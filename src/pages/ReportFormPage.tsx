@@ -45,6 +45,7 @@ interface LocalMediaFile {
   id: string;
   name: string;
   dataUrl: string;
+  title?: string;
 }
 
 function toLocalMediaFile(value: unknown): LocalMediaFile | null {
@@ -53,7 +54,12 @@ function toLocalMediaFile(value: unknown): LocalMediaFile | null {
   if (typeof raw.id !== "string" || typeof raw.name !== "string" || typeof raw.dataUrl !== "string") {
     return null;
   }
-  return { id: raw.id, name: raw.name, dataUrl: raw.dataUrl };
+  return {
+    id: raw.id,
+    name: raw.name,
+    dataUrl: raw.dataUrl,
+    title: typeof raw.title === "string" ? raw.title : "",
+  };
 }
 
 function toFileArray(value: unknown): LocalMediaFile[] {
@@ -187,6 +193,13 @@ export const ReportFormPage = (): JSX.Element => {
 
   const removeFile = (field: ReportTypeField, fileId: string) => {
     const next = toFileArray(formValues[field.fieldKey]).filter((file) => file.id !== fileId);
+    updateFieldValue(field.fieldKey, field.multiple ? next : next[0] ?? null);
+  };
+
+  const updateFileTitle = (field: ReportTypeField, fileId: string, title: string) => {
+    const next = toFileArray(formValues[field.fieldKey]).map((file) =>
+      file.id === fileId ? { ...file, title } : file
+    );
     updateFieldValue(field.fieldKey, field.multiple ? next : next[0] ?? null);
   };
 
@@ -405,13 +418,30 @@ export const ReportFormPage = (): JSX.Element => {
                   </Stack>
 
                   {files.length > 0 && (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    <Box
+                      mt={1.5}
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                        gap: 1.5,
+                      }}
+                    >
                       {files.map((file) => (
-                        <Box key={file.id} sx={{ position: "relative" }}>
+                        <Box
+                          key={file.id}
+                          sx={{
+                            position: "relative",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            borderRadius: 1,
+                            p: 1,
+                            bgcolor: "background.paper",
+                          }}
+                        >
                           <img
                             src={file.dataUrl}
                             alt={file.name}
-                            style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 6 }}
+                            style={{ width: "100%", height: 130, objectFit: "cover", borderRadius: 6 }}
                           />
                           <IconButton
                             size="small"
@@ -421,9 +451,17 @@ export const ReportFormPage = (): JSX.Element => {
                           >
                             <Delete fontSize="small" />
                           </IconButton>
+                          <TextField
+                            size="small"
+                            label="Titulo da foto"
+                            value={file.title ?? ""}
+                            onChange={(event) => updateFileTitle(field, file.id, event.target.value)}
+                            disabled={isGenerating}
+                            sx={{ mt: 1, width: "100%" }}
+                          />
                         </Box>
                       ))}
-                    </Stack>
+                    </Box>
                   )}
 
                   <FormHelperText>{requiredError || field.helpText || ""}</FormHelperText>

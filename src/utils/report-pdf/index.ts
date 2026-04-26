@@ -1,13 +1,15 @@
 import { ReportPdfBuilder, ReportPdfInput } from "./types";
 import {
   generateAceitePavimentoPdf,
+  generateManutencaoCanteiroPdf,
   generateRegularizacaoPavimentoPdf,
   generateRecomposicaoPavimentoPdf,
-} from "./templates/aceitePavimentoPdf";
+} from "./templates/photoReportTemplatesPdf";
 import { generateGenericReportPdf } from "./templates/genericReportPdf";
 
 const reportTemplateMap: Record<string, ReportPdfBuilder> = {
   ACEITE_PAVIMENTO: generateAceitePavimentoPdf,
+  MANUTENCAO_CANTEIRO: generateManutencaoCanteiroPdf,
   RECOMPOSICAO: generateRecomposicaoPavimentoPdf,
   REGULARIZACAO: generateRegularizacaoPavimentoPdf,
 };

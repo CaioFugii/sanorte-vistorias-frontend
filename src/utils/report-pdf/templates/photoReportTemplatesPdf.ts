@@ -12,6 +12,7 @@ interface AceitePhoto {
   id: string;
   name: string;
   dataUrl: string;
+  title?: string;
 }
 
 function formatDatePtBr(value: string): string {
@@ -34,7 +35,7 @@ function formatDateDdMmYyyy(value: string): string {
   const day = String(parsed.getDate()).padStart(2, "0");
   const month = String(parsed.getMonth() + 1).padStart(2, "0");
   const year = parsed.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day}/${month}/${year}`;
 }
 
 function toAceitePhoto(value: unknown): AceitePhoto | null {
@@ -49,6 +50,7 @@ function toAceitePhoto(value: unknown): AceitePhoto | null {
     id: typeof candidate.id === "string" ? candidate.id : crypto.randomUUID(),
     name: typeof candidate.name === "string" ? candidate.name : "foto",
     dataUrl: candidate.dataUrl,
+    title: typeof candidate.title === "string" ? candidate.title : "",
   };
 }
 
@@ -59,6 +61,41 @@ function resolveAceitePhotosFromFormData(formData: Record<string, unknown>): Ace
     toAceitePhoto(formData.foto3Depois),
     toAceitePhoto(formData.foto4Depois),
   ].filter((photo): photo is AceitePhoto => Boolean(photo));
+}
+
+function resolveManutencaoCanteiroPhotosFromFormData(formData: Record<string, unknown>): AceitePhoto[] {
+  const indexedPhotos: AceitePhoto[] = [];
+  for (let index = 1; index <= 20; index += 1) {
+    const photo = toAceitePhoto(formData[`foto${index}`]);
+    if (photo) {
+      indexedPhotos.push(photo);
+    }
+  }
+  return indexedPhotos;
+}
+
+function resolvePhotosFromMediaFields(
+  formData: Record<string, unknown>,
+  fields: ReportPdfInput["fields"]
+): AceitePhoto[] {
+  const photos: AceitePhoto[] = [];
+  const mediaFields = fields.filter((field) => field.type === "image" || field.type === "signature");
+
+  for (const field of mediaFields) {
+    const rawValue = formData[field.fieldKey];
+    if (Array.isArray(rawValue)) {
+      for (const entry of rawValue) {
+        const photo = toAceitePhoto(entry);
+        if (photo) photos.push(photo);
+      }
+      continue;
+    }
+
+    const single = toAceitePhoto(rawValue);
+    if (single) photos.push(single);
+  }
+
+  return photos;
 }
 
 async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
@@ -279,22 +316,37 @@ function drawTitleAndStretch(
   return y + 7;
 }
 
+function drawTitleOnly(doc: jsPDF, startY: number, titleText: string): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const y = startY + 1.5;
+  doc.rect(MARGIN, y, contentWidth, 8);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.2);
+  doc.text(titleText, MARGIN + contentWidth / 2, y + 5.4, { align: "center" });
+  return y + 8;
+}
+
 async function drawAceitePhotoBlock(
   doc: jsPDF,
   photos: AceitePhoto[],
   startIndex: number,
   startY: number,
-  legends: [string, string]
+  fallbackTitles: [string, string],
+  photoHeight = 58,
+  renderMissing = true
 ): Promise<number> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const photoWidth = pageWidth - MARGIN * 2;
-  const photoHeight = 58;
   const legendHeight = 4;
   let cursorY = startY;
 
   for (let i = 0; i < 2; i += 1) {
     const x = MARGIN;
     const entry = photos[startIndex + i];
+    if (!entry && !renderMissing) {
+      continue;
+    }
     doc.rect(x, cursorY, photoWidth, photoHeight);
 
     if (entry) {
@@ -318,7 +370,11 @@ async function drawAceitePhotoBlock(
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(8.4);
-    doc.text(legends[i], x + photoWidth / 2, cursorY + photoHeight + 2.9, { align: "center" });
+    const photoNumber = startIndex + i + 1;
+    const title = entry?.title?.trim() || fallbackTitles[i];
+    doc.text(`FOTO ${photoNumber} - ${title}`, x + photoWidth / 2, cursorY + photoHeight + 2.9, {
+      align: "center",
+    });
 
     cursorY += photoHeight + legendHeight + 3;
   }
@@ -420,7 +476,7 @@ async function generatePavimentoBasePdf(
     photos,
     0,
     cursorY,
-    ["FOTO 1 - Pavimento antes da execucao da obra", "FOTO 2 - Pavimento antes da execucao da obra"]
+    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"]
   );
 
   drawAceiteSignatureFooter(doc, cursorY + 1.5, options.hidePrefeituraInFooter);
@@ -432,7 +488,7 @@ async function generatePavimentoBasePdf(
     photos,
     2,
     cursorY,
-    ["FOTO 3 - Pavimento apos a reposicao de bloquete", "FOTO 4 - Pavimento apos a reposicao de bloquete"]
+    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"]
   );
   drawAceiteSignatureFooter(doc, cursorY + 8, options.hidePrefeituraInFooter);
 
@@ -459,4 +515,57 @@ export async function generateRegularizacaoPavimentoPdf(input: ReportPdfInput): 
     titleText: "REGULARIZAÇÃO MECANIZADA",
     hidePrefeituraInFooter: true,
   });
+}
+
+export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const indexedPhotos = resolveManutencaoCanteiroPhotosFromFormData(formData);
+  const photos =
+    indexedPhotos.length > 0
+      ? indexedPhotos
+      : resolvePhotosFromMediaFields(formData, orderedFields).slice(0, 20);
+  const [sanorteLogo, sabespLogo] = await Promise.all([
+    loadAssetAsPngDataUrl(sanorteLogoUrl),
+    loadAssetAsPngDataUrl(sabespLogoUrl),
+  ]);
+
+  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
+    sanorte: sanorteLogo,
+    sabesp: sabespLogo,
+  });
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawTitleOnly(doc, cursorY + 1, "CANTEIRO DE OBRAS") + 1.5;
+
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
+
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Canteiro de obras", "Canteiro de obras"],
+        72,
+        false
+      );
+
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
 }
