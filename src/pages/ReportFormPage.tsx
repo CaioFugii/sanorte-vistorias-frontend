@@ -252,7 +252,7 @@ export const ReportFormPage = (): JSX.Element => {
         {reportType.name}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Preencha os campos abaixo e gere o PDF diretamente no frontend.
+        Preencha os campos abaixo e gere o PDF.
       </Typography>
 
       <Card>

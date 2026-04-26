@@ -327,6 +327,30 @@ function drawTitleOnly(doc: jsPDF, startY: number, titleText: string): number {
   return y + 8;
 }
 
+function drawTitleAndBaciaOnly(
+  doc: jsPDF,
+  startY: number,
+  bacia: string,
+  titleText: string,
+  etapa: string
+): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  let y = startY + 1.5;
+  doc.rect(MARGIN, y, contentWidth, 8);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.2);
+  const etapaText = etapa && etapa !== "-" ? `${etapa} - ` : "";
+  doc.text(`${etapaText}${titleText}`, MARGIN + contentWidth / 2, y + 5.4, { align: "center" });
+
+  y += 8;
+  doc.rect(MARGIN, y, contentWidth, 7);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(`Bacia: ${bacia}`, MARGIN + 1.2, y + 4.6);
+  return y + 7;
+}
+
 async function drawAceitePhotoBlock(
   doc: jsPDF,
   photos: AceitePhoto[],
@@ -515,6 +539,165 @@ export async function generateRegularizacaoPavimentoPdf(input: ReportPdfInput): 
     titleText: "REGULARIZAÇÃO MECANIZADA",
     hidePrefeituraInFooter: true,
   });
+}
+
+export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
+  const etapa = findFieldValue(orderedFields, formData, ["etapa"]);
+  const photos = resolveAceitePhotosFromFormData(formData);
+  const [sanorteLogo, sabespLogo] = await Promise.all([
+    loadAssetAsPngDataUrl(sanorteLogoUrl),
+    loadAssetAsPngDataUrl(sabespLogoUrl),
+  ]);
+
+  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
+    sanorte: sanorteLogo,
+    sabesp: sabespLogo,
+  });
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "PV DE TRANSIÇÃO", etapa) + 1.5;
+
+  cursorY = await drawAceitePhotoBlock(
+    doc,
+    photos,
+    0,
+    cursorY,
+    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"]
+  );
+
+  drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+
+  doc.addPage();
+  cursorY = MARGIN + 12;
+  cursorY = await drawAceitePhotoBlock(
+    doc,
+    photos,
+    2,
+    cursorY,
+    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"]
+  );
+  drawAceiteSignatureFooter(doc, cursorY + 8, true);
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
+  const photos = resolveAceitePhotosFromFormData(formData);
+  const [sanorteLogo, sabespLogo] = await Promise.all([
+    loadAssetAsPngDataUrl(sanorteLogoUrl),
+    loadAssetAsPngDataUrl(sabespLogoUrl),
+  ]);
+
+  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
+    sanorte: sanorteLogo,
+    sabesp: sabespLogo,
+  });
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "EXECUÇÃO DE OBRAS CIVIS - EEE", "") + 1.5;
+
+  cursorY = await drawAceitePhotoBlock(
+    doc,
+    photos,
+    0,
+    cursorY,
+    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"]
+  );
+
+  drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+
+  doc.addPage();
+  cursorY = MARGIN + 12;
+  cursorY = await drawAceitePhotoBlock(
+    doc,
+    photos,
+    2,
+    cursorY,
+    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"]
+  );
+  drawAceiteSignatureFooter(doc, cursorY + 8, true);
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
+  const tipoFornecimento = findFieldValue(orderedFields, formData, ["tipo_fornecimento", "tipo fornecimento"]);
+  const tipoObra = findFieldValue(orderedFields, formData, ["tipo_obra", "tipo obra"]);
+  const dynamicTitle =
+    tipoFornecimento !== "-" && tipoObra !== "-"
+      ? `${tipoFornecimento} - ${tipoObra}`
+      : tipoFornecimento !== "-"
+        ? tipoFornecimento
+        : tipoObra !== "-"
+          ? tipoObra
+          : "-";
+  const fixedPhotos = resolveAceitePhotosFromFormData(formData);
+  const photos =
+    fixedPhotos.length > 0 ? fixedPhotos : resolvePhotosFromMediaFields(formData, orderedFields);
+  const [sanorteLogo, sabespLogo] = await Promise.all([
+    loadAssetAsPngDataUrl(sanorteLogoUrl),
+    loadAssetAsPngDataUrl(sabespLogoUrl),
+  ]);
+
+  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
+    sanorte: sanorteLogo,
+    sabesp: sabespLogo,
+  });
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, dynamicTitle, "") + 1.5;
+
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
+
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Fornecimento EEE LR", "Fornecimento EEE LR"],
+        58,
+        false
+      );
+
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
 }
 
 export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Promise<void> {
