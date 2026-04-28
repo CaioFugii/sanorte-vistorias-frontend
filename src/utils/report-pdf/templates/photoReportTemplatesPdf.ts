@@ -214,6 +214,51 @@ function drawTitleAndBaciaOnly(
   return y + 7;
 }
 
+function drawLigacaoPasseioMetaStrip(
+  doc: jsPDF,
+  startY: number,
+  data: { subBacia: string; trecho: string; croqui: string; rgi: string; endereco: string }
+): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const x0 = MARGIN;
+  let y = startY;
+
+  const rowH = 7.4;
+  const wSub = contentWidth * 0.24;
+  const wTrecho = contentWidth * 0.34;
+  const wCroqui = contentWidth * 0.24;
+  const wRgi = contentWidth - wSub - wTrecho - wCroqui;
+
+  doc.rect(x0, y, wSub, rowH);
+  doc.rect(x0 + wSub, y, wTrecho, rowH);
+  doc.rect(x0 + wSub + wTrecho, y, wCroqui, rowH);
+  doc.rect(x0 + wSub + wTrecho + wCroqui, y, wRgi, rowH);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("SUB-BACIA:", x0 + 1.2, y + 3.1);
+  doc.text("TRECHO:", x0 + wSub + 1.2, y + 3.1);
+  doc.text("CROQUI:", x0 + wSub + wTrecho + 1.2, y + 3.1);
+  doc.text("RGI:", x0 + wSub + wTrecho + wCroqui + 1.2, y + 3.1);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(data.subBacia || "-", x0 + wSub / 2, y + 6.3, { align: "center" });
+  doc.text(data.trecho || "-", x0 + wSub + wTrecho / 2, y + 6.3, { align: "center" });
+  doc.text(data.croqui || "-", x0 + wSub + wTrecho + wCroqui / 2, y + 6.3, { align: "center" });
+  doc.text(data.rgi || "-", x0 + wSub + wTrecho + wCroqui + wRgi / 2, y + 6.3, { align: "center" });
+
+  y += rowH;
+  const row2H = 7.2;
+  doc.rect(x0, y, contentWidth, row2H);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text((data.endereco || "-").toUpperCase(), x0 + contentWidth / 2, y + 4.9, { align: "center" });
+
+  return y + row2H;
+}
+
 async function drawLimpezaRedeTitle(doc: jsPDF, title: string): Promise<number> {
   return await drawPhotoReportTitleWithLogos(doc, title, MARGIN, 10);
 }
@@ -700,6 +745,63 @@ export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<voi
         photoStart,
         cursorY,
         ["Montagem EEE", "Montagem EEE"],
+        58,
+        false
+      );
+
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const logradouro = findFieldValue(orderedFields, formData, ["logradouro", "rua"]);
+  const montante = findFieldValue(orderedFields, formData, ["montante"]);
+  const jusante = findFieldValue(orderedFields, formData, ["jusante"]);
+  const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
+  const croqui = findFieldValue(orderedFields, formData, ["croqui", "croqui", "croqui"]);
+  const rgi = findFieldValue(orderedFields, formData, ["rgi"]);
+  const trecho = montante !== "-" && jusante !== "-" ? `${montante} AO ${jusante}` : "-";
+  const photos = resolvePhotosFromMediaFields(formData, orderedFields);
+
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao, `RELATÓRIO PREÇO ${preco}`);
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawLigacaoPasseioMetaStrip(doc, cursorY + 1, {
+    subBacia: bacia,
+    trecho,
+    croqui,
+    rgi,
+    endereco: logradouro,
+  });
+  cursorY += 2;
+
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
+
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Ligacao passeio", "Ligacao passeio"],
         58,
         false
       );

@@ -66,7 +66,11 @@ function drawLogoInsideBox(
   doc.addImage(logoDataUrl, format, x + pad, y + pad, drawW, drawH);
 }
 
-export async function drawStandardPhotoReportHeader(doc: jsPDF, dataEmissao: string): Promise<number> {
+export async function drawStandardPhotoReportHeader(
+  doc: jsPDF,
+  dataEmissao: string,
+  reportTitle = "RELATÓRIO FOTOGRÁFICO"
+): Promise<number> {
   const logos = await getReportLogos();
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - MARGIN * 2;
@@ -100,9 +104,24 @@ export async function drawStandardPhotoReportHeader(doc: jsPDF, dataEmissao: str
   drawLogoInsideBox(doc, logos.sanorte, x0 + sabespW + titleW + 0.5, y + 0.5, sanorteW - 1, h1 - 1);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  const fontCandidates = [12, 11, 10, 9.5, 9, 8.6];
+  let chosenFontSize = 8.6;
+  let compactTitle = doc.splitTextToSize(reportTitle, titleW - 4).slice(0, 2);
+  for (const candidate of fontCandidates) {
+    doc.setFontSize(candidate);
+    const candidateLines = doc.splitTextToSize(reportTitle, titleW - 4);
+    if (candidateLines.length <= 2) {
+      chosenFontSize = candidate;
+      compactTitle = candidateLines;
+      break;
+    }
+  }
+  doc.setFontSize(chosenFontSize);
   doc.setTextColor(0, 0, 255);
-  doc.text("RELATÓRIO FOTOGRÁFICO", x0 + sabespW + titleW / 2, y + 8.8, { align: "center" });
+  const lineHeight = Math.max(3.6, chosenFontSize * 0.42);
+  const textBlockHeight = compactTitle.length * lineHeight;
+  const titleStartY = y + (h1 - textBlockHeight) / 2 + lineHeight * 0.72;
+  doc.text(compactTitle, x0 + sabespW + titleW / 2, titleStartY, { align: "center", lineHeightFactor: 1 });
   doc.setTextColor(0, 0, 0);
 
   const infoX = x0 + sabespW + titleW + sanorteW;
