@@ -60,10 +60,12 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JS
     { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
     { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
     { path: "/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
     { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
   ],
   FISCAL: [
     { path: "/inspections/mine", label: "Minhas vistorias", icon: <Assignment fontSize="small" /> },
+    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
     { path: "/inspections/new", label: "Nova vistoria", icon: <Checklist fontSize="small" /> },
   ],
 };
