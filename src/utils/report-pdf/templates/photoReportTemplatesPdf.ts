@@ -2,11 +2,7 @@ import jsPDF from "jspdf";
 import { findFieldValue, getImageFormat, loadImageAsDataUrl } from "../helpers";
 import { ReportPdfInput } from "../types";
 import { MARGIN } from "../sharedLayout";
-import sabespLogoUrl from "@/assets/logos/sabesp.svg";
-import sanorteLogoUrl from "@/assets/logos/sanorte-infraestrutura.svg";
-
-const CONTRACT_OBJECT_TEXT =
-  "CONTRATACAO SEMI-INTEGRADA PARA ELABORACAO DO PROJETO EXECUTIVO E EXECUCAO DAS OBRAS DO SISTEMA DE ESGOTAMENTO SANITARIO NOS BAIRROS CORUMBA, BELAS ARTES E CIBRATEL II DO MUNICIPIO DE ITANHAEM - MARGEM DIREITA - LOTE 10, NO AMBITO DO PROGRAMA ONDA LIMPA II.";
+import { drawPhotoReportTitleWithLogos, drawStandardPhotoReportHeader } from "../photoReportHeader";
 
 interface AceitePhoto {
   id: string;
@@ -96,139 +92,6 @@ function resolvePhotosFromMediaFields(
   }
 
   return photos;
-}
-
-async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
-  try {
-    const response = await fetch(assetUrl);
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = objectUrl;
-      });
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth || image.width || 1;
-      canvas.height = image.naturalHeight || image.height || 1;
-      const context = canvas.getContext("2d");
-      if (!context) return null;
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/png");
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  } catch {
-    return null;
-  }
-}
-
-function drawLogoInsideBox(
-  doc: jsPDF,
-  logoDataUrl: string | null,
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): void {
-  if (!logoDataUrl) return;
-  const format = getImageFormat(logoDataUrl);
-  if (!format) return;
-  const pad = 0.8;
-  const drawW = width - pad * 2;
-  const drawH = height - pad * 2;
-  doc.addImage(logoDataUrl, format, x + pad, y + pad, drawW, drawH);
-}
-
-async function drawPageOneHeader(
-  doc: jsPDF,
-  dataEmissao: string,
-  logos: { sanorte: string | null; sabesp: string | null }
-): Promise<number> {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const contentWidth = pageWidth - MARGIN * 2;
-  const x0 = MARGIN;
-  let y = MARGIN;
-  const h1 = 14;
-  const h2 = 7;
-
-  const sabespW = contentWidth * 0.10;
-  const sanorteW = contentWidth * 0.21;
-  const infoW = contentWidth * 0.18;
-  const titleW = contentWidth - sabespW - sanorteW - infoW;
-
-  doc.rect(x0, y, sabespW, h1);
-  doc.rect(x0 + sabespW, y, titleW, h1);
-  doc.rect(x0 + sabespW + titleW, y, sanorteW, h1);
-  doc.rect(x0 + sabespW + titleW + sanorteW, y, infoW, h1);
-  doc.line(
-    x0 + sabespW + titleW + sanorteW,
-    y + h1 / 3,
-    x0 + sabespW + titleW + sanorteW + infoW,
-    y + h1 / 3
-  );
-  doc.line(
-    x0 + sabespW + titleW + sanorteW,
-    y + (h1 / 3) * 2,
-    x0 + sabespW + titleW + sanorteW + infoW,
-    y + (h1 / 3) * 2
-  );
-  drawLogoInsideBox(doc, logos.sabesp, x0 + 0.2, y + 0.2, sabespW - 0.4, h1 - 0.4);
-  drawLogoInsideBox(doc, logos.sanorte, x0 + sabespW + titleW + 0.5, y + 0.5, sanorteW - 1, h1 - 1);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 255);
-  doc.text("RELATÓRIO FOTOGRÁFICO", x0 + sabespW + titleW / 2, y + 8.8, { align: "center" });
-  doc.setTextColor(0, 0, 0);
-
-  const infoX = x0 + sabespW + titleW + sanorteW;
-  doc.setFontSize(6.6);
-  doc.text("FOLHA N°", infoX + 1, y + 2.9);
-  doc.text("DATA DE EMISSÃO", infoX + 1, y + 7.5);
-
-  const badgeY = y + (h1 / 3) * 2 + 0.3;
-  const badgeH = h1 / 3 - 0.8;
-  doc.setFillColor(255, 255, 255);
-  doc.rect(infoX + 0.8, badgeY, infoW - 1.6, badgeH, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text(`${dataEmissao}`, infoX + infoW / 2, badgeY + 2.7, { align: "center" });
-
-  doc.setLineWidth(0.9);
-  doc.line(x0, y + h1 + 0.8, x0 + contentWidth, y + h1 + 0.8);
-  doc.setLineWidth(0.2);
-
-  y += h1 + 1;
-  doc.rect(x0, y, contentWidth, h2);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text("OBJETO CONTRATUAL", x0 + 1.2, y + 4.8);
-
-  y += h2;
-  const objectH = 16;
-  doc.rect(x0, y, contentWidth, objectH);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.2);
-  doc.text(doc.splitTextToSize(CONTRACT_OBJECT_TEXT, contentWidth - 2.5), x0 + 1.2, y + 3.8);
-
-  y += objectH;
-  doc.rect(x0, y, contentWidth, h2);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text("CONTRATADA", x0 + 1.2, y + 4.8);
-
-  y += h2;
-  const contractorH = 8;
-  doc.rect(x0, y, contentWidth, contractorH);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.2);
-  doc.text("CONSORCIO ESG IT. M. DIREITA", x0 + 1.2, y + 5.3);
-
-  return y + contractorH;
 }
 
 function drawContractMetaGrid(doc: jsPDF, startY: number, medicao: string, inicioPeriodo: string, fimPeriodo: string): number {
@@ -349,6 +212,141 @@ function drawTitleAndBaciaOnly(
   doc.setFontSize(8);
   doc.text(`Bacia: ${bacia}`, MARGIN + 1.2, y + 4.6);
   return y + 7;
+}
+
+async function drawLimpezaRedeTitle(doc: jsPDF, title: string): Promise<number> {
+  return await drawPhotoReportTitleWithLogos(doc, title, MARGIN, 10);
+}
+
+function drawLimpezaRedeMetadataTable(
+  doc: jsPDF,
+  startY: number,
+  data: {
+    produto: string;
+    contrato: string;
+    engenheiroGerenciamento: string;
+    coordenadorObraGerenciadora: string;
+    contratada: string;
+    dataRelatorio: string;
+    responsavelAtendimento: string;
+    dataAtendimento: string;
+    local: string;
+    bairro: string;
+    trecho: string;
+    extensao: string;
+    diametroRede: string;
+    subBacia: string;
+  }
+): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const x0 = MARGIN;
+  let y = startY + 1;
+
+  const row1: Array<[string, string, number]> = [
+    ["Produto", data.produto, 0.15],
+    ["Contrato", data.contrato, 0.15],
+    ["Engenheiro de Gerenciamento", data.engenheiroGerenciamento, 0.35],
+    ["Coordenador de Obra Gerenciadora", data.coordenadorObraGerenciadora, 0.35],
+  ];
+  const row2: Array<[string, string, number]> = [
+    ["Contratada", data.contratada, 0.25],
+    ["Data do relatorio", data.dataRelatorio, 0.15],
+    ["Responsavel pelo atendimento", data.responsavelAtendimento, 0.35],
+    ["Data de atendimento", data.dataAtendimento, 0.25],
+  ];
+  const row3: Array<[string, string, number]> = [
+    ["Local", data.local, 0.22],
+    ["Bairro", data.bairro, 0.16],
+    ["Trecho", data.trecho, 0.22],
+    ["EXT.", data.extensao, 0.1],
+    ["Diametro da rede", data.diametroRede, 0.14],
+    ["Sub bacia", data.subBacia, 0.16],
+  ];
+
+  const drawRow = (entries: Array<[string, string, number]>, rowHeight: number) => {
+    let x = x0;
+    for (const [label, value, ratio] of entries) {
+      const width = contentWidth * ratio;
+      doc.rect(x, y, width, rowHeight);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.text(`${label}:`, x + 1.2, y + 3.4);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(value || "-", x + 1.2, y + 7.2, { maxWidth: width - 2.4 });
+      x += width;
+    }
+    y += rowHeight;
+  };
+
+  drawRow(row1, 9);
+  drawRow(row2, 9);
+  drawRow(row3, 9);
+
+  return y + 1;
+}
+
+function drawLimpezaSignatureFooter(doc: jsPDF, startY: number): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const x0 = MARGIN;
+  const y = startY;
+  const footerH = 13;
+  doc.rect(x0, y, contentWidth, footerH);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Assinatura responsavel:", x0 + 1.5, y + 4.5);
+  doc.line(x0 + 43, y + 9.5, x0 + contentWidth - 2, y + 9.5);
+  return y + footerH;
+}
+
+async function drawLimpezaPhotoPairSection(
+  doc: jsPDF,
+  photos: AceitePhoto[],
+  startIndex: number,
+  startY: number
+): Promise<number> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const gap = 4;
+  const photoW = (contentWidth - gap) / 2;
+  const photoH = 58;
+  const leftX = MARGIN;
+  const rightX = MARGIN + photoW + gap;
+  let y = startY;
+
+  const first = photos[startIndex];
+  const second = photos[startIndex + 1];
+  const headingTitle = first?.title?.trim() || second?.title?.trim() || "LIMPEZA DE REDE";
+  const photoANumber = startIndex + 1;
+  const photoBNumber = startIndex + 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.4);
+  doc.text(`FOTOS ${photoANumber} E ${photoBNumber} - ${headingTitle}`, MARGIN + 1, y + 4.3);
+  y += 6;
+
+  const drawSinglePhoto = async (entry: AceitePhoto | undefined, x: number, labelNumber: number) => {
+    if (!entry) return;
+    doc.rect(x, y, photoW, photoH);
+    const dataUrl = await loadImageAsDataUrl(entry.dataUrl);
+    const format = dataUrl ? getImageFormat(dataUrl) : null;
+    if (dataUrl && format) {
+      doc.addImage(dataUrl, format, x, y, photoW, photoH);
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Imagem indisponivel", x + 3, y + photoH / 2);
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(`FOTO ${labelNumber}`, x + 1, y + photoH + 3.8);
+  };
+
+  await drawSinglePhoto(first, leftX, photoANumber);
+  await drawSinglePhoto(second, rightX, photoBNumber);
+  return y + photoH + 7;
 }
 
 async function drawAceitePhotoBlock(
@@ -475,15 +473,7 @@ async function generatePavimentoBasePdf(
   const jusante = findFieldValue(orderedFields, formData, ["jusante"]);
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const photos = resolveAceitePhotosFromFormData(formData);
-  const [sanorteLogo, sabespLogo] = await Promise.all([
-    loadAssetAsPngDataUrl(sanorteLogoUrl),
-    loadAssetAsPngDataUrl(sabespLogoUrl),
-  ]);
-
-  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
-    sanorte: sanorteLogo,
-    sabesp: sabespLogo,
-  });
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleAndStretch(
     doc,
@@ -553,15 +543,7 @@ export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<voi
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const etapa = findFieldValue(orderedFields, formData, ["etapa"]);
   const photos = resolveAceitePhotosFromFormData(formData);
-  const [sanorteLogo, sabespLogo] = await Promise.all([
-    loadAssetAsPngDataUrl(sanorteLogoUrl),
-    loadAssetAsPngDataUrl(sabespLogoUrl),
-  ]);
-
-  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
-    sanorte: sanorteLogo,
-    sabesp: sabespLogo,
-  });
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "PV DE TRANSIÇÃO", etapa) + 1.5;
 
@@ -601,15 +583,7 @@ export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<v
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const photos = resolveAceitePhotosFromFormData(formData);
-  const [sanorteLogo, sabespLogo] = await Promise.all([
-    loadAssetAsPngDataUrl(sanorteLogoUrl),
-    loadAssetAsPngDataUrl(sabespLogoUrl),
-  ]);
-
-  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
-    sanorte: sanorteLogo,
-    sabesp: sabespLogo,
-  });
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "EXECUÇÃO DE OBRAS CIVIS - EEE", "") + 1.5;
 
@@ -661,15 +635,7 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
   const fixedPhotos = resolveAceitePhotosFromFormData(formData);
   const photos =
     fixedPhotos.length > 0 ? fixedPhotos : resolvePhotosFromMediaFields(formData, orderedFields);
-  const [sanorteLogo, sabespLogo] = await Promise.all([
-    loadAssetAsPngDataUrl(sanorteLogoUrl),
-    loadAssetAsPngDataUrl(sabespLogoUrl),
-  ]);
-
-  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
-    sanorte: sanorteLogo,
-    sabesp: sabespLogo,
-  });
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, dynamicTitle, "") + 1.5;
 
@@ -700,6 +666,140 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
   doc.save(`${safeCode}.pdf`);
 }
 
+export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
+  const tipoFornecimento = findFieldValue(orderedFields, formData, ["tipo_fornecimento", "tipo fornecimento"]);
+  const dynamicTitle = tipoFornecimento !== "-" ? `${tipoFornecimento} - EEE` : "EEE";
+  const fixedPhotos = resolveAceitePhotosFromFormData(formData);
+  const photos =
+    fixedPhotos.length > 0 ? fixedPhotos : resolvePhotosFromMediaFields(formData, orderedFields);
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, dynamicTitle, "") + 1.5;
+
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
+
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Montagem EEE", "Montagem EEE"],
+        58,
+        false
+      );
+
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+
+  const produto = "Auditoria SABESP";
+  const contrato = "00.756/24";
+  const engenheiroGerenciamento = "Juliane Cristina dos Santos";
+  const coordenadorObraGerenciadora = "Trinid Roman";
+  const contratada = "CONS. ESG IT. M. DIREITA";
+  const dataRelatorio = new Date().toLocaleDateString("pt-BR");
+  const responsavelAtendimento = "Vanusa Pereira de Souza";
+  const dataAtendimento = findFieldValue(orderedFields, formData, [
+    "dataAtendimento",
+    "data de atendimento",
+    "data atendimento",
+  ]);
+  const local = findFieldValue(orderedFields, formData, ["local", "rua", "logradouro"]);
+  const bairro = findFieldValue(orderedFields, formData, ["bairro"]);
+  const montante = findFieldValue(orderedFields, formData, ["montante"]);
+  const jusante = findFieldValue(orderedFields, formData, ["jusante"]);
+  const trecho =
+    montante !== "-" && jusante !== "-"
+      ? `${montante} AO ${jusante}`
+      : montante !== "-"
+        ? montante
+        : jusante !== "-"
+          ? jusante
+          : "-";
+  const extensao = findFieldValue(orderedFields, formData, ["ext", "extensao"]);
+  const diametroRede = findFieldValue(orderedFields, formData, ["diametro"]);
+  const subBacia = findFieldValue(orderedFields, formData, ["sub bacia", "sub-bacia", "bacia"]);
+
+  const photos = resolvePhotosFromMediaFields(formData, orderedFields);
+
+  let cursorY = await drawLimpezaRedeTitle(doc, "RELATÓRIO FOTOGRÁFICO DE LIMPEZA DE REDE");
+  cursorY = drawLimpezaRedeMetadataTable(doc, cursorY, {
+    produto,
+    contrato,
+    engenheiroGerenciamento,
+    coordenadorObraGerenciadora,
+    contratada,
+    dataRelatorio,
+    responsavelAtendimento,
+    dataAtendimento: formatDatePtBr(dataAtendimento),
+    local,
+    bairro,
+    trecho,
+    extensao,
+    diametroRede,
+    subBacia,
+  });
+
+  const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
+  const sectionEstimatedHeight = 65;
+  const footerReserveGap = 4;
+
+  if (photos.length === 0) {
+    drawLimpezaSignatureFooter(doc, firstPageFooterY);
+  } else {
+    let photoIndex = 0;
+    let isFirstPage = true;
+    while (photoIndex < photos.length) {
+      if (!isFirstPage) {
+        doc.addPage("a4", "landscape");
+        cursorY = (await drawLimpezaRedeTitle(doc, "RELATÓRIO FOTOGRÁFICO DE LIMPEZA DE REDE")) + 2;
+      }
+
+      let sectionsInPage = 0;
+      while (photoIndex < photos.length) {
+        const needsPageBreak = cursorY + sectionEstimatedHeight > firstPageFooterY - footerReserveGap;
+        if (needsPageBreak && sectionsInPage > 0) {
+          break;
+        }
+        cursorY = await drawLimpezaPhotoPairSection(doc, photos, photoIndex, cursorY);
+        photoIndex += 2;
+        sectionsInPage += 1;
+      }
+
+      drawLimpezaSignatureFooter(doc, firstPageFooterY);
+      isFirstPage = false;
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  doc.save(`${safeCode}.pdf`);
+}
+
 export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Promise<void> {
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
@@ -714,15 +814,7 @@ export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Prom
     indexedPhotos.length > 0
       ? indexedPhotos
       : resolvePhotosFromMediaFields(formData, orderedFields).slice(0, 20);
-  const [sanorteLogo, sabespLogo] = await Promise.all([
-    loadAssetAsPngDataUrl(sanorteLogoUrl),
-    loadAssetAsPngDataUrl(sabespLogoUrl),
-  ]);
-
-  let cursorY = await drawPageOneHeader(doc, dataEmissao, {
-    sanorte: sanorteLogo,
-    sabesp: sabespLogo,
-  });
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleOnly(doc, cursorY + 1, "CANTEIRO DE OBRAS") + 1.5;
 
