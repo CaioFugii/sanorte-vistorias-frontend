@@ -9,6 +9,8 @@ interface ReportLogos {
   sabesp: string | null;
 }
 
+const TOTAL_PAGES_PLACEHOLDER = "{total_pages_count_string}";
+
 let logosPromise: Promise<ReportLogos> | null = null;
 
 async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
@@ -125,9 +127,17 @@ export async function drawStandardPhotoReportHeader(
   doc.setTextColor(0, 0, 0);
 
   const infoX = x0 + sabespW + titleW + sanorteW;
+  const folhaLabel = "FOLHA N°";
   doc.setFontSize(6.6);
-  doc.text("FOLHA N°", infoX + 1, y + 2.9);
+  doc.text(folhaLabel, infoX + 1, y + 2.9);
   doc.text("DATA DE EMISSÃO", infoX + 1, y + 7.5);
+  const currentPage =
+    (doc as jsPDF & { getCurrentPageInfo?: () => { pageNumber: number } }).getCurrentPageInfo?.().pageNumber ??
+    doc.getNumberOfPages();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.1);
+  const folhaValueX = infoX + 1 + doc.getTextWidth(folhaLabel) + 1.4;
+  doc.text(`${currentPage}/${TOTAL_PAGES_PLACEHOLDER}`, folhaValueX, y + 2.9);
 
   const badgeY = y + (h1 / 3) * 2 + 0.3;
   const badgeH = h1 / 3 - 0.8;
@@ -204,4 +214,11 @@ export async function drawPhotoReportTitleWithLogos(
   doc.setFontSize(11);
   doc.text(title, x0 + leftW + centerW / 2, y + rowHeight / 2 + 1.6, { align: "center" });
   return y + rowHeight;
+}
+
+export function applyTotalPagesToStandardHeader(doc: jsPDF): void {
+  const withTotalPages = doc as jsPDF & { putTotalPages?: (pageExpression: string) => void };
+  if (typeof withTotalPages.putTotalPages === "function") {
+    withTotalPages.putTotalPages(TOTAL_PAGES_PLACEHOLDER);
+  }
 }

@@ -2,7 +2,11 @@ import jsPDF from "jspdf";
 import { findFieldValue, getImageFormat, loadImageAsDataUrl } from "../helpers";
 import { ReportPdfInput } from "../types";
 import { MARGIN } from "../sharedLayout";
-import { drawPhotoReportTitleWithLogos, drawStandardPhotoReportHeader } from "../photoReportHeader";
+import {
+  applyTotalPagesToStandardHeader,
+  drawPhotoReportTitleWithLogos,
+  drawStandardPhotoReportHeader,
+} from "../photoReportHeader";
 
 interface AceitePhoto {
   id: string;
@@ -259,6 +263,71 @@ function drawLigacaoPasseioMetaStrip(
   return y + row2H;
 }
 
+function drawLigacoesMetaStrip(
+  doc: jsPDF,
+  startY: number,
+  data: {
+    endereco: string;
+    pde: string;
+    jusante: string;
+    montante: string;
+    subBacia: string;
+    extensaoRamal: string;
+    diametroRede: string;
+    diametroRamal: string;
+    materialRede: string;
+    posicaoRede: string;
+    profundidadeRede: string;
+  }
+): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const x0 = MARGIN;
+  let y = startY;
+  const rowH = 7.4;
+
+  const drawRow = (entries: Array<{ label: string; value: string; width: number }>) => {
+    let x = x0;
+    for (const entry of entries) {
+      doc.rect(x, y, entry.width, rowH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.text(entry.label, x + 1.2, y + 2.9);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.8);
+      doc.text(entry.value || "-", x + entry.width / 2, y + 6.2, { align: "center", maxWidth: entry.width - 2 });
+      x += entry.width;
+    }
+    y += rowH;
+  };
+
+  const row1Ratios = [0.34, 0.09, 0.15, 0.15];
+  const row1Used = row1Ratios.reduce((sum, ratio) => sum + ratio, 0);
+  const row1Entries = [
+    { label: "END.:", value: data.endereco, width: contentWidth * row1Ratios[0] },
+    { label: "PDE:", value: data.pde, width: contentWidth * row1Ratios[1] },
+    { label: "JUSANTE:", value: data.jusante, width: contentWidth * row1Ratios[2] },
+    { label: "MONTANTE:", value: data.montante, width: contentWidth * row1Ratios[3] },
+    { label: "SUB-BACIA:", value: data.subBacia, width: contentWidth * (1 - row1Used) },
+  ];
+
+  const row2Ratios = [0.165, 0.165, 0.165, 0.165, 0.17];
+  const row2Used = row2Ratios.reduce((sum, ratio) => sum + ratio, 0);
+  const row2Entries = [
+    { label: "DIAMETRO DA REDE:", value: data.diametroRede, width: contentWidth * row2Ratios[0] },
+    { label: "DIAMETRO DO RAMAL:", value: data.diametroRamal, width: contentWidth * row2Ratios[1] },
+    { label: "EXTENSAO DO RAMAL:", value: data.extensaoRamal, width: contentWidth * row2Ratios[2] },
+    { label: "MATERIAL DA REDE:", value: data.materialRede, width: contentWidth * row2Ratios[3] },
+    { label: "POSICAO DA REDE:", value: data.posicaoRede, width: contentWidth * row2Ratios[4] },
+    { label: "PROFUNDIDADE DA REDE:", value: data.profundidadeRede, width: contentWidth * (1 - row2Used) },
+  ];
+
+  drawRow(row1Entries);
+  drawRow(row2Entries);
+
+  return y;
+}
+
 async function drawLimpezaRedeTitle(doc: jsPDF, title: string): Promise<number> {
   return await drawPhotoReportTitleWithLogos(doc, title, MARGIN, 10);
 }
@@ -328,6 +397,76 @@ function drawLimpezaRedeMetadataTable(
   drawRow(row1, 9);
   drawRow(row2, 9);
   drawRow(row3, 9);
+
+  return y + 1;
+}
+
+function drawReparoNcfMetadataTable(
+  doc: jsPDF,
+  startY: number,
+  data: {
+    produto: string;
+    contrato: string;
+    engenheiroGerenciamento: string;
+    coordenadorObraGerenciadora: string;
+    contratada: string;
+    dataRelatorio: string;
+    responsavelAtendimento: string;
+    dataPrevisaoAtendimento: string;
+    local: string;
+    descricaoAtendimento: string;
+    numeroNc: string;
+    listaVerificacaoApontada: string;
+    itemNaoConforme: string;
+  }
+): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const x0 = MARGIN;
+  let y = startY + 1;
+
+  const row1: Array<[string, string, number]> = [
+    ["Produto", data.produto, 0.15],
+    ["Contrato", data.contrato, 0.15],
+    ["Engenheiro de Gerenciamento", data.engenheiroGerenciamento, 0.35],
+    ["Coordenador de Obra Gerenciadora", data.coordenadorObraGerenciadora, 0.35],
+  ];
+  const row2: Array<[string, string, number]> = [
+    ["Contratada", data.contratada, 0.25],
+    ["Data do relatorio", data.dataRelatorio, 0.15],
+    ["Responsavel pelo atendimento", data.responsavelAtendimento, 0.35],
+    ["Data/Previsao de atendimento", data.dataPrevisaoAtendimento, 0.25],
+  ];
+  const row3: Array<[string, string, number]> = [
+    ["Local", data.local, 0.22],
+    ["Descricao de atendimento", data.descricaoAtendimento, 0.58],
+    ["N° da NC", data.numeroNc, 0.2],
+  ];
+  const row4: Array<[string, string, number]> = [
+    ["Lista de verificacao apontada", data.listaVerificacaoApontada, 0.5],
+    ["Item nao conforme", data.itemNaoConforme, 0.5],
+  ];
+
+  const drawRow = (entries: Array<[string, string, number]>, rowHeight: number) => {
+    let x = x0;
+    for (const [label, value, ratio] of entries) {
+      const width = contentWidth * ratio;
+      doc.rect(x, y, width, rowHeight);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.text(`${label}:`, x + 1.2, y + 3.4);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(value || "-", x + 1.2, y + 7.2, { maxWidth: width - 2.4 });
+      x += width;
+    }
+    y += rowHeight;
+  };
+
+  drawRow(row1, 9);
+  drawRow(row2, 9);
+  drawRow(row3, 9);
+  drawRow(row4, 9);
 
   return y + 1;
 }
@@ -552,6 +691,7 @@ async function generatePavimentoBasePdf(
   drawAceiteSignatureFooter(doc, cursorY + 8, options.hidePrefeituraInFooter);
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -614,6 +754,7 @@ export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<voi
   drawAceiteSignatureFooter(doc, cursorY + 8, true);
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -654,6 +795,7 @@ export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<v
   drawAceiteSignatureFooter(doc, cursorY + 8, true);
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -708,6 +850,7 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -754,6 +897,7 @@ export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<voi
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -811,6 +955,91 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
+  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
+  const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
+  const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
+  const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
+  const logradouro = findFieldValue(orderedFields, formData, ["logradouro", "rua"]);
+  const pde = findFieldValue(orderedFields, formData, ["pde"]);
+  const jusante = findFieldValue(orderedFields, formData, ["jusante"]);
+  const montante = findFieldValue(orderedFields, formData, ["montante"]);
+  const bacia = findFieldValue(orderedFields, formData, ["sub bacia", "sub-bacia", "bacia"]);
+  const extensaoRamal = findFieldValue(orderedFields, formData, [
+    "extensao",
+    "extensão",
+    "extensao_ramal",
+    "extensão_ramal",
+  ]);
+  const diametroRede = findFieldValue(orderedFields, formData, [
+    "diametro_rede",
+    "diâmetro_rede",
+    "diametro da rede",
+  ]);
+  const diametroRamal = findFieldValue(orderedFields, formData, [
+    "diametro_ramal",
+    "diâmetro_ramal",
+    "diametro do ramal",
+  ]);
+  const materialRede = findFieldValue(orderedFields, formData, ["material", "material_rede", "material da rede"]);
+  const profundidadeRede = findFieldValue(orderedFields, formData, [
+    "profundidade_rede",
+    "profundidade da rede",
+  ]);
+  const posicaoRede = findFieldValue(orderedFields, formData, ["posicao_rede", "posição_rede", "posicao da rede"]);
+  const photos = resolvePhotosFromMediaFields(formData, orderedFields);
+
+  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao, `RELATÓRIO PREÇO ${preco}`);
+  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
+  cursorY = drawLigacoesMetaStrip(doc, cursorY + 1, {
+    endereco: logradouro,
+    pde,
+    jusante,
+    montante,
+    subBacia: bacia,
+    extensaoRamal,
+    diametroRede,
+    diametroRamal,
+    materialRede,
+    posicaoRede,
+    profundidadeRede,
+  });
+  cursorY += 2;
+
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
+
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Ligacoes", "Ligacoes"],
+        58,
+        false
+      );
+
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -899,6 +1128,126 @@ export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<voi
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
+  doc.save(`${safeCode}.pdf`);
+}
+
+export async function generateReparoNcfPdf(input: ReportPdfInput): Promise<void> {
+  const { reportType, fields, formData } = input;
+  const orderedFields = [...fields].sort((a, b) => a.order - b.order);
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+
+  const produto = "Auditoria SABESP";
+  const contrato = "00.756/24";
+  const engenheiroGerenciamento = "Juliane Cristina dos Santos";
+  const coordenadorObraGerenciadora = "Trinid Roman";
+  const contratada = "CONS. ESG IT. M. DIREITA";
+  const dataRelatorio = new Date().toLocaleDateString("pt-BR");
+  const responsavelAtendimento = "Vanusa Pereira de Souza";
+  const dataPrevisaoAtendimento = findFieldValue(orderedFields, formData, [
+    "data_previsao_atendimento",
+    "dataPrevisaoAtendimento",
+    "data/previsao de atendimento",
+    "data previsao de atendimento",
+    "previsao_atendimento",
+    "previsao de atendimento",
+    "data_prevista_atendimento",
+    "data prevista atendimento",
+    "dataAtendimento",
+    "data_atendimento",
+    "data de atendimento",
+    "data atendimento",
+  ]);
+  const local = findFieldValue(orderedFields, formData, ["local", "rua", "logradouro"]);
+  const descricaoAtendimento = findFieldValue(orderedFields, formData, [
+    "descricao_atendimento",
+    "descricaoatendimento",
+    "descricao de atendimento",
+    "descricaoAtendimento",
+    "descricao_ncf",
+    "descricao nao conformidade",
+    "nao conformidade",
+  ]);
+  const numeroNc = findFieldValue(orderedFields, formData, [
+    "numero_nao_conformidade",
+    "numero_ncf",
+    "ncf_numero",
+    "numero_nc",
+    "nc_numero",
+    "numero da nc",
+    "numero da ncf",
+    "numero nao conformidade",
+    "n° da nc",
+    "n° da ncf",
+    "n da nc",
+    "n da ncf",
+  ]);
+  const listaVerificacaoApontada = findFieldValue(orderedFields, formData, [
+    "lista_verificacao_apontada",
+    "listaVerificacaoApontada",
+    "lista de verificacao apontada",
+    "checklist_apontado",
+    "checklist apontado",
+  ]);
+  const itemNaoConforme = findFieldValue(orderedFields, formData, [
+    "item_nao_conforme",
+    "itemNaoConforme",
+    "item nao conforme",
+    "nao_conforme_item",
+  ]);
+
+  const photos = resolvePhotosFromMediaFields(formData, orderedFields);
+
+  let cursorY = await drawLimpezaRedeTitle(doc, "FICHA DE ATENDIMENTO A NÃO CONFORMIDADE - CONTRATADA");
+  cursorY = drawReparoNcfMetadataTable(doc, cursorY, {
+    produto,
+    contrato,
+    engenheiroGerenciamento,
+    coordenadorObraGerenciadora,
+    contratada,
+    dataRelatorio,
+    responsavelAtendimento,
+    dataPrevisaoAtendimento: formatDatePtBr(dataPrevisaoAtendimento),
+    local,
+    descricaoAtendimento,
+    numeroNc,
+    listaVerificacaoApontada,
+    itemNaoConforme,
+  });
+
+  const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
+  const sectionEstimatedHeight = 65;
+  const footerReserveGap = 4;
+
+  if (photos.length === 0) {
+    drawLimpezaSignatureFooter(doc, firstPageFooterY);
+  } else {
+    let photoIndex = 0;
+    let isFirstPage = true;
+    while (photoIndex < photos.length) {
+      if (!isFirstPage) {
+        doc.addPage("a4", "landscape");
+        cursorY = (await drawLimpezaRedeTitle(doc, "FICHA DE ATENDIMENTO A NÃO CONFORMIDADE - CONTRATADA")) + 2;
+      }
+
+      let sectionsInPage = 0;
+      while (photoIndex < photos.length) {
+        const needsPageBreak = cursorY + sectionEstimatedHeight > firstPageFooterY - footerReserveGap;
+        if (needsPageBreak && sectionsInPage > 0) {
+          break;
+        }
+        cursorY = await drawLimpezaPhotoPairSection(doc, photos, photoIndex, cursorY);
+        photoIndex += 2;
+        sectionsInPage += 1;
+      }
+
+      drawLimpezaSignatureFooter(doc, firstPageFooterY);
+      isFirstPage = false;
+    }
+  }
+
+  const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
 
@@ -944,5 +1293,6 @@ export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Prom
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
+  applyTotalPagesToStandardHeader(doc);
   doc.save(`${safeCode}.pdf`);
 }
