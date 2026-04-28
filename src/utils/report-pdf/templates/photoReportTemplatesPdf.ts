@@ -15,6 +15,9 @@ interface AceitePhoto {
   title?: string;
 }
 
+const DEFAULT_REPORT_PHOTO_HEIGHT = 74;
+const PHOTO_SECTION_ESTIMATED_HEIGHT = DEFAULT_REPORT_PHOTO_HEIGHT + 13;
+
 function formatDatePtBr(value: string): string {
   const raw = value.trim();
   if (!raw || raw === "-") {
@@ -284,9 +287,10 @@ function drawLigacoesMetaStrip(
   const contentWidth = pageWidth - MARGIN * 2;
   const x0 = MARGIN;
   let y = startY;
-  const rowH = 7.4;
+  const defaultRowH = 7.4;
+  const ligacoesDetailsRowH = 11.2;
 
-  const drawRow = (entries: Array<{ label: string; value: string; width: number }>) => {
+  const drawRow = (entries: Array<{ label: string; value: string; width: number }>, rowH = defaultRowH) => {
     let x = x0;
     for (const entry of entries) {
       doc.rect(x, y, entry.width, rowH);
@@ -323,7 +327,7 @@ function drawLigacoesMetaStrip(
   ];
 
   drawRow(row1Entries);
-  drawRow(row2Entries);
+  drawRow(row2Entries, ligacoesDetailsRowH);
 
   return y;
 }
@@ -438,27 +442,37 @@ function drawReparoNcfMetadataTable(
     ["Data/Previsao de atendimento", data.dataPrevisaoAtendimento, 0.25],
   ];
   const row3: Array<[string, string, number]> = [
-    ["Local", data.local, 0.22],
+    ["Lista de verificacao apontada", data.listaVerificacaoApontada, 0.22],
     ["Descricao de atendimento", data.descricaoAtendimento, 0.58],
     ["N° da NC", data.numeroNc, 0.2],
   ];
   const row4: Array<[string, string, number]> = [
-    ["Lista de verificacao apontada", data.listaVerificacaoApontada, 0.5],
-    ["Item nao conforme", data.itemNaoConforme, 0.5],
+    ["Local", data.local, 1],
   ];
+  const row5: Array<[string, string, number]> = [["Item nao conforme", data.itemNaoConforme, 1]];
 
-  const drawRow = (entries: Array<[string, string, number]>, rowHeight: number) => {
-    let x = x0;
-    for (const [label, value, ratio] of entries) {
+  const drawRow = (entries: Array<[string, string, number]>, minRowHeight: number) => {
+    const resolvedEntries = entries.map(([label, value, ratio]) => {
       const width = contentWidth * ratio;
-      doc.rect(x, y, width, rowHeight);
+      const lines = doc.splitTextToSize(value || "-", width - 2.4);
+      return { label, ratio, width, lines };
+    });
+    const maxLines = Math.max(...resolvedEntries.map((entry) => entry.lines.length), 1);
+    const valueTop = 7.2;
+    const lineHeight = 3.2;
+    const computedRowHeight = valueTop + (maxLines - 1) * lineHeight + 2;
+    const rowHeight = Math.max(minRowHeight, computedRowHeight);
+
+    let x = x0;
+    for (const entry of resolvedEntries) {
+      doc.rect(x, y, entry.width, rowHeight);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.8);
-      doc.text(`${label}:`, x + 1.2, y + 3.4);
+      doc.text(`${entry.label}:`, x + 1.2, y + 3.4);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.text(value || "-", x + 1.2, y + 7.2, { maxWidth: width - 2.4 });
-      x += width;
+      doc.text(entry.lines, x + 1.2, y + valueTop);
+      x += entry.width;
     }
     y += rowHeight;
   };
@@ -467,6 +481,7 @@ function drawReparoNcfMetadataTable(
   drawRow(row2, 9);
   drawRow(row3, 9);
   drawRow(row4, 9);
+  drawRow(row5, 9);
 
   return y + 1;
 }
@@ -495,7 +510,7 @@ async function drawLimpezaPhotoPairSection(
   const contentWidth = pageWidth - MARGIN * 2;
   const gap = 4;
   const photoW = (contentWidth - gap) / 2;
-  const photoH = 58;
+  const photoH = DEFAULT_REPORT_PHOTO_HEIGHT;
   const leftX = MARGIN;
   const rightX = MARGIN + photoW + gap;
   let y = startY;
@@ -539,7 +554,7 @@ async function drawAceitePhotoBlock(
   startIndex: number,
   startY: number,
   fallbackTitles: [string, string],
-  photoHeight = 58,
+  photoHeight = DEFAULT_REPORT_PHOTO_HEIGHT,
   renderMissing = true
 ): Promise<number> {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -571,7 +586,7 @@ async function drawAceitePhotoBlock(
       doc.text("Sem foto", x + 3, cursorY + photoHeight / 2);
     }
 
-    doc.setFillColor(235, 20, 20);
+    doc.setFillColor(240, 240, 240);
     doc.rect(x, cursorY + photoHeight, photoWidth, legendHeight, "F");
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
@@ -768,31 +783,33 @@ export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<v
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
-  const photos = resolveAceitePhotosFromFormData(formData);
+  const photos = resolvePhotosFromMediaFields(formData, orderedFields);
   let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
   cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
   cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "EXECUÇÃO DE OBRAS CIVIS - EEE", "") + 1.5;
 
-  cursorY = await drawAceitePhotoBlock(
-    doc,
-    photos,
-    0,
-    cursorY,
-    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"]
-  );
+  if (photos.length === 0) {
+    drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+  } else {
+    for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
+      if (photoStart > 0) {
+        doc.addPage();
+        cursorY = MARGIN + 12;
+      }
 
-  drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
+      cursorY = await drawAceitePhotoBlock(
+        doc,
+        photos,
+        photoStart,
+        cursorY,
+        ["Obras civis EEE", "Obras civis EEE"],
+        DEFAULT_REPORT_PHOTO_HEIGHT,
+        false
+      );
 
-  doc.addPage();
-  cursorY = MARGIN + 12;
-  cursorY = await drawAceitePhotoBlock(
-    doc,
-    photos,
-    2,
-    cursorY,
-    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"]
-  );
-  drawAceiteSignatureFooter(doc, cursorY + 8, true);
+      drawAceiteSignatureFooter(doc, cursorY + (photoStart === 0 ? 1.5 : 8), true);
+    }
+  }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");
   applyTotalPagesToStandardHeader(doc);
@@ -841,7 +858,7 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
         photoStart,
         cursorY,
         ["Fornecimento EEE LR", "Fornecimento EEE LR"],
-        58,
+        DEFAULT_REPORT_PHOTO_HEIGHT,
         false
       );
 
@@ -888,7 +905,7 @@ export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<voi
         photoStart,
         cursorY,
         ["Montagem EEE", "Montagem EEE"],
-        58,
+        DEFAULT_REPORT_PHOTO_HEIGHT,
         false
       );
 
@@ -946,7 +963,7 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
         photoStart,
         cursorY,
         ["Ligacao passeio", "Ligacao passeio"],
-        58,
+        DEFAULT_REPORT_PHOTO_HEIGHT,
         false
       );
 
@@ -1030,7 +1047,7 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
         photoStart,
         cursorY,
         ["Ligacoes", "Ligacoes"],
-        58,
+        DEFAULT_REPORT_PHOTO_HEIGHT,
         false
       );
 
@@ -1097,7 +1114,7 @@ export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<voi
   });
 
   const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
-  const sectionEstimatedHeight = 65;
+  const sectionEstimatedHeight = PHOTO_SECTION_ESTIMATED_HEIGHT;
   const footerReserveGap = 4;
 
   if (photos.length === 0) {
@@ -1216,7 +1233,7 @@ export async function generateReparoNcfPdf(input: ReportPdfInput): Promise<void>
   });
 
   const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
-  const sectionEstimatedHeight = 65;
+  const sectionEstimatedHeight = PHOTO_SECTION_ESTIMATED_HEIGHT;
   const footerReserveGap = 4;
 
   if (photos.length === 0) {
