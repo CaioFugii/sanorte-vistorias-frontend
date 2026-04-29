@@ -7,15 +7,17 @@ import {
   drawKeyValueRows,
   drawMediaSection,
   drawSectionTitle,
-  ensurePageSpace,
+  ensurePageSpaceWithHeader,
 } from "../sharedLayout";
 
 export async function generateGenericReportPdf(input: ReportPdfInput): Promise<void> {
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const headerTitle = reportType.name || DEFAULT_TITLE;
+  const redrawHeader = () => drawHeader(doc, headerTitle);
 
-  let cursorY = drawHeader(doc, reportType.name || DEFAULT_TITLE);
+  let cursorY = redrawHeader();
   cursorY = drawSectionTitle(doc, "Dados do formulario", cursorY);
 
   const nonMediaRows = orderedFields
@@ -24,14 +26,14 @@ export async function generateGenericReportPdf(input: ReportPdfInput): Promise<v
       label: field.label,
       value: toDisplayText(formData[field.fieldKey]),
     }));
-  cursorY = drawKeyValueRows(doc, nonMediaRows, cursorY);
+  cursorY = drawKeyValueRows(doc, nonMediaRows, cursorY, redrawHeader);
 
   const mediaFields = orderedFields.filter((field) => field.type === "image" || field.type === "signature");
   if (mediaFields.length > 0) {
     cursorY += 4;
-    cursorY = ensurePageSpace(doc, cursorY, 14);
+    cursorY = ensurePageSpaceWithHeader(doc, cursorY, 14, redrawHeader);
     cursorY = drawSectionTitle(doc, "Midias", cursorY);
-    await drawMediaSection(doc, mediaFields, formData, cursorY);
+    await drawMediaSection(doc, mediaFields, formData, cursorY, redrawHeader);
   }
 
   const safeCode = (reportType.code || "relatorio").replace(/[\\/:*?"<>|]/g, "-");

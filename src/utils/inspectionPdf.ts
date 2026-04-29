@@ -316,13 +316,15 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
   const margin = 12;
 
   const logoDataUrl = await loadImageAsDataUrl(SANORTE_LOGO_URL);
-  let cursorY = drawHeader(doc, inspection, logoDataUrl);
-  cursorY = drawSectionHeader(doc, "INFORMACOES GERAIS", cursorY, margin, pageWidth);
-  cursorY = drawInfoTable(doc, inspection, cursorY, margin, pageWidth);
-  cursorY += 10;
-
-  cursorY = drawSectionHeader(doc, "RELATORIO FOTOGRAFICO", cursorY, margin, pageWidth);
-  cursorY += 6;
+  const drawStaticContent = (): number => {
+    let y = drawHeader(doc, inspection, logoDataUrl);
+    y = drawSectionHeader(doc, "INFORMACOES GERAIS", y, margin, pageWidth);
+    y = drawInfoTable(doc, inspection, y, margin, pageWidth);
+    y += 10;
+    y = drawSectionHeader(doc, "RELATORIO FOTOGRAFICO", y, margin, pageWidth);
+    return y + 6;
+  };
+  let cursorY = drawStaticContent();
 
   const evidences = extractEvidenceSources(inspection);
   const photoWidth = (pageWidth - margin * 2 - 6) / 2;
@@ -340,7 +342,7 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
       }
       if (cursorY + photoHeight + 12 > pageHeight - margin) {
         doc.addPage();
-        cursorY = margin;
+        cursorY = drawStaticContent();
       }
 
       const x = margin + column * (photoWidth + 6);

@@ -336,6 +336,22 @@ async function drawLimpezaRedeTitle(doc: jsPDF, title: string): Promise<number> 
   return await drawPhotoReportTitleWithLogos(doc, title, MARGIN, 10);
 }
 
+async function addStandardPhotoReportPage(
+  doc: jsPDF,
+  dataEmissao: string,
+  options?: {
+    reportTitle?: string;
+    drawContentAfterHeader?: (headerEndY: number) => number;
+  }
+): Promise<number> {
+  doc.addPage();
+  const headerEndY = await drawStandardPhotoReportHeader(doc, dataEmissao, options?.reportTitle);
+  if (options?.drawContentAfterHeader) {
+    return options.drawContentAfterHeader(headerEndY);
+  }
+  return headerEndY + 1.5;
+}
+
 function drawLimpezaRedeMetadataTable(
   doc: jsPDF,
   startY: number,
@@ -672,17 +688,12 @@ async function generatePavimentoBasePdf(
   const jusante = findFieldValue(orderedFields, formData, ["jusante"]);
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const photos = resolveAceitePhotosFromFormData(formData);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleAndStretch(
-    doc,
-    cursorY + 1,
-    bacia,
-    logradouro,
-    montante,
-    jusante,
-    options.titleText
-  ) + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleAndStretch(doc, y + 1, bacia, logradouro, montante, jusante, options.titleText) + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   cursorY = await drawAceitePhotoBlock(
     doc,
@@ -694,8 +705,9 @@ async function generatePavimentoBasePdf(
 
   drawAceiteSignatureFooter(doc, cursorY + 1.5, options.hidePrefeituraInFooter);
 
-  doc.addPage();
-  cursorY = MARGIN + 12;
+  cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+    drawContentAfterHeader: drawStaticContent,
+  });
   cursorY = await drawAceitePhotoBlock(
     doc,
     photos,
@@ -743,9 +755,12 @@ export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<voi
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const etapa = findFieldValue(orderedFields, formData, ["etapa"]);
   const photos = resolveAceitePhotosFromFormData(formData);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "PV DE TRANSIÇÃO", etapa) + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleAndBaciaOnly(doc, y + 1, bacia, "PV DE TRANSIÇÃO", etapa) + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   cursorY = await drawAceitePhotoBlock(
     doc,
@@ -757,8 +772,9 @@ export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<voi
 
   drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
 
-  doc.addPage();
-  cursorY = MARGIN + 12;
+  cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+    drawContentAfterHeader: drawStaticContent,
+  });
   cursorY = await drawAceitePhotoBlock(
     doc,
     photos,
@@ -784,17 +800,21 @@ export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<v
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
   const bacia = findFieldValue(orderedFields, formData, ["bacia"]);
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, "EXECUÇÃO DE OBRAS CIVIS - EEE", "") + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleAndBaciaOnly(doc, y + 1, bacia, "EXECUÇÃO DE OBRAS CIVIS - EEE", "") + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
@@ -839,17 +859,21 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
   const fixedPhotos = resolveAceitePhotosFromFormData(formData);
   const photos =
     fixedPhotos.length > 0 ? fixedPhotos : resolvePhotosFromMediaFields(formData, orderedFields);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, dynamicTitle, "") + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleAndBaciaOnly(doc, y + 1, bacia, dynamicTitle, "") + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
@@ -886,17 +910,21 @@ export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<voi
   const fixedPhotos = resolveAceitePhotosFromFormData(formData);
   const photos =
     fixedPhotos.length > 0 ? fixedPhotos : resolvePhotosFromMediaFields(formData, orderedFields);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleAndBaciaOnly(doc, cursorY + 1, bacia, dynamicTitle, "") + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleAndBaciaOnly(doc, y + 1, bacia, dynamicTitle, "") + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
@@ -936,25 +964,29 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
   const rgi = findFieldValue(orderedFields, formData, ["rgi"]);
   const trecho = montante !== "-" && jusante !== "-" ? `${montante} AO ${jusante}` : "-";
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
-
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao, `RELATÓRIO PREÇO ${preco}`);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawLigacaoPasseioMetaStrip(doc, cursorY + 1, {
-    subBacia: bacia,
-    trecho,
-    croqui,
-    rgi,
-    endereco: logradouro,
-  });
-  cursorY += 2;
+  const reportTitle = `RELATÓRIO PREÇO ${preco}`;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawLigacaoPasseioMetaStrip(doc, y + 1, {
+      subBacia: bacia,
+      trecho,
+      croqui,
+      rgi,
+      endereco: logradouro,
+    });
+    return y + 2;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao, reportTitle));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          reportTitle,
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
@@ -1014,31 +1046,35 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
   ]);
   const posicaoRede = findFieldValue(orderedFields, formData, ["posicao_rede", "posição_rede", "posicao da rede"]);
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
-
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao, `RELATÓRIO PREÇO ${preco}`);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawLigacoesMetaStrip(doc, cursorY + 1, {
-    endereco: logradouro,
-    pde,
-    jusante,
-    montante,
-    subBacia: bacia,
-    extensaoRamal,
-    diametroRede,
-    diametroRamal,
-    materialRede,
-    posicaoRede,
-    profundidadeRede,
-  });
-  cursorY += 2;
+  const reportTitle = `RELATÓRIO PREÇO ${preco}`;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawLigacoesMetaStrip(doc, y + 1, {
+      endereco: logradouro,
+      pde,
+      jusante,
+      montante,
+      subBacia: bacia,
+      extensaoRamal,
+      diametroRede,
+      diametroRamal,
+      materialRede,
+      posicaoRede,
+      profundidadeRede,
+    });
+    return y + 2;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao, reportTitle));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          reportTitle,
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
@@ -1095,23 +1131,27 @@ export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<voi
 
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
 
-  let cursorY = await drawLimpezaRedeTitle(doc, "RELATÓRIO FOTOGRÁFICO DE LIMPEZA DE REDE");
-  cursorY = drawLimpezaRedeMetadataTable(doc, cursorY, {
-    produto,
-    contrato,
-    engenheiroGerenciamento,
-    coordenadorObraGerenciadora,
-    contratada,
-    dataRelatorio,
-    responsavelAtendimento,
-    dataAtendimento: formatDatePtBr(dataAtendimento),
-    local,
-    bairro,
-    trecho,
-    extensao,
-    diametroRede,
-    subBacia,
-  });
+  const drawStaticContent = async (): Promise<number> => {
+    let y = await drawLimpezaRedeTitle(doc, "RELATÓRIO FOTOGRÁFICO DE LIMPEZA DE REDE");
+    y = drawLimpezaRedeMetadataTable(doc, y, {
+      produto,
+      contrato,
+      engenheiroGerenciamento,
+      coordenadorObraGerenciadora,
+      contratada,
+      dataRelatorio,
+      responsavelAtendimento,
+      dataAtendimento: formatDatePtBr(dataAtendimento),
+      local,
+      bairro,
+      trecho,
+      extensao,
+      diametroRede,
+      subBacia,
+    });
+    return y;
+  };
+  let cursorY = await drawStaticContent();
 
   const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
   const sectionEstimatedHeight = PHOTO_SECTION_ESTIMATED_HEIGHT;
@@ -1125,7 +1165,7 @@ export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<voi
     while (photoIndex < photos.length) {
       if (!isFirstPage) {
         doc.addPage("a4", "landscape");
-        cursorY = (await drawLimpezaRedeTitle(doc, "RELATÓRIO FOTOGRÁFICO DE LIMPEZA DE REDE")) + 2;
+        cursorY = await drawStaticContent();
       }
 
       let sectionsInPage = 0;
@@ -1215,22 +1255,26 @@ export async function generateReparoNcfPdf(input: ReportPdfInput): Promise<void>
 
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
 
-  let cursorY = await drawLimpezaRedeTitle(doc, "FICHA DE ATENDIMENTO A NÃO CONFORMIDADE - CONTRATADA");
-  cursorY = drawReparoNcfMetadataTable(doc, cursorY, {
-    produto,
-    contrato,
-    engenheiroGerenciamento,
-    coordenadorObraGerenciadora,
-    contratada,
-    dataRelatorio,
-    responsavelAtendimento,
-    dataPrevisaoAtendimento: formatDatePtBr(dataPrevisaoAtendimento),
-    local,
-    descricaoAtendimento,
-    numeroNc,
-    listaVerificacaoApontada,
-    itemNaoConforme,
-  });
+  const drawStaticContent = async (): Promise<number> => {
+    let y = await drawLimpezaRedeTitle(doc, "FICHA DE ATENDIMENTO A NÃO CONFORMIDADE - CONTRATADA");
+    y = drawReparoNcfMetadataTable(doc, y, {
+      produto,
+      contrato,
+      engenheiroGerenciamento,
+      coordenadorObraGerenciadora,
+      contratada,
+      dataRelatorio,
+      responsavelAtendimento,
+      dataPrevisaoAtendimento: formatDatePtBr(dataPrevisaoAtendimento),
+      local,
+      descricaoAtendimento,
+      numeroNc,
+      listaVerificacaoApontada,
+      itemNaoConforme,
+    });
+    return y;
+  };
+  let cursorY = await drawStaticContent();
 
   const firstPageFooterY = doc.internal.pageSize.getHeight() - (MARGIN + 13);
   const sectionEstimatedHeight = PHOTO_SECTION_ESTIMATED_HEIGHT;
@@ -1244,7 +1288,7 @@ export async function generateReparoNcfPdf(input: ReportPdfInput): Promise<void>
     while (photoIndex < photos.length) {
       if (!isFirstPage) {
         doc.addPage("a4", "landscape");
-        cursorY = (await drawLimpezaRedeTitle(doc, "FICHA DE ATENDIMENTO A NÃO CONFORMIDADE - CONTRATADA")) + 2;
+        cursorY = await drawStaticContent();
       }
 
       let sectionsInPage = 0;
@@ -1282,17 +1326,21 @@ export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Prom
     indexedPhotos.length > 0
       ? indexedPhotos
       : resolvePhotosFromMediaFields(formData, orderedFields).slice(0, 20);
-  let cursorY = await drawStandardPhotoReportHeader(doc, dataEmissao);
-  cursorY = drawContractMetaGrid(doc, cursorY + 1, medicao, inicioPeriodo, fimPeriodo);
-  cursorY = drawTitleOnly(doc, cursorY + 1, "CANTEIRO DE OBRAS") + 1.5;
+  const drawStaticContent = (headerEndY: number): number => {
+    let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
+    y = drawTitleOnly(doc, y + 1, "CANTEIRO DE OBRAS") + 1.5;
+    return y;
+  };
+  let cursorY = drawStaticContent(await drawStandardPhotoReportHeader(doc, dataEmissao));
 
   if (photos.length === 0) {
     drawAceiteSignatureFooter(doc, cursorY + 1.5, true);
   } else {
     for (let photoStart = 0; photoStart < photos.length; photoStart += 2) {
       if (photoStart > 0) {
-        doc.addPage();
-        cursorY = MARGIN + 12;
+        cursorY = await addStandardPhotoReportPage(doc, dataEmissao, {
+          drawContentAfterHeader: drawStaticContent,
+        });
       }
 
       cursorY = await drawAceitePhotoBlock(
