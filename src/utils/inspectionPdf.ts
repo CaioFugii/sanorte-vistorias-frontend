@@ -3,6 +3,7 @@ import { Inspection, ModuleType } from "@/domain";
 
 const SANORTE_LOGO_URL = "/assets/sanorte-logo.svg";
 const HEADER_BLUE = [8, 26, 102] as const;
+const REPORT_PHOTO_WIDTH_SCALE = 0.65;
 
 const moduleLabel: Record<ModuleType, string> = {
   [ModuleType.CAMPO]: "CAMPO",
@@ -327,7 +328,8 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
   let cursorY = drawStaticContent();
 
   const evidences = extractEvidenceSources(inspection);
-  const photoWidth = (pageWidth - margin * 2 - 6) / 2;
+  const photoColumnWidth = (pageWidth - margin * 2 - 6) / 2;
+  const photoWidth = photoColumnWidth * REPORT_PHOTO_WIDTH_SCALE;
   const photoHeight = 62;
 
   if (evidences.length === 0) {
@@ -345,7 +347,7 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
         cursorY = drawStaticContent();
       }
 
-      const x = margin + column * (photoWidth + 6);
+      const x = margin + column * (photoColumnWidth + 6) + (photoColumnWidth - photoWidth) / 2;
       const entry = evidences[index];
       const dataUrl = await loadImageAsDataUrl(entry.src);
       const imageFormat = dataUrl ? getImageFormat(dataUrl) : null;

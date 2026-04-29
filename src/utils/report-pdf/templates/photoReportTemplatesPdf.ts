@@ -16,6 +16,7 @@ interface AceitePhoto {
 }
 
 const DEFAULT_REPORT_PHOTO_HEIGHT = 74;
+const DEFAULT_REPORT_PHOTO_WIDTH_SCALE = 0.65;
 const PHOTO_SECTION_ESTIMATED_HEIGHT = DEFAULT_REPORT_PHOTO_HEIGHT + 13;
 
 function formatDatePtBr(value: string): string {
@@ -525,10 +526,11 @@ async function drawLimpezaPhotoPairSection(
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - MARGIN * 2;
   const gap = 4;
-  const photoW = (contentWidth - gap) / 2;
+  const photoCellW = (contentWidth - gap) / 2;
+  const photoW = photoCellW * DEFAULT_REPORT_PHOTO_WIDTH_SCALE;
   const photoH = DEFAULT_REPORT_PHOTO_HEIGHT;
-  const leftX = MARGIN;
-  const rightX = MARGIN + photoW + gap;
+  const leftX = MARGIN + (photoCellW - photoW) / 2;
+  const rightX = MARGIN + photoCellW + gap + (photoCellW - photoW) / 2;
   let y = startY;
 
   const first = photos[startIndex];
@@ -571,15 +573,19 @@ async function drawAceitePhotoBlock(
   startY: number,
   fallbackTitles: [string, string],
   photoHeight = DEFAULT_REPORT_PHOTO_HEIGHT,
-  renderMissing = true
+  renderMissing = true,
+  photoWidthScale = DEFAULT_REPORT_PHOTO_WIDTH_SCALE
 ): Promise<number> {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const photoWidth = pageWidth - MARGIN * 2;
+  const contentWidth = pageWidth - MARGIN * 2;
+  const safePhotoWidthScale = Math.min(Math.max(photoWidthScale, 0.3), 1);
+  const photoWidth = contentWidth * safePhotoWidthScale;
+  const photoX = MARGIN + (contentWidth - photoWidth) / 2;
   const legendHeight = 4;
   let cursorY = startY;
 
   for (let i = 0; i < 2; i += 1) {
-    const x = MARGIN;
+    const x = photoX;
     const entry = photos[startIndex + i];
     if (!entry && !renderMissing) {
       continue;
@@ -673,7 +679,7 @@ function drawAceiteSignatureFooter(doc: jsPDF, startY: number, hidePrefeitura: b
 
 async function generatePavimentoBasePdf(
   input: ReportPdfInput,
-  options: { titleText: string; hidePrefeituraInFooter: boolean }
+  options: { titleText: string; hidePrefeituraInFooter: boolean; photoWidthScale?: number }
 ): Promise<void> {
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
@@ -700,7 +706,10 @@ async function generatePavimentoBasePdf(
     photos,
     0,
     cursorY,
-    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"]
+    ["Pavimento antes da execucao da obra", "Pavimento antes da execucao da obra"],
+    DEFAULT_REPORT_PHOTO_HEIGHT,
+    true,
+    options.photoWidthScale ?? DEFAULT_REPORT_PHOTO_WIDTH_SCALE
   );
 
   drawAceiteSignatureFooter(doc, cursorY + 1.5, options.hidePrefeituraInFooter);
@@ -713,7 +722,10 @@ async function generatePavimentoBasePdf(
     photos,
     2,
     cursorY,
-    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"]
+    ["Pavimento apos a reposicao de bloquete", "Pavimento apos a reposicao de bloquete"],
+    DEFAULT_REPORT_PHOTO_HEIGHT,
+    true,
+    options.photoWidthScale ?? DEFAULT_REPORT_PHOTO_WIDTH_SCALE
   );
   drawAceiteSignatureFooter(doc, cursorY + 8, options.hidePrefeituraInFooter);
 
@@ -726,6 +738,7 @@ export async function generateAceitePavimentoPdf(input: ReportPdfInput): Promise
   await generatePavimentoBasePdf(input, {
     titleText: "ACEITE DE RECOMPOSICAO DE PAVIMENTO",
     hidePrefeituraInFooter: false,
+    photoWidthScale: 0.65,
   });
 }
 

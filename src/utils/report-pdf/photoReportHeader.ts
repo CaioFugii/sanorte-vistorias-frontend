@@ -18,7 +18,19 @@ async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
     const response = await fetch(assetUrl);
     if (!response.ok) return null;
     const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
+    let sourceBlob = blob;
+
+    // O logo da Sanorte vem em SVG com varios elementos brancos.
+    // Para cabecalho com fundo branco, convertemos esses elementos para cinza.
+    if (assetUrl.includes("sanorte-infraestrutura.svg") && blob.type.includes("svg")) {
+      const svgContent = await blob.text();
+      const adjustedSvg = svgContent
+        .replace(/fill="white"/gi, 'fill="#9CA3AF"')
+        .replace(/fill:\s*white/gi, "fill:#9CA3AF");
+      sourceBlob = new Blob([adjustedSvg], { type: "image/svg+xml" });
+    }
+
+    const objectUrl = URL.createObjectURL(sourceBlob);
     try {
       const image = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
