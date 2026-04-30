@@ -13,21 +13,28 @@ const TOTAL_PAGES_PLACEHOLDER = "{total_pages_count_string}";
 
 let logosPromise: Promise<ReportLogos> | null = null;
 
-async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
+interface LoadAssetOptions {
+  recolorWhiteToGray?: boolean;
+}
+
+async function loadAssetAsPngDataUrl(assetUrl: string, options?: LoadAssetOptions): Promise<string | null> {
   try {
     const response = await fetch(assetUrl);
     if (!response.ok) return null;
     const blob = await response.blob();
     let sourceBlob = blob;
 
-    // O logo da Sanorte vem em SVG com varios elementos brancos.
-    // Para cabecalho com fundo branco, convertemos esses elementos para cinza.
-    if (assetUrl.includes("sanorte-infraestrutura.svg") && blob.type.includes("svg")) {
+    if (options?.recolorWhiteToGray) {
       const svgContent = await blob.text();
-      const adjustedSvg = svgContent
-        .replace(/fill="white"/gi, 'fill="#9CA3AF"')
-        .replace(/fill:\s*white/gi, "fill:#9CA3AF");
-      sourceBlob = new Blob([adjustedSvg], { type: "image/svg+xml" });
+      const isSvgByContent = svgContent.includes("<svg");
+      if (isSvgByContent) {
+        // O logo da Sanorte vem em SVG com varios elementos brancos.
+        // Para cabecalho com fundo branco, convertemos esses elementos para cinza.
+        const adjustedSvg = svgContent
+          .replace(/fill="white"/gi, 'fill="#9CA3AF"')
+          .replace(/fill:\s*white/gi, "fill:#9CA3AF");
+        sourceBlob = new Blob([adjustedSvg], { type: "image/svg+xml" });
+      }
     }
 
     const objectUrl = URL.createObjectURL(sourceBlob);
@@ -56,7 +63,7 @@ async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
 async function getReportLogos(): Promise<ReportLogos> {
   if (!logosPromise) {
     logosPromise = Promise.all([
-      loadAssetAsPngDataUrl(sanorteLogoUrl),
+      loadAssetAsPngDataUrl(sanorteLogoUrl, { recolorWhiteToGray: true }),
       loadAssetAsPngDataUrl(sabespLogoUrl),
     ]).then(([sanorte, sabesp]) => ({ sanorte, sabesp }));
   }
