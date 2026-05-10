@@ -4,6 +4,8 @@ import {
   ChecklistItem,
   Collaborator,
   Contract,
+  InvestmentWork,
+  InvestmentWorkStatus,
   Inspection,
   InspectionListItem,
   InspectionScope,
@@ -33,6 +35,15 @@ export interface ServiceOrdersParams {
   remote?: boolean;
   /** Filtra OS já usadas em vistoria POS_OBRA */
   postWork?: boolean;
+}
+
+export interface InvestmentWorksParams {
+  page?: number;
+  limit?: number;
+  status?: InvestmentWorkStatus;
+  contractId?: string;
+  search?: string;
+  active?: boolean;
 }
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";
@@ -425,6 +436,65 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getInvestmentWorks(
+    params?: InvestmentWorksParams
+  ): Promise<PaginatedResponse<InvestmentWork>> {
+    const response = await apiClient.get<PaginatedResponse<InvestmentWork>>(
+      "/investment-works",
+      { params }
+    );
+    return response.data;
+  }
+
+  async getInvestmentWork(investmentWorkId: string): Promise<InvestmentWork> {
+    const response = await apiClient.get<InvestmentWork>(`/investment-works/${investmentWorkId}`);
+    return response.data;
+  }
+
+  async createInvestmentWork(input: {
+    contractId: string;
+    workName: string;
+    startDate: string;
+    expectedEndDate: string;
+    address: string;
+    district: string;
+    basin: string;
+    service: string;
+    teamId: string;
+    materialNetwork: string;
+    singularities?: string;
+    status?: InvestmentWorkStatus;
+  }): Promise<InvestmentWork> {
+    const response = await apiClient.post<InvestmentWork>("/investment-works", input);
+    return response.data;
+  }
+
+  async updateInvestmentWork(
+    investmentWorkId: string,
+    input: Partial<{
+      contractId: string;
+      workName: string;
+      startDate: string;
+      expectedEndDate: string;
+      address: string;
+      district: string;
+      basin: string;
+      service: string;
+      teamId: string;
+      materialNetwork: string;
+      singularities?: string;
+      status?: InvestmentWorkStatus;
+      active: boolean;
+    }>
+  ): Promise<InvestmentWork> {
+    const response = await apiClient.put<InvestmentWork>(`/investment-works/${investmentWorkId}`, input);
+    return response.data;
+  }
+
+  async deleteInvestmentWork(investmentWorkId: string): Promise<void> {
+    await apiClient.delete(`/investment-works/${investmentWorkId}`);
+  }
+
   async importServiceOrders(file: File, contractId: string): Promise<{
     inserted: number;
     skipped: number;
@@ -451,6 +521,7 @@ export class ApiRepository {
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
+    investmentWorkId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<InspectionListItem>> {
@@ -493,6 +564,7 @@ export class ApiRepository {
     checklistId: string;
     teamId?: string;
     serviceOrderId?: string;
+    investmentWorkId?: string;
     serviceDescription: string;
     locationDescription?: string;
     collaboratorIds?: string[];
@@ -510,6 +582,7 @@ export class ApiRepository {
     };
     if (input.teamId) payload.teamId = input.teamId;
     if (input.serviceOrderId) payload.serviceOrderId = input.serviceOrderId;
+    if (input.investmentWorkId) payload.investmentWorkId = input.investmentWorkId;
     if (input.externalId) payload.externalId = input.externalId;
     if (input.createdOffline !== undefined) payload.createdOffline = input.createdOffline;
     if (input.syncedAt) payload.syncedAt = input.syncedAt;

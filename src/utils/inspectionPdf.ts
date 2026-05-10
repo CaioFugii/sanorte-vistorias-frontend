@@ -6,6 +6,7 @@ const HEADER_BLUE = [8, 26, 102] as const;
 const REPORT_PHOTO_WIDTH_SCALE = 0.65;
 
 const moduleLabel: Record<ModuleType, string> = {
+  [ModuleType.OBRAS_INVESTIMENTO]: "OBRAS DE INVESTIMENTO",
   [ModuleType.CAMPO]: "CAMPO",
   [ModuleType.SEGURANCA_TRABALHO]: "SEGURANCA DO TRABALHO",
   [ModuleType.REMOTO]: "REMOTO",

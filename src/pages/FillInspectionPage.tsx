@@ -95,6 +95,8 @@ export const FillInspectionPage = (): JSX.Element => {
     }
     return null;
   }, [currentInspection, serviceOrders]);
+  const investmentWorkName =
+    currentInspection?.investmentWork?.workName ?? currentInspection?.investmentWork?.name ?? null;
 
   useEffect(() => {
     if (signature) {
@@ -373,6 +375,11 @@ export const FillInspectionPage = (): JSX.Element => {
           {osNumber && (
             <Typography variant="h5" color="text.secondary" fontWeight={500}>
               — OS {osNumber}
+            </Typography>
+          )}
+          {!osNumber && investmentWorkName && (
+            <Typography variant="h5" color="text.secondary" fontWeight={500}>
+              — Obra {investmentWorkName}
             </Typography>
           )}
         </Box>

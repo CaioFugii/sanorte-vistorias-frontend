@@ -382,6 +382,12 @@ export const InspectionDetailPage = (): JSX.Element => {
                 <strong>Equipe:</strong> {inspection.team.name}
               </Typography>
             )}
+            {inspection.investmentWork && (
+              <Typography variant="body2" gutterBottom>
+                <strong>Obra de investimento:</strong>{" "}
+                {inspection.investmentWork.workName ?? inspection.investmentWork.name ?? "—"}
+              </Typography>
+            )}
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>

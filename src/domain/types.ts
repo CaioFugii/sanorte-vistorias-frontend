@@ -1,5 +1,6 @@
 import {
   ChecklistAnswer,
+  InvestmentWorkStatus,
   InspectionScope,
   InspectionStatus,
   ModuleType,
@@ -82,6 +83,44 @@ export interface Contract {
   updatedAt?: string;
 }
 
+export interface InvestmentWork {
+  id: string;
+  contractId: string;
+  createdByUserId?: string;
+  /** Alguns endpoints enxutos podem retornar `name` ao invés de `workName`. */
+  name?: string;
+  workName: string;
+  startDate: string;
+  expectedEndDate: string;
+  address: string;
+  district: string;
+  basin: string;
+  service: string;
+  teamId: string;
+  team?: Pick<Team, "id" | "name">;
+  contract?: Pick<Contract, "id" | "name">;
+  materialNetwork: string;
+  singularities?: string | null;
+  status: InvestmentWorkStatus;
+  active: boolean;
+  inspectionStats?: {
+    total: number;
+    averageScorePercent?: number | null;
+    averagePercentual?: number | null;
+    pendingTotal: number;
+    lastInspections: Array<{
+      id?: string;
+      externalId?: string;
+      module?: ModuleType;
+      status?: InspectionStatus;
+      serviceDescription?: string;
+      createdAt?: string;
+    }>;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ChecklistItem {
   id: string;
   checklistId?: string;
@@ -137,6 +176,7 @@ export interface InspectionListItem {
   createdAt: string;
   /** API pode retornar só `{ osNumber }` ou `null` sem OS vinculada. */
   serviceOrder?: { osNumber: string } | null;
+  investmentWork?: { id: string; name?: string; workName?: string } | null;
 }
 
 /**
@@ -149,8 +189,10 @@ export interface Inspection extends InspectionListItem {
   inspectionScope?: InspectionScope;
   teamId?: string;
   serviceOrderId?: string;
+  investmentWorkId?: string;
   /** OS: detalhe pode incluir id/endereço; listagem costuma trazer só `osNumber`. */
   serviceOrder?: Pick<ServiceOrder, "id" | "osNumber" | "address"> | { osNumber: string } | null;
+  investmentWork?: Pick<InvestmentWork, "id" | "workName" | "name" | "address"> | { id: string; name?: string; workName?: string } | null;
   collaboratorIds?: string[];
   createdByUserId?: string;
   paralyzedReason?: string | null;
@@ -255,6 +297,7 @@ export interface ReportType {
   description?: string | null;
   version: number;
   active: boolean;
+  orientation?: "RETRATO" | "PAISAGEM";
   createdAt?: string;
   updatedAt?: string;
 }

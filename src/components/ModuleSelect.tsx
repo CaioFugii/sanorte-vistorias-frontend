@@ -10,6 +10,7 @@ interface ModuleSelectProps {
 }
 
 const moduleLabels: Record<ModuleType, string> = {
+  [ModuleType.OBRAS_INVESTIMENTO]: 'Avaliação em Obras de investimento',
   [ModuleType.CAMPO]: 'Avaliação em Campo',
   [ModuleType.SEGURANCA_TRABALHO]: 'Avaliação Segurança do Trabalho',
   [ModuleType.POS_OBRA]: 'Avaliação Pós Obra',

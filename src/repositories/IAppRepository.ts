@@ -4,6 +4,8 @@ import {
   Collaborator,
   Contract,
   Evidence,
+  InvestmentWork,
+  InvestmentWorkStatus,
   Inspection,
   InspectionListItem,
   InspectionScope,
@@ -181,6 +183,48 @@ export interface IAppRepository {
     remote?: boolean;
     postWork?: boolean;
   }): Promise<PaginatedResponse<ServiceOrder>>;
+  getInvestmentWorks(params?: {
+    page?: number;
+    limit?: number;
+    status?: InvestmentWorkStatus;
+    contractId?: string;
+    search?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<InvestmentWork>>;
+  getInvestmentWork(investmentWorkId: string): Promise<InvestmentWork>;
+  createInvestmentWork(input: {
+    contractId: string;
+    workName: string;
+    startDate: string;
+    expectedEndDate: string;
+    address: string;
+    district: string;
+    basin: string;
+    service: string;
+    teamId: string;
+    materialNetwork: string;
+    singularities?: string;
+    status?: InvestmentWorkStatus;
+  }): Promise<InvestmentWork>;
+  updateInvestmentWork(
+    investmentWorkId: string,
+    input: Partial<{
+      contractId: string;
+      workName: string;
+      startDate: string;
+      expectedEndDate: string;
+      address: string;
+      district: string;
+      basin: string;
+      service: string;
+      teamId: string;
+      materialNetwork: string;
+      singularities?: string;
+      status?: InvestmentWorkStatus;
+      active: boolean;
+    }>
+  ): Promise<InvestmentWork>;
+  deleteInvestmentWork(investmentWorkId: string): Promise<void>;
   importServiceOrders(file: File, contractId: string): Promise<{
     inserted: number;
     skipped: number;
@@ -196,6 +240,7 @@ export interface IAppRepository {
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
+    investmentWorkId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<InspectionListItem>>;
@@ -366,6 +411,7 @@ export interface IAppRepository {
     teamId?: string;
     checklistId: string;
     serviceOrderId?: string;
+    investmentWorkId?: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;

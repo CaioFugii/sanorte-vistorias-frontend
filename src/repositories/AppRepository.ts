@@ -5,6 +5,8 @@ import {
   Collaborator,
   Contract,
   Evidence,
+  InvestmentWork,
+  InvestmentWorkStatus,
   Inspection,
   InspectionListItem,
   InspectionScope,
@@ -375,6 +377,63 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getServiceOrders(params);
   }
 
+  async getInvestmentWorks(params?: {
+    page?: number;
+    limit?: number;
+    status?: InvestmentWorkStatus;
+    contractId?: string;
+    search?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<InvestmentWork>> {
+    return this.apiRepository.getInvestmentWorks(params);
+  }
+
+  async getInvestmentWork(investmentWorkId: string): Promise<InvestmentWork> {
+    return this.apiRepository.getInvestmentWork(investmentWorkId);
+  }
+
+  async createInvestmentWork(input: {
+    contractId: string;
+    workName: string;
+    startDate: string;
+    expectedEndDate: string;
+    address: string;
+    district: string;
+    basin: string;
+    service: string;
+    teamId: string;
+    materialNetwork: string;
+    singularities?: string;
+    status?: InvestmentWorkStatus;
+  }): Promise<InvestmentWork> {
+    return this.apiRepository.createInvestmentWork(input);
+  }
+
+  async updateInvestmentWork(
+    investmentWorkId: string,
+    input: Partial<{
+      contractId: string;
+      workName: string;
+      startDate: string;
+      expectedEndDate: string;
+      address: string;
+      district: string;
+      basin: string;
+      service: string;
+      teamId: string;
+      materialNetwork: string;
+      singularities?: string;
+      status?: InvestmentWorkStatus;
+      active: boolean;
+    }>
+  ): Promise<InvestmentWork> {
+    return this.apiRepository.updateInvestmentWork(investmentWorkId, input);
+  }
+
+  async deleteInvestmentWork(investmentWorkId: string): Promise<void> {
+    return this.apiRepository.deleteInvestmentWork(investmentWorkId);
+  }
+
   async importServiceOrders(
     file: File,
     contractId: string
@@ -390,6 +449,7 @@ export class AppRepository implements IAppRepository {
     teamId?: string;
     status?: InspectionStatus;
     osNumber?: string;
+    investmentWorkId?: string;
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<InspectionListItem>> {
@@ -601,6 +661,7 @@ export class AppRepository implements IAppRepository {
     teamId?: string;
     checklistId: string;
     serviceOrderId?: string;
+    investmentWorkId?: string;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
@@ -612,6 +673,7 @@ export class AppRepository implements IAppRepository {
       checklistId: input.checklistId,
       ...(input.teamId ? { teamId: input.teamId } : {}),
       serviceOrderId: input.serviceOrderId,
+      investmentWorkId: input.investmentWorkId,
       collaboratorIds: input.collaboratorIds,
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,

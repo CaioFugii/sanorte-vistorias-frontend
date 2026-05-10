@@ -21,7 +21,7 @@ import { SectorSelect } from "@/components/SectorSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { Collaborator, InspectionScope, ModuleType, ServiceOrder, Team } from "@/domain";
+import { Collaborator, InspectionScope, InvestmentWork, ModuleType, ServiceOrder, Team } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
 export const NewInspectionPage = (): JSX.Element => {
@@ -49,6 +49,10 @@ export const NewInspectionPage = (): JSX.Element => {
   const [osNumberInput, setOsNumberInput] = useState("");
   const [selectedServiceOrder, setSelectedServiceOrder] = useState<ServiceOrder | null>(null);
   const [serviceOrderOptions, setServiceOrderOptions] = useState<ServiceOrder[]>([]);
+  const [investmentWorkSearchInput, setInvestmentWorkSearchInput] = useState("");
+  const [selectedInvestmentWork, setSelectedInvestmentWork] = useState<InvestmentWork | null>(null);
+  const [investmentWorkOptions, setInvestmentWorkOptions] = useState<InvestmentWork[]>([]);
+  const [investmentWorkSearchLoading, setInvestmentWorkSearchLoading] = useState(false);
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -58,14 +62,19 @@ export const NewInspectionPage = (): JSX.Element => {
   const teamSearchRequestRef = useRef(0);
   const collaboratorSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const collaboratorSearchRequestRef = useRef(0);
+  const investmentWorkSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const investmentWorkSearchRequestRef = useRef(0);
 
   const MIN_OS_SEARCH_LENGTH = 4;
   const INITIAL_OS_OPTIONS_LIMIT = 4;
   const MIN_TEAM_SEARCH_LENGTH = 4;
   const MIN_COLLABORATOR_SEARCH_LENGTH = 4;
+  const MIN_INVESTMENT_WORK_SEARCH_LENGTH = 3;
   const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
   const isWorkSafetyModule = module === ModuleType.SEGURANCA_TRABALHO;
-  const serviceOrderRequired = !isWorkSafetyModule;
+  const isInvestmentWorkModule = module === ModuleType.OBRAS_INVESTIMENTO;
+  const serviceOrderRequired = !isWorkSafetyModule && !isInvestmentWorkModule;
+  const investmentWorkRequired = isInvestmentWorkModule && !selectedServiceOrder;
   const isCollaboratorScope = inspectionScope === InspectionScope.COLLABORATOR;
   const teamRequired = inspectionScope === InspectionScope.TEAM;
   const workSafetySectorId = useMemo(
@@ -169,6 +178,61 @@ export const NewInspectionPage = (): JSX.Element => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [isWorkSafetyModule, osNumberInput, module, selectedServiceOrder]);
+
+  useEffect(() => {
+    if (!isInvestmentWorkModule) {
+      if (investmentWorkSearchDebounceRef.current) {
+        clearTimeout(investmentWorkSearchDebounceRef.current);
+        investmentWorkSearchDebounceRef.current = null;
+      }
+      setInvestmentWorkSearchLoading(false);
+      setInvestmentWorkOptions([]);
+      return;
+    }
+
+    const trimmed = investmentWorkSearchInput.trim();
+    if (trimmed.length > 0 && trimmed.length < MIN_INVESTMENT_WORK_SEARCH_LENGTH) {
+      if (investmentWorkSearchDebounceRef.current) {
+        clearTimeout(investmentWorkSearchDebounceRef.current);
+        investmentWorkSearchDebounceRef.current = null;
+      }
+      setInvestmentWorkSearchLoading(false);
+      return;
+    }
+
+    if (investmentWorkSearchDebounceRef.current) clearTimeout(investmentWorkSearchDebounceRef.current);
+    investmentWorkSearchDebounceRef.current = setTimeout(async () => {
+      const requestId = ++investmentWorkSearchRequestRef.current;
+      setInvestmentWorkSearchLoading(true);
+      try {
+        const result = await appRepository.getInvestmentWorks({
+          page: 1,
+          limit: 20,
+          active: true,
+          ...(trimmed.length >= MIN_INVESTMENT_WORK_SEARCH_LENGTH ? { search: trimmed } : {}),
+        });
+        if (requestId !== investmentWorkSearchRequestRef.current) return;
+        const selectedOptions = selectedInvestmentWork ? [selectedInvestmentWork] : [];
+        setInvestmentWorkOptions(
+          [...selectedOptions, ...result.data].filter(
+            (work, index, all) => all.findIndex((existing) => existing.id === work.id) === index
+          )
+        );
+      } catch {
+        if (requestId !== investmentWorkSearchRequestRef.current) return;
+        setInvestmentWorkOptions(selectedInvestmentWork ? [selectedInvestmentWork] : []);
+      } finally {
+        if (requestId === investmentWorkSearchRequestRef.current) {
+          setInvestmentWorkSearchLoading(false);
+        }
+      }
+      investmentWorkSearchDebounceRef.current = null;
+    }, 400);
+
+    return () => {
+      if (investmentWorkSearchDebounceRef.current) clearTimeout(investmentWorkSearchDebounceRef.current);
+    };
+  }, [isInvestmentWorkModule, investmentWorkSearchInput, selectedInvestmentWork]);
 
   useEffect(() => {
     const trimmed = teamSearchInput.trim();
@@ -286,6 +350,10 @@ export const NewInspectionPage = (): JSX.Element => {
       setFormError("Selecione uma OS para criar a vistoria neste módulo.");
       return;
     }
+    if (investmentWorkRequired && !selectedInvestmentWork?.id) {
+      setFormError("Selecione uma obra de investimento quando não houver OS vinculada.");
+      return;
+    }
     if (isCollaboratorScope && !selectedCollaboratorId) {
       setFormError("Vistoria por colaborador exige selecionar exatamente 1 colaborador.");
       return;
@@ -300,6 +368,7 @@ export const NewInspectionPage = (): JSX.Element => {
         checklistId,
         ...(teamId ? { teamId } : {}),
         serviceOrderId: selectedServiceOrder?.id,
+        investmentWorkId: selectedInvestmentWork?.id,
         collaboratorIds: isCollaboratorScope
           ? [selectedCollaboratorId]
           : selectedTeam?.isContractor
@@ -374,6 +443,9 @@ export const NewInspectionPage = (): JSX.Element => {
                 setOsNumberInput("");
                 setSelectedServiceOrder(null);
                 setServiceOrderOptions([]);
+                setInvestmentWorkSearchInput("");
+                setSelectedInvestmentWork(null);
+                setInvestmentWorkOptions([]);
                 setServiceDescription("");
                 setLocationDescription("");
                 setSelectedCollaborator(null);
@@ -462,6 +534,75 @@ export const NewInspectionPage = (): JSX.Element => {
                 />
               </Box>
             )}
+            {isInvestmentWorkModule && (
+              <Box sx={{ mt: 2 }}>
+                <Autocomplete
+                  options={investmentWorkOptions}
+                  value={selectedInvestmentWork}
+                  inputValue={investmentWorkSearchInput}
+                  onChange={(_, value) => {
+                    setSelectedInvestmentWork(value);
+                    setFormError(null);
+                    if (value) {
+                      setInvestmentWorkSearchInput(value.workName);
+                      if (!locationDescription.trim()) {
+                        setLocationDescription(value.address ?? "");
+                      }
+                    }
+                  }}
+                  onInputChange={(_, value, reason) => {
+                    setInvestmentWorkSearchInput(value);
+                    setFormError(null);
+                    if (reason === "clear") {
+                      setSelectedInvestmentWork(null);
+                      setInvestmentWorkOptions([]);
+                    }
+                    if (reason === "input" && selectedInvestmentWork && value !== selectedInvestmentWork.workName) {
+                      setSelectedInvestmentWork(null);
+                    }
+                  }}
+                  loading={investmentWorkSearchLoading}
+                  filterOptions={(options) => options}
+                  getOptionLabel={(option) => option.workName}
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      {option.workName} - {option.address}
+                    </li>
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText={
+                    investmentWorkSearchInput.trim().length === 0
+                      ? "Nenhuma obra disponível"
+                      : investmentWorkSearchInput.trim().length < MIN_INVESTMENT_WORK_SEARCH_LENGTH
+                        ? `Digite pelo menos ${MIN_INVESTMENT_WORK_SEARCH_LENGTH} caracteres`
+                        : "Nenhuma obra encontrada"
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Obra de investimento"
+                      required={investmentWorkRequired}
+                      placeholder="Digite nome, endereço, bairro ou serviço"
+                      helperText={
+                        investmentWorkSearchInput.trim().length > 0 &&
+                        investmentWorkSearchInput.trim().length < MIN_INVESTMENT_WORK_SEARCH_LENGTH
+                          ? `Digite pelo menos ${MIN_INVESTMENT_WORK_SEARCH_LENGTH} caracteres para buscar`
+                          : "Obrigatória quando módulo é Obras de Investimento e não há OS"
+                      }
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {investmentWorkSearchLoading ? <CircularProgress color="inherit" size={18} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+              </Box>
+            )}
             {!isWorkSafetyModule && (
               <Box sx={{ mt: 2 }}>
                 <SectorSelect
@@ -472,7 +613,7 @@ export const NewInspectionPage = (): JSX.Element => {
                   }}
                   label={selectedServiceOrder ? "Setor (definido pela OS)" : "Setor"}
                   required
-                  disabled={Boolean(selectedServiceOrder) || !isWorkSafetyModule}
+                  disabled={Boolean(selectedServiceOrder) || !isInvestmentWorkModule}
                 />
               </Box>
             )}

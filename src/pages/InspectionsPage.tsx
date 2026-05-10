@@ -148,7 +148,7 @@ export const InspectionsPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Módulo</TableCell>
-              <TableCell>Número da OS</TableCell>
+              <TableCell>OS / Obra</TableCell>
               <TableCell>Serviço</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Status</TableCell>
@@ -176,7 +176,12 @@ export const InspectionsPage = (): JSX.Element => {
               inspections.map((inspection) => (
                 <TableRow key={inspection.externalId}>
                   <TableCell>{getModuleLabel(inspection.module)}</TableCell>
-                  <TableCell>{inspection.serviceOrder?.osNumber ?? "-"}</TableCell>
+                  <TableCell>
+                    {inspection.serviceOrder?.osNumber ??
+                      inspection.investmentWork?.workName ??
+                      inspection.investmentWork?.name ??
+                      "-"}
+                  </TableCell>
                   <TableCell>{inspection.serviceDescription}</TableCell>
                   <TableCell>{inspection.locationDescription || "-"}</TableCell>
                   <TableCell>

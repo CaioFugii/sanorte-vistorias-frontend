@@ -1,6 +1,7 @@
 import { ModuleType } from "@/domain";
 
 const moduleLabelMap: Record<ModuleType, string> = {
+  [ModuleType.OBRAS_INVESTIMENTO]: "Obras de Investimento",
   [ModuleType.CAMPO]: "Campo",
   [ModuleType.SEGURANCA_TRABALHO]: "Segurança do Trabalho",
   [ModuleType.REMOTO]: "Remoto",

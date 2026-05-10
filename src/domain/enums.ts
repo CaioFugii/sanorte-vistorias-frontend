@@ -1,4 +1,5 @@
 export enum ModuleType {
+  OBRAS_INVESTIMENTO = "OBRAS_INVESTIMENTO",
   CAMPO = "CAMPO",
   SEGURANCA_TRABALHO = "SEGURANCA_TRABALHO",
   REMOTO = "REMOTO",
@@ -28,4 +29,11 @@ export enum InspectionStatus {
 export enum InspectionScope {
   TEAM = "TEAM",
   COLLABORATOR = "COLLABORATOR",
+}
+
+export enum InvestmentWorkStatus {
+  EM_ANDAMENTO = "EM_ANDAMENTO",
+  PARALISADA = "PARALISADA",
+  FINALIZADA = "FINALIZADA",
+  CANCELADA = "CANCELADA",
 }
