@@ -169,6 +169,7 @@ export interface InspectionListItem {
   module: ModuleType;
   serviceDescription: string;
   locationDescription: string;
+  team?: Pick<Team, "name"> | Team | null;
   status: InspectionStatus;
   scorePercent?: number | null;
   hasParalysisPenalty?: boolean;

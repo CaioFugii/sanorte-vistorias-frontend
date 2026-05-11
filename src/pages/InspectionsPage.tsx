@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { Delete, Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
 import { InspectionStatus, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
@@ -30,6 +30,8 @@ const DEFAULT_LIMIT = 10;
 
 export const InspectionsPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
@@ -216,7 +218,9 @@ export const InspectionsPage = (): JSX.Element => {
                     <Button
                       size="small"
                       onClick={() =>
-                        navigate(`/inspections/${inspection.externalId}`)
+                        navigate(`/inspections/${inspection.externalId}`, {
+                          state: { from: detailFrom },
+                        })
                       }
                     >
                       Ver

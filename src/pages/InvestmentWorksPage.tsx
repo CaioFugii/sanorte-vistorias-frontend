@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 import { Add, Delete, Edit, Visibility } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
 import { PageHeader, SectionTable } from "@/components/ui";
@@ -56,6 +56,8 @@ type InvestmentWorkInspection = NonNullable<InvestmentWork["inspectionStats"]>["
 
 export const InvestmentWorksPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasAnyRole } = useAuthStore();
   const canAccess = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL]);
   const canManage = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR]);
@@ -574,7 +576,9 @@ export const InvestmentWorksPage = (): JSX.Element => {
                               const inspectionId = inspection.externalId ?? inspection.id;
                               if (!inspectionId) return;
                               setMonitorDialogOpen(false);
-                              navigate(`/inspections/${inspectionId}`);
+                              navigate(`/inspections/${inspectionId}`, {
+                                state: { from: detailFrom },
+                              });
                             }}
                           >
                             Ver vistoria

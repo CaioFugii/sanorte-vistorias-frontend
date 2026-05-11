@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { Delete, PauseCircleOutline, PlayCircleOutline, Save } from "@mui/icons-material";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
 import { Checklist, Evidence, Inspection, InspectionItem, Signature } from "@/domain";
 import { UserRole } from "@/domain/enums";
@@ -27,6 +27,9 @@ import { useReferenceStore } from "@/stores/referenceStore";
 export const ManageInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
   const user = useAuthStore((state) => state.user);
   const { loadCache, checklists } = useReferenceStore();
   const [loading, setLoading] = useState(true);
@@ -131,7 +134,9 @@ export const ManageInspectionPage = (): JSX.Element => {
       await appRepository.updateInspectionOnline(inspection.externalId, {
         updatedAt: new Date().toISOString(),
       });
-      navigate(`/inspections/${inspection.externalId}`);
+      navigate(`/inspections/${inspection.externalId}`, {
+        state: { from: detailBackTarget },
+      });
     } finally {
       setSaving(false);
     }

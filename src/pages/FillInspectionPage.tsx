@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import { CheckCircle, PictureAsPdf, PauseCircleOutline, Save } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { appRepository } from "@/repositories/AppRepository";
 import { useInspectionStore } from "@/stores/inspectionStore";
@@ -36,6 +36,9 @@ import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 export const FillInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
   const { checklists, serviceOrders, loadServiceOrders, loadCache, loading: referencesLoading } =
     useReferenceStore();
   const {
@@ -302,7 +305,9 @@ export const FillInspectionPage = (): JSX.Element => {
       await saveItems();
       const inspectionId = currentInspection.serverId ?? currentInspection.externalId;
       await appRepository.finalizeInspection(inspectionId);
-      navigate(`/inspections/${currentInspection.externalId}`);
+      navigate(`/inspections/${currentInspection.externalId}`, {
+        state: { from: detailBackTarget },
+      });
     } finally {
       setFinalizing(false);
       setFinalizeOpen(false);

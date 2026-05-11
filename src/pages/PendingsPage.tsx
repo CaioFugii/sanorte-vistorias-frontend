@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { Visibility } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
 import { InspectionStatus } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
@@ -23,6 +23,8 @@ const DEFAULT_LIMIT = 10;
 
 export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
@@ -74,6 +76,7 @@ export const PendingsPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Serviço</TableCell>
               <TableCell>Localização</TableCell>
+              <TableCell>Equipe</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
               <TableCell>Data</TableCell>
@@ -83,13 +86,13 @@ export const PendingsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   Nenhuma pendência de ajuste.
                 </TableCell>
               </TableRow>
@@ -100,6 +103,7 @@ export const PendingsPage = (): JSX.Element => {
                 <TableCell>
                   {inspection.locationDescription || "-"}
                 </TableCell>
+                <TableCell>{inspection.team?.name || "-"}</TableCell>
                 <TableCell>
                   <StatusChip status={inspection.status} />
                 </TableCell>
@@ -122,7 +126,9 @@ export const PendingsPage = (): JSX.Element => {
                     variant="contained"
                     startIcon={<Visibility />}
                     onClick={() =>
-                      navigate(`/inspections/${inspection.externalId}`)
+                      navigate(`/inspections/${inspection.externalId}`, {
+                        state: { from: detailFrom },
+                      })
                     }
                   >
                     Ver e resolver

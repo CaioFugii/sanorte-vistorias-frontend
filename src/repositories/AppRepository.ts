@@ -60,6 +60,7 @@ function normalizeInspectionListItem(
     module: inspection.module as ModuleType,
     serviceDescription: inspection.serviceDescription ?? "",
     locationDescription: inspection.locationDescription ?? "",
+    team: inspection.team ?? null,
     status: inspection.status as InspectionStatus,
     scorePercent: inspection.scorePercent,
     hasParalysisPenalty: inspection.hasParalysisPenalty,

@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
 import { ChecklistAnswer, InspectionStatus, ModuleType, UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
@@ -64,6 +64,7 @@ function getItemTitle(item: InspectionItem): string {
 export const InspectionDetailPage = (): JSX.Element => {
   const { externalId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [resolveModalOpen, setResolveModalOpen] = useState(false);
@@ -80,6 +81,8 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const backTarget = fromState?.startsWith('/') ? fromState : '/inspections';
 
   const loadInspection = async () => {
     if (!externalId) return;
@@ -87,7 +90,7 @@ export const InspectionDetailPage = (): JSX.Element => {
     const forceApi = user?.role !== UserRole.FISCAL;
     const inspectionData = await appRepository.getInspection(externalId, forceApi);
     if (!inspectionData) {
-      navigate('/inspections');
+      navigate(backTarget);
       return;
     }
     setInspection(inspectionData);
@@ -234,7 +237,7 @@ export const InspectionDetailPage = (): JSX.Element => {
     try {
       await appRepository.deleteInspection(inspection.externalId);
       setDeleteDialogOpen(false);
-      navigate('/inspections');
+      navigate(backTarget);
     } finally {
       setDeleteLoading(false);
     }
@@ -268,7 +271,7 @@ export const InspectionDetailPage = (): JSX.Element => {
         <Box display="flex" alignItems="center" gap={2}>
           <Button
             startIcon={<ArrowBack />}
-            onClick={() => navigate('/inspections')}
+            onClick={() => navigate(backTarget)}
           >
             Voltar
           </Button>
@@ -317,7 +320,8 @@ export const InspectionDetailPage = (): JSX.Element => {
                 navigate(
                   user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR
                     ? `/inspections/${inspection.externalId}/manage`
-                    : `/inspections/${inspection.externalId}/fill`
+                    : `/inspections/${inspection.externalId}/fill`,
+                  { state: { from: backTarget } }
                 )
               }
             >
