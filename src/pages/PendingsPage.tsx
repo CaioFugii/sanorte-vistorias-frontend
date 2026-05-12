@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   CircularProgress,
   Table,
   TableBody,
@@ -8,7 +7,6 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import { Visibility } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
@@ -17,7 +15,14 @@ import { appRepository } from "@/repositories/AppRepository";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableViewButton,
+} from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -74,31 +79,33 @@ export const PendingsPage = (): JSX.Element => {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell>OS</TableCell>
               <TableCell>Serviço</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Equipe</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   Nenhuma pendência de ajuste.
                 </TableCell>
               </TableRow>
             ) : (
             inspections.map((inspection) => (
               <TableRow key={inspection.externalId}>
+                <TableCell>{inspection.serviceOrder?.osNumber || "-"}</TableCell>
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>
                   {inspection.locationDescription || "-"}
@@ -120,20 +127,18 @@ export const PendingsPage = (): JSX.Element => {
                     ? new Date(inspection.finalizedAt).toLocaleDateString("pt-BR")
                     : "-"}
                 </TableCell>
-                <TableCell align="right">
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={<Visibility />}
-                    onClick={() =>
-                      navigate(`/inspections/${inspection.externalId}`, {
-                        state: { from: detailFrom },
-                      })
-                    }
-                  >
-                    Ver e resolver
-                  </Button>
-                </TableCell>
+                <TableActionsCell>
+                  <TableActionsGroup>
+                    <TableViewButton
+                      label="Ver e resolver"
+                      onClick={() =>
+                        navigate(`/inspections/${inspection.externalId}`, {
+                          state: { from: detailFrom },
+                        })
+                      }
+                    />
+                  </TableActionsGroup>
+                </TableActionsCell>
               </TableRow>
             ))
             )}

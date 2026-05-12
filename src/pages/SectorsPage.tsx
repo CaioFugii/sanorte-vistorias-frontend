@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  IconButton,
   Switch,
   Table,
   TableBody,
@@ -23,7 +22,15 @@ import { PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+} from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -111,7 +118,7 @@ export const SectorsPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right">Acoes</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -132,24 +139,19 @@ export const SectorsPage = (): JSX.Element => {
               <TableRow key={sector.id}>
                 <TableCell>{sector.name}</TableCell>
                 <TableCell>{sector.active ? "Ativo" : "Inativo"}</TableCell>
-                <TableCell align="right">
-                  <IconButton
+                <TableActionsCell>
+                  <TableActionsGroup>
+                    <TableEditButton
                     onClick={() => {
                       setEditingSector(sector);
                       setName(sector.name);
                       setActive(sector.active);
                       setDialogOpen(true);
                     }}
-                  >
-                    <Edit />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => setDeletingSector(sector)}
-                  >
-                    <Delete />
-                  </IconButton>
-                </TableCell>
+                    />
+                    <TableDeleteButton onClick={() => setDeletingSector(sector)} />
+                  </TableActionsGroup>
+                </TableActionsCell>
               </TableRow>
             ))
             )}

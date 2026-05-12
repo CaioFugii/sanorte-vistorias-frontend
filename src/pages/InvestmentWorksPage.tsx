@@ -19,12 +19,21 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Add, Delete, Edit, Visibility } from "@mui/icons-material";
+import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+  TableViewButton,
+} from "@/components/ui";
 import { Contract, InvestmentWork, InvestmentWorkStatus, PaginatedResponse, Team, UserRole } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -249,7 +258,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
               <TableCell>Status</TableCell>
               <TableCell>Ativa</TableCell>
               <TableCell>Prazo</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -276,62 +285,55 @@ export const InvestmentWorksPage = (): JSX.Element => {
                   <TableCell>
                     {formatDateToDisplay(item.startDate)} - {formatDateToDisplay(item.expectedEndDate)}
                   </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={async () => {
-                        setMonitorDialogOpen(true);
-                        setMonitoringWork(null);
-                        setMonitorError(null);
-                        setMonitorLoading(true);
-                        try {
-                          const detail = await appRepository.getInvestmentWork(item.id);
-                          setMonitoringWork(detail);
-                        } catch (error) {
-                          setMonitorError(
-                            error instanceof Error
-                              ? error.message
-                              : "Não foi possível carregar o acompanhamento da obra."
-                          );
-                        } finally {
-                          setMonitorLoading(false);
-                        }
-                      }}
-                    >
-                      Acompanhar
-                    </Button>
-                    {canManage && (
-                      <>
-                      <Button
-                        size="small"
-                        startIcon={<Edit />}
-                        onClick={() => {
-                          setEditing(item);
-                          setWorkName(item.workName);
-                          setStartDate(item.startDate);
-                          setExpectedEndDate(item.expectedEndDate);
-                          setAddress(item.address);
-                          setDistrict(item.district);
-                          setBasin(item.basin);
-                          setService(item.service);
-                          setTeamId(item.teamId);
-                          setMaterialNetwork(item.materialNetwork);
-                          setSingularities(item.singularities ?? "");
-                          setFormContractId(item.contractId);
-                          setFormStatus(item.status);
-                          setFormActive(item.active);
-                          setDialogOpen(true);
+                  <TableActionsCell>
+                    <TableActionsGroup>
+                      <TableViewButton
+                        label="Acompanhar"
+                        onClick={async () => {
+                          setMonitorDialogOpen(true);
+                          setMonitoringWork(null);
+                          setMonitorError(null);
+                          setMonitorLoading(true);
+                          try {
+                            const detail = await appRepository.getInvestmentWork(item.id);
+                            setMonitoringWork(detail);
+                          } catch (error) {
+                            setMonitorError(
+                              error instanceof Error
+                                ? error.message
+                                : "Não foi possível carregar o acompanhamento da obra."
+                            );
+                          } finally {
+                            setMonitorLoading(false);
+                          }
                         }}
-                      >
-                        Editar
-                      </Button>
-                      <Button size="small" color="error" startIcon={<Delete />} onClick={() => setDeleting(item)}>
-                        Excluir
-                      </Button>
-                      </>
-                    )}
-                  </TableCell>
+                      />
+                      {canManage && (
+                        <>
+                          <TableEditButton
+                            onClick={() => {
+                              setEditing(item);
+                              setWorkName(item.workName);
+                              setStartDate(item.startDate);
+                              setExpectedEndDate(item.expectedEndDate);
+                              setAddress(item.address);
+                              setDistrict(item.district);
+                              setBasin(item.basin);
+                              setService(item.service);
+                              setTeamId(item.teamId);
+                              setMaterialNetwork(item.materialNetwork);
+                              setSingularities(item.singularities ?? "");
+                              setFormContractId(item.contractId);
+                              setFormStatus(item.status);
+                              setFormActive(item.active);
+                              setDialogOpen(true);
+                            }}
+                          />
+                          <TableDeleteButton onClick={() => setDeleting(item)} />
+                        </>
+                      )}
+                    </TableActionsGroup>
+                  </TableActionsCell>
                 </TableRow>
               ))
             )}
@@ -549,7 +551,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
                     <TableCell>Status</TableCell>
                     <TableCell>Serviço</TableCell>
                     <TableCell>Data</TableCell>
-                    <TableCell align="right">Ação</TableCell>
+                    <TableActionsHeaderCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -568,22 +570,22 @@ export const InvestmentWorksPage = (): JSX.Element => {
                         <TableCell>
                           {inspection.createdAt ? new Date(inspection.createdAt).toLocaleDateString("pt-BR") : "—"}
                         </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            disabled={!inspection.externalId && !inspection.id}
-                            onClick={() => {
-                              const inspectionId = inspection.externalId ?? inspection.id;
-                              if (!inspectionId) return;
-                              setMonitorDialogOpen(false);
-                              navigate(`/inspections/${inspectionId}`, {
-                                state: { from: detailFrom },
-                              });
-                            }}
-                          >
-                            Ver vistoria
-                          </Button>
-                        </TableCell>
+                        <TableActionsCell>
+                          <TableActionsGroup>
+                            <TableViewButton
+                              label="Ver vistoria"
+                              disabled={!inspection.externalId && !inspection.id}
+                              onClick={() => {
+                                const inspectionId = inspection.externalId ?? inspection.id;
+                                if (!inspectionId) return;
+                                setMonitorDialogOpen(false);
+                                navigate(`/inspections/${inspectionId}`, {
+                                  state: { from: detailFrom },
+                                });
+                              }}
+                            />
+                          </TableActionsGroup>
+                        </TableActionsCell>
                       </TableRow>
                     ))
                   )}

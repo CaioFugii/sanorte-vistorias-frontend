@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  IconButton,
   Switch,
   Table,
   TableBody,
@@ -27,7 +26,15 @@ import { appRepository } from "@/repositories/AppRepository";
 import { SectorSelect } from "@/components/SectorSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+} from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -155,7 +162,7 @@ export const CollaboratorsPage = (): JSX.Element => {
               <TableCell>Setor</TableCell>
               <TableCell>Contrato</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -178,8 +185,9 @@ export const CollaboratorsPage = (): JSX.Element => {
                 <TableCell>{collaborator.sector?.name || "-"}</TableCell>
                 <TableCell>{collaborator.contract?.name || "-"}</TableCell>
                 <TableCell>{collaborator.active ? "Ativo" : "Inativo"}</TableCell>
-                <TableCell align="right">
-                  <IconButton
+                <TableActionsCell>
+                  <TableActionsGroup>
+                    <TableEditButton
                     onClick={() => {
                       setEditing(collaborator);
                       setName(collaborator.name);
@@ -188,16 +196,10 @@ export const CollaboratorsPage = (): JSX.Element => {
                       setActive(collaborator.active);
                       setDialogOpen(true);
                     }}
-                  >
-                    <Edit />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => setDeletingCollaborator(collaborator)}
-                  >
-                    <Delete />
-                  </IconButton>
-                </TableCell>
+                    />
+                    <TableDeleteButton onClick={() => setDeletingCollaborator(collaborator)} />
+                  </TableActionsGroup>
+                </TableActionsCell>
               </TableRow>
             ))
             )}

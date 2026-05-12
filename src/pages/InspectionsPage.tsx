@@ -1,15 +1,14 @@
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
-  TextField,
+  IconButton,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  IconButton,
+  TextField,
   Tooltip,
 } from "@mui/material";
 import { Delete, Search } from "@mui/icons-material";
@@ -24,7 +23,15 @@ import { PercentBadge } from "@/components/PercentBadge";
 import { getModuleLabel } from "@/utils/moduleLabel";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableEditButton,
+  TableViewButton,
+} from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -152,23 +159,24 @@ export const InspectionsPage = (): JSX.Element => {
               <TableCell>Módulo</TableCell>
               <TableCell>OS / Obra</TableCell>
               <TableCell>Serviço</TableCell>
+              <TableCell>Equipe</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                   {osNumber.trim()
                     ? "Nenhuma vistoria encontrada para o número da OS informado."
                     : "Nenhuma vistoria encontrada."}
@@ -185,6 +193,7 @@ export const InspectionsPage = (): JSX.Element => {
                       "-"}
                   </TableCell>
                   <TableCell>{inspection.serviceDescription}</TableCell>
+                  <TableCell>{inspection.team?.name || "-"}</TableCell>
                   <TableCell>{inspection.locationDescription || "-"}</TableCell>
                   <TableCell>
                     <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
@@ -214,20 +223,17 @@ export const InspectionsPage = (): JSX.Element => {
                           "pt-BR",
                         )}
                   </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
+                  <TableActionsCell>
+                    <TableActionsGroup>
+                      <TableViewButton
                       onClick={() =>
                         navigate(`/inspections/${inspection.externalId}`, {
                           state: { from: detailFrom },
                         })
                       }
-                    >
-                      Ver
-                    </Button>
-                    {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
-                      <Button
-                        size="small"
+                      />
+                      {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
+                        <TableEditButton
                         onClick={() =>
                           navigate(
                             isAdminOrManager
@@ -235,22 +241,21 @@ export const InspectionsPage = (): JSX.Element => {
                               : `/inspections/${inspection.externalId}/fill`
                           )
                         }
-                      >
-                        Editar
-                      </Button>
-                    )}
-                    {canDeleteInspection(inspection) && (
-                      <Tooltip title="Excluir vistoria em rascunho">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => setDeletingInspection(inspection)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </TableCell>
+                        />
+                      )}
+                      {canDeleteInspection(inspection) && (
+                        <Tooltip title="Excluir vistoria em rascunho">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setDeletingInspection(inspection)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </TableActionsGroup>
+                  </TableActionsCell>
                 </TableRow>
               ))
             )}

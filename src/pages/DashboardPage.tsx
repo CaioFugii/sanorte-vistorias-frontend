@@ -34,7 +34,15 @@ import { ModuleType } from '@/domain/enums';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
 import { Contract, Team, UserRole } from '@/domain';
-import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
+import {
+  KpiCard,
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableViewButton,
+} from '@/components/ui';
 
 type TeamRankingItem = {
   teamId: string;
@@ -589,9 +597,7 @@ export const DashboardPage = (): JSX.Element => {
                           Taxa paralisação
                         </TableSortLabel>
                       </TableCell>
-                      <TableCell align="center" padding="none">
-                        Detalhe
-                      </TableCell>
+                      <TableActionsHeaderCell align="center" padding="none" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -627,15 +633,14 @@ export const DashboardPage = (): JSX.Element => {
                               {team.paralysisRatePercent}%
                             </Typography>
                           </TableCell>
-                          <TableCell align="center" padding="none">
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() => handleOpenTeamDetail(team.teamId)}
-                            >
-                              Ver detalhe
-                            </Button>
-                          </TableCell>
+                          <TableActionsCell align="center" padding="none">
+                            <TableActionsGroup>
+                              <TableViewButton
+                                label="Ver detalhe"
+                                onClick={() => handleOpenTeamDetail(team.teamId)}
+                              />
+                            </TableActionsGroup>
+                          </TableActionsCell>
                         </TableRow>
                       );
                     })}

@@ -7,7 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   MenuItem,
   Table,
   TableBody,
@@ -23,7 +22,15 @@ import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+} from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
 
@@ -109,7 +116,7 @@ export const UsersPage = (): JSX.Element => {
               <TableCell>Nome</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Role</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -131,8 +138,9 @@ export const UsersPage = (): JSX.Element => {
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.role}</TableCell>
-                <TableCell align="right">
-                  <IconButton
+                <TableActionsCell>
+                  <TableActionsGroup>
+                    <TableEditButton
                     onClick={() => {
                       setEditing(user);
                       setName(user.name);
@@ -142,16 +150,10 @@ export const UsersPage = (): JSX.Element => {
                       setSelectedContractIds(user.contractIds ?? user.contracts?.map((contract) => contract.id) ?? []);
                       setDialogOpen(true);
                     }}
-                  >
-                    <Edit />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => setDeletingUser(user)}
-                  >
-                    <Delete />
-                  </IconButton>
-                </TableCell>
+                    />
+                    <TableDeleteButton onClick={() => setDeletingUser(user)} />
+                  </TableActionsGroup>
+                </TableActionsCell>
               </TableRow>
             ))
             )}

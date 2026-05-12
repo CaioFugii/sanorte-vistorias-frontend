@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  IconButton,
   Switch,
   Table,
   TableBody,
@@ -26,7 +25,15 @@ import { appRepository } from '@/repositories/AppRepository';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
-import { PageHeader, SectionTable } from '@/components/ui';
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+} from '@/components/ui';
 
 const DEFAULT_LIMIT = 10;
 
@@ -147,7 +154,7 @@ export const TeamsPage = (): JSX.Element => {
               <TableCell>Tipo</TableCell>
               <TableCell>Colaboradores</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -172,8 +179,9 @@ export const TeamsPage = (): JSX.Element => {
                   {(team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
                 </TableCell>
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
-                <TableCell align="right">
-                  <IconButton
+                <TableActionsCell>
+                  <TableActionsGroup>
+                    <TableEditButton
                     onClick={() => {
                       setEditingTeam(team);
                       setName(team.name);
@@ -186,16 +194,10 @@ export const TeamsPage = (): JSX.Element => {
                       setFormError(null);
                       setDialogOpen(true);
                     }}
-                  >
-                    <Edit />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => setDeletingTeam(team)}
-                  >
-                    <Delete />
-                  </IconButton>
-                </TableCell>
+                    />
+                    <TableDeleteButton onClick={() => setDeletingTeam(team)} />
+                  </TableActionsGroup>
+                </TableActionsCell>
               </TableRow>
             ))
             )}

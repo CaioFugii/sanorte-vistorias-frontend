@@ -6,7 +6,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -19,7 +18,15 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
-import { PageHeader, SectionTable } from "@/components/ui";
+import {
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+  TableEditButton,
+} from "@/components/ui";
 import { Contract, PaginatedResponse, UserRole } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -95,7 +102,7 @@ export const ContractsPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
-              <TableCell align="right">Ações</TableCell>
+              <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -115,20 +122,18 @@ export const ContractsPage = (): JSX.Element => {
               contracts.map((contract) => (
                 <TableRow key={contract.id}>
                   <TableCell>{contract.name}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
+                  <TableActionsCell>
+                    <TableActionsGroup>
+                      <TableEditButton
                       onClick={() => {
                         setEditingContract(contract);
                         setName(contract.name);
                         setDialogOpen(true);
                       }}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => setDeletingContract(contract)}>
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
+                      />
+                      <TableDeleteButton onClick={() => setDeletingContract(contract)} />
+                    </TableActionsGroup>
+                  </TableActionsCell>
                 </TableRow>
               ))
             )}

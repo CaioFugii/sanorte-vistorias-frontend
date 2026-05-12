@@ -12,6 +12,7 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
@@ -27,6 +28,8 @@ import {
   Groups,
   HomeWork,
   Logout,
+  KeyboardDoubleArrowLeft,
+  KeyboardDoubleArrowRight,
   Menu as MenuIcon,
   Warning,
 } from "@mui/icons-material";
@@ -39,7 +42,8 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const drawerWidth = 260;
+const DRAWER_WIDTH_EXPANDED = 260;
+const DRAWER_WIDTH_COLLAPSED = 76;
 
 const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JSX.Element }>> = {
   ADMIN: [
@@ -75,11 +79,25 @@ const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JS
 
 export function AppShell({ children }: AppShellProps): JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
+    const saved = window.localStorage.getItem("app:sidebar:collapsed");
+    return saved === "true";
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user, logout } = useAuthStore();
+  const desktopDrawerWidth = desktopCollapsed
+    ? DRAWER_WIDTH_COLLAPSED
+    : DRAWER_WIDTH_EXPANDED;
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "app:sidebar:collapsed",
+      String(desktopCollapsed)
+    );
+  }, [desktopCollapsed]);
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -104,7 +122,15 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
 
   const drawer = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Toolbar sx={{ px: 2.5, py: 2, alignItems: "flex-start", minHeight: "auto !important" }}>
+      <Toolbar
+        sx={{
+          px: desktopCollapsed ? 1.5 : 2.5,
+          py: 2,
+          alignItems: desktopCollapsed ? "center" : "flex-start",
+          justifyContent: desktopCollapsed ? "center" : "flex-start",
+          minHeight: "auto !important",
+        }}
+      >
         <Box>
           <Box
             component="img"
@@ -113,69 +139,90 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
             sx={{
               height: 34,
               width: "auto",
-              mb: 1,
+              mb: desktopCollapsed ? 0 : 1,
               display: "block",
             }}
           />
-          <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-            Vistorias Operacionais
-          </Typography>
-          <Chip
-            label="Ambiente corporativo"
-            size="small"
-            color="success"
-            sx={{ mt: 1, fontWeight: 700 }}
-          />
+          {!desktopCollapsed && (
+            <>
+              <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
+                Vistorias Operacionais
+              </Typography>
+              <Chip
+                label="Ambiente corporativo"
+                size="small"
+                color="success"
+                sx={{ mt: 1, fontWeight: 700 }}
+              />
+            </>
+          )}
         </Box>
       </Toolbar>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.15)" }} />
       <List sx={{ px: 1.25, py: 1.5, flexGrow: 1 }}>
         {menuItems.map((item) => (
           <ListItem key={item.path} disablePadding>
-            <ListItemButton
-              selected={isItemSelected(item.path)}
-              sx={{
-                borderRadius: 2,
-                mb: 0.25,
-                color: "rgba(255,255,255,0.92)",
-                "& .MuiListItemIcon-root": {
-                  color: "inherit",
-                  minWidth: 34,
-                },
-                "&.Mui-selected": {
-                  color: "success.main",
-                  bgcolor: "rgba(154, 214, 31, 0.14)",
-                  "&:hover": {
-                    bgcolor: "rgba(154, 214, 31, 0.2)",
-                  },
-                },
-                "&:hover": {
-                  bgcolor: "rgba(255,255,255,0.08)",
-                },
-              }}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) setMobileOpen(false);
-              }}
+            <Tooltip
+              title={desktopCollapsed && !isMobile ? item.label : ""}
+              placement="right"
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
+              <ListItemButton
+                selected={isItemSelected(item.path)}
+                sx={{
+                  borderRadius: 2,
+                  mb: 0.25,
+                  minHeight: 42,
+                  justifyContent: desktopCollapsed ? "center" : "initial",
+                  color: "rgba(255,255,255,0.92)",
+                  "& .MuiListItemIcon-root": {
+                    color: "inherit",
+                    minWidth: desktopCollapsed ? 0 : 34,
+                    mr: desktopCollapsed ? 0 : 0.5,
+                    justifyContent: "center",
+                  },
+                  "&.Mui-selected": {
+                    color: "success.main",
+                    bgcolor: "rgba(154, 214, 31, 0.14)",
+                    "&:hover": {
+                      bgcolor: "rgba(154, 214, 31, 0.2)",
+                    },
+                  },
+                  "&:hover": {
+                    bgcolor: "rgba(255,255,255,0.08)",
+                  },
+                }}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) setMobileOpen(false);
+                }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                {!desktopCollapsed && <ListItemText primary={item.label} />}
+              </ListItemButton>
+            </Tooltip>
           </ListItem>
         ))}
       </List>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.15)" }} />
-      <Box sx={{ p: 1.5 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          color="success"
-          startIcon={<Logout />}
-          onClick={handleLogout}
-          sx={{ justifyContent: "flex-start", fontWeight: 700 }}
-        >
-          Sair do sistema
-        </Button>
+      <Box sx={{ p: 1.5, display: "flex", justifyContent: "center" }}>
+        {desktopCollapsed && !isMobile ? (
+          <Tooltip title="Sair do sistema" placement="right">
+            <IconButton color="inherit" onClick={handleLogout}>
+              <Logout />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            fullWidth
+            variant="contained"
+            color="success"
+            startIcon={<Logout />}
+            onClick={handleLogout}
+            sx={{ justifyContent: "flex-start", fontWeight: 700 }}
+          >
+            Sair do sistema
+          </Button>
+        )}
       </Box>
     </Box>
   );
@@ -185,8 +232,8 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
+          width: { md: `calc(100% - ${desktopDrawerWidth}px)` },
+          ml: { md: `${desktopDrawerWidth}px` },
         }}
       >
         <Toolbar>
@@ -198,6 +245,21 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           >
             <MenuIcon />
           </IconButton>
+          <Tooltip
+            title={desktopCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+          >
+            <IconButton
+              color="inherit"
+              onClick={() => setDesktopCollapsed((current) => !current)}
+              sx={{ mr: 1, display: { xs: "none", md: "inline-flex" } }}
+            >
+              {desktopCollapsed ? (
+                <KeyboardDoubleArrowRight />
+              ) : (
+                <KeyboardDoubleArrowLeft />
+              )}
+            </IconButton>
+          </Tooltip>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="subtitle2" sx={{ color: "rgba(255,255,255,0.72)" }}>
               Painel de operações
@@ -215,7 +277,10 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+      <Box
+        component="nav"
+        sx={{ width: { md: desktopDrawerWidth }, flexShrink: { md: 0 } }}
+      >
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -223,7 +288,10 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: "block", md: "none" },
-            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: DRAWER_WIDTH_EXPANDED,
+            },
           }}
         >
           {drawer}
@@ -233,7 +301,15 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           open
           sx={{
             display: { xs: "none", md: "block" },
-            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: desktopDrawerWidth,
+              overflowX: "hidden",
+              transition: theme.transitions.create("width", {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+            },
           }}
         >
           {drawer}
@@ -245,7 +321,7 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
         sx={{
           flexGrow: 1,
           p: { xs: 2, md: 3 },
-          width: { md: `calc(100% - ${drawerWidth}px)` },
+          width: { md: `calc(100% - ${desktopDrawerWidth}px)` },
           mt: { xs: 8, md: 9 },
         }}
       >
