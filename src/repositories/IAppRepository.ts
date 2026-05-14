@@ -22,6 +22,7 @@ import {
   ReportType,
   ReportTypeField,
 } from "@/domain";
+import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 
 export interface IAppRepository {
   login(email: string, password: string): Promise<{ token: string; user: User }>;
@@ -268,11 +269,48 @@ export interface IAppRepository {
       teamName: string;
       averagePercent: number;
       inspectionsCount: number;
+      postWorkPercent: number;
+      remotePercent: number;
+      fieldPercent: number;
+      safetyWorkPercent: number;
       pendingCount: number;
       paralyzedCount: number;
       paralysisRatePercent: number;
     }>
   >;
+  getDashboardTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
+      metric?: DashboardTeamRankingMetric;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }>;
   getDashboardTeam(
     teamId: string,
     params?: { from?: string; to?: string; module?: ModuleType; contractId?: string }

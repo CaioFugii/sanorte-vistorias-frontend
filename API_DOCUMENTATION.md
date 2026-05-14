@@ -1879,18 +1879,6 @@ Response 200:
 
 Em todas as rotas abaixo, o query param opcional **`contractId`** (`uuid`) restringe os dados às vistorias cuja ordem de serviço pertence a esse contrato. A regra de escopo por perfil (`ADMIN` vs `GESTOR`) permanece; ver `Guia rápido` → Escopo por contrato.
 
-### Mapa rápido de gráficos -> endpoints
-
-- Card de resumo geral (qualidade média, total de vistorias, pendências): `GET /dashboards/summary`
-- Ranking de equipes: `GET /dashboards/ranking/teams`
-- Detalhe de desempenho por equipe: `GET /dashboards/teams/:teamId`
-- Evolução de qualidade por serviço (série mensal): `GET /dashboards/quality-by-service`
-- Qualidade do mês atual por serviço: `GET /dashboards/current-month-by-service`
-- Colaboradores com baixa pontuação (Segurança do Trabalho): `GET /dashboards/safety-work/low-score-collaborators`
-- Comparativo de desempenho entre equipes: `GET /dashboards/team-performance-by-teams`
-- Não conformidades por checklist (top perguntas por checklist): `GET /dashboards/non-conformities/by-checklist`
-- Não conformidades por equipe (top perguntas no período): `GET /dashboards/non-conformities/by-team`
-
 ### GET /dashboards/summary
 
 - Auth: JWT
@@ -1933,6 +1921,10 @@ Response 200:
     "teamName": "Equipe Norte",
     "averagePercent": 95.1,
     "inspectionsCount": 12,
+    "postWorkPercent": 94.2,
+    "remotePercent": 96.5,
+    "fieldPercent": 93.8,
+    "safetyWorkPercent": 92.4,
     "pendingCount": 2,
     "paralyzedCount": 1,
     "paralysisRatePercent": 8.33
@@ -1942,6 +1934,10 @@ Response 200:
     "teamName": "Equipe Sul",
     "averagePercent": 90.2,
     "inspectionsCount": 10,
+    "postWorkPercent": 89.3,
+    "remotePercent": 91.7,
+    "fieldPercent": 90.1,
+    "safetyWorkPercent": 88.9,
     "pendingCount": 1,
     "paralyzedCount": 0,
     "paralysisRatePercent": 0
@@ -1951,6 +1947,77 @@ Response 200:
 
 - `paralyzedCount`: quantidade de vistorias com penalidade de paralisação no período.
 - `paralysisRatePercent`: percentual de vistorias paralisadas (paralyzedCount / inspectionsCount).
+- `postWorkPercent`: média (%) da equipe no módulo `POS_OBRA` no período (0 quando não houver vistoria no módulo).
+- `remotePercent`: média (%) da equipe no módulo `REMOTO` no período (0 quando não houver vistoria no módulo).
+- `fieldPercent`: média (%) da equipe no módulo `CAMPO` no período (0 quando não houver vistoria no módulo).
+- `safetyWorkPercent`: média (%) da equipe no módulo `SEGURANCA_TRABALHO` no período (0 quando não houver vistoria no módulo).
+
+### GET /dashboards/ranking/teams/:teamId/inspections
+
+- Auth: JWT
+- Path:
+  - `teamId` (`uuid`) **obrigatório**
+- Query:
+  - `from` (`YYYY-MM-DD`) **obrigatório**
+  - `to` (`YYYY-MM-DD`) **obrigatório**
+  - `metric` (opcional): `average`, `postWork`, `remote`, `field`, `safetyWork` (default: `average`)
+  - `page` (opcional, default `1`)
+  - `limit` (opcional, default `20`, máximo `100`)
+  - `contractId` (`uuid`) opcional
+- O intervalo entre `from` e `to` não pode ser maior que 2 anos (400 se exceder).
+- Escopo: `GESTOR` vê apenas dados dos contratos permitidos; `ADMIN` vê tudo.
+
+Retorna as vistorias que compõem a nota clicada no ranking por equipe, com paginação.
+
+Response 200:
+
+```json
+{
+  "from": "2026-01-01",
+  "to": "2026-01-31",
+  "teamId": "b8b006bf-a9f7-42ec-882f-263bc672e430",
+  "teamName": "ROBSON DA SILVA",
+  "metric": "field",
+  "page": 1,
+  "limit": 20,
+  "total": 2,
+  "totalPages": 1,
+  "hasNext": false,
+  "hasPrev": false,
+  "inspections": [
+    {
+      "inspectionId": "7e3bc6ad-2b2f-44bf-bec0-dad64989b38c",
+      "serviceOrderId": "e35cf2b4-53a6-45cc-b57d-cd00d58d9a1a",
+      "serviceOrderNumber": "OS-123456",
+      "module": "CAMPO",
+      "status": "FINALIZADA",
+      "scorePercent": 96.8,
+      "finishedAt": "2026-01-15T13:30:00.000Z",
+      "createdAt": "2026-01-15T12:10:00.000Z"
+    },
+    {
+      "inspectionId": "53ad4f4a-377d-4f36-82e2-f178fdf93fd9",
+      "serviceOrderId": "a6e6b603-f136-4937-9115-7a2ae8880ba3",
+      "serviceOrderNumber": "OS-123470",
+      "module": "CAMPO",
+      "status": "RESOLVIDA",
+      "scorePercent": 90.3,
+      "finishedAt": "2026-01-20T10:30:00.000Z",
+      "createdAt": "2026-01-20T09:40:00.000Z"
+    }
+  ]
+}
+```
+
+Response 404 quando a equipe não existe:
+
+```json
+{
+  "statusCode": 404,
+  "message": "Equipe não encontrada",
+  "error": "Not Found"
+}
+```
 
 ### GET /dashboards/teams/:teamId
 

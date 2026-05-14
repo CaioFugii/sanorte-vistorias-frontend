@@ -45,6 +45,8 @@ export interface InvestmentWorksParams {
   search?: string;
   active?: boolean;
 }
+
+export type DashboardTeamRankingMetric = "average" | "postWork" | "remote" | "field" | "safetyWork";
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";
 
@@ -723,6 +725,10 @@ export class ApiRepository {
       teamName: string;
       averagePercent: number;
       inspectionsCount: number;
+      postWorkPercent: number;
+      remotePercent: number;
+      fieldPercent: number;
+      safetyWorkPercent: number;
       pendingCount: number;
       paralyzedCount: number;
       paralysisRatePercent: number;
@@ -734,11 +740,74 @@ export class ApiRepository {
         teamName: string;
         averagePercent: number;
         inspectionsCount: number;
+        postWorkPercent: number;
+        remotePercent: number;
+        fieldPercent: number;
+        safetyWorkPercent: number;
         pendingCount: number;
         paralyzedCount: number;
         paralysisRatePercent: number;
       }>
     >("/dashboards/ranking/teams", { params });
+    return response.data;
+  }
+
+  async getDashboardTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
+      metric?: DashboardTeamRankingMetric;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      teamId: string;
+      teamName: string;
+      metric: DashboardTeamRankingMetric;
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+      inspections: Array<{
+        inspectionId: string;
+        serviceOrderId: string;
+        serviceOrderNumber: string;
+        module: ModuleType;
+        status: InspectionStatus;
+        scorePercent: number;
+        finishedAt: string | null;
+        createdAt: string;
+      }>;
+    }>(`/dashboards/ranking/teams/${teamId}/inspections`, { params });
     return response.data;
   }
 

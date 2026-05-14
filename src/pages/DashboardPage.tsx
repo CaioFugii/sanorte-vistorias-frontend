@@ -22,12 +22,13 @@ import {
   DialogContent,
   IconButton,
   TableSortLabel,
+  Tooltip,
 } from '@mui/material';
-import { Search, Clear, TrendingUp, Assignment, Warning, PauseCircle, Close } from '@mui/icons-material';
+import { Search, Clear, TrendingUp, Assignment, Warning, Close } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { appRepository } from '@/repositories/AppRepository';
+import { DashboardTeamRankingMetric } from '@/api/repositories/ApiRepository';
 import { PercentBadge } from '@/components/PercentBadge';
 import { ListPagination } from '@/components/ListPagination';
 import { ModuleType } from '@/domain/enums';
@@ -49,9 +50,24 @@ type TeamRankingItem = {
   teamName: string;
   averagePercent: number;
   inspectionsCount: number;
+  postWorkPercent: number;
+  remotePercent: number;
+  fieldPercent: number;
+  safetyWorkPercent: number;
   pendingCount: number;
   paralyzedCount: number;
   paralysisRatePercent: number;
+};
+
+type TeamRankingInspectionItem = {
+  inspectionId: string;
+  serviceOrderId: string;
+  serviceOrderNumber: string;
+  module: ModuleType;
+  status: string;
+  scorePercent: number;
+  finishedAt: string | null;
+  createdAt: string;
 };
 
 type NonConformityQuestionItem = {
@@ -78,7 +94,7 @@ type NonConformityByTeamItem = {
   checklistsCount: number;
 };
 
-type SortKey = 'averagePercent' | 'pendingCount' | 'paralysisRatePercent' | null;
+type SortKey = 'averagePercent' | 'paralysisRatePercent' | null;
 const MIN_TEAM_SEARCH_LENGTH = 4;
 const NON_CONFORMITIES_LIMIT_PER_CHECKLIST = 3;
 const NON_CONFORMITIES_LIMIT_BY_TEAM = 5;
@@ -117,10 +133,6 @@ export const DashboardPage = (): JSX.Element => {
   const [teamRanking, setTeamRanking] = useState<TeamRankingItem[]>([]);
   const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<NonConformityChecklist[]>([]);
   const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformityByTeamItem[]>([]);
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [teamDetail, setTeamDetail] = useState<TeamRankingItem | null>(null);
-  const [teamDetailLoading, setTeamDetailLoading] = useState(false);
-  const [teamDetailError, setTeamDetailError] = useState<string | null>(null);
   const [orderBy, setOrderBy] = useState<SortKey>(null);
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [rankingPage, setRankingPage] = useState(1);
@@ -131,6 +143,21 @@ export const DashboardPage = (): JSX.Element => {
   const [teamFilterLoading, setTeamFilterLoading] = useState(false);
   const teamFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teamFilterRequestRef = useRef(0);
+  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
+  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
+  const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
+  const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
+  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
+    teamId: '',
+    teamName: '',
+    metric: 'average' as DashboardTeamRankingMetric,
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  });
 
   const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
 
@@ -292,38 +319,69 @@ export const DashboardPage = (): JSX.Element => {
     loadDashboardData(defaultRange);
   };
 
-  const handleOpenTeamDetail = (teamId: string) => {
-    setSelectedTeamId(teamId);
-    setTeamDetail(null);
-    setTeamDetailError(null);
-    setTeamDetailLoading(true);
-    const query = {
-      from: filters.from,
-      to: filters.to,
-      module: filters.module,
-      contractId: filters.contractId,
-    };
-    appRepository
-      .getDashboardTeam(teamId, query)
-      .then((data) => {
-        setTeamDetail(data);
-      })
-      .catch((err: unknown) => {
-        const status = (err as { response?: { status?: number } })?.response?.status;
-        if (status === 404) {
-          setTeamDetailError('Equipe não encontrada.');
-          toast.error('Equipe não encontrada.');
-        }
-      })
-      .finally(() => {
-        setTeamDetailLoading(false);
-      });
+  const metricLabelMap: Record<DashboardTeamRankingMetric, string> = {
+    average: 'Média geral',
+    postWork: 'Pós-obra',
+    remote: 'Remoto',
+    field: 'Campo',
+    safetyWork: 'Segurança do Trabalho',
   };
 
-  const handleCloseTeamDetail = () => {
-    setSelectedTeamId(null);
-    setTeamDetail(null);
-    setTeamDetailError(null);
+  const openRankingInspections = async (
+    team: TeamRankingItem,
+    metric: DashboardTeamRankingMetric,
+    page = 1,
+    limit = rankingInspectionsMeta.limit
+  ) => {
+    if (!filters.from || !filters.to) return;
+    setRankingInspectionsOpen(true);
+    setRankingInspectionsLoading(true);
+    setRankingInspectionsError(null);
+    try {
+      const response = await appRepository.getDashboardTeamRankingInspections(team.teamId, {
+        from: filters.from,
+        to: filters.to,
+        metric,
+        page,
+        limit,
+        contractId: filters.contractId,
+      });
+      setRankingInspectionsItems(response.inspections);
+      setRankingInspectionsMeta({
+        teamId: response.teamId,
+        teamName: response.teamName,
+        metric: response.metric,
+        page: response.page,
+        limit: response.limit,
+        total: response.total,
+        totalPages: response.totalPages,
+        hasNext: response.hasNext,
+        hasPrev: response.hasPrev,
+      });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        setRankingInspectionsError('Equipe não encontrada.');
+      } else {
+        setRankingInspectionsError('Falha ao carregar as vistorias da métrica selecionada.');
+      }
+      setRankingInspectionsItems([]);
+    } finally {
+      setRankingInspectionsLoading(false);
+    }
+  };
+
+  const handleCloseRankingInspections = () => {
+    setRankingInspectionsOpen(false);
+    setRankingInspectionsError(null);
+    setRankingInspectionsItems([]);
+  };
+
+  const formatDateTime = (value: string | null): string => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '-';
+    return parsed.toLocaleString('pt-BR');
   };
 
   const handleSort = (key: SortKey) => {
@@ -600,17 +658,11 @@ export const DashboardPage = (): JSX.Element => {
                           Média
                         </TableSortLabel>
                       </TableCell>
+                      <TableCell align="center">Campo</TableCell>
+                      <TableCell align="center">Remoto</TableCell>
+                      <TableCell align="center">Pós-obra</TableCell>
+                      <TableCell align="center">Seg. Trabalho</TableCell>
                       <TableCell align="center">Qtd Vistorias</TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={orderBy === 'pendingCount'}
-                          direction={orderBy === 'pendingCount' ? order : 'asc'}
-                          onClick={() => handleSort('pendingCount')}
-                        >
-                          Pendentes
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">Paralisadas</TableCell>
                       <TableCell align="center">
                         <TableSortLabel
                           active={orderBy === 'paralysisRatePercent'}
@@ -620,7 +672,6 @@ export const DashboardPage = (): JSX.Element => {
                           Taxa paralisação
                         </TableSortLabel>
                       </TableCell>
-                      <TableActionsHeaderCell align="center" padding="none" />
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -631,23 +682,51 @@ export const DashboardPage = (): JSX.Element => {
                           <TableCell align="center">
                             <PercentBadge percent={team.averagePercent} size="small" />
                           </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Ver vistorias da métrica">
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => openRankingInspections(team, 'field')}
+                              >
+                                <PercentBadge percent={team.fieldPercent} size="small" />
+                              </Button>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Ver vistorias da métrica">
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => openRankingInspections(team, 'remote')}
+                              >
+                                <PercentBadge percent={team.remotePercent} size="small" />
+                              </Button>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Ver vistorias da métrica">
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => openRankingInspections(team, 'postWork')}
+                              >
+                                <PercentBadge percent={team.postWorkPercent} size="small" />
+                              </Button>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Ver vistorias da métrica">
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => openRankingInspections(team, 'safetyWork')}
+                              >
+                                <PercentBadge percent={team.safetyWorkPercent} size="small" />
+                              </Button>
+                            </Tooltip>
+                          </TableCell>
                           <TableCell align="center">{team.inspectionsCount}</TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={team.pendingCount}
-                              color={team.pendingCount > 0 ? 'warning' : 'default'}
-                              size="small"
-                              icon={team.pendingCount > 0 ? <Warning fontSize="small" /> : undefined}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={team.paralyzedCount}
-                              color={team.paralyzedCount > 0 ? 'error' : 'default'}
-                              size="small"
-                              icon={team.paralyzedCount > 0 ? <PauseCircle fontSize="small" /> : undefined}
-                            />
-                          </TableCell>
                           <TableCell align="center">
                             <Typography
                               variant="body2"
@@ -656,14 +735,6 @@ export const DashboardPage = (): JSX.Element => {
                               {team.paralysisRatePercent}%
                             </Typography>
                           </TableCell>
-                          <TableActionsCell align="center" padding="none">
-                            <TableActionsGroup>
-                              <TableViewButton
-                                label="Ver detalhe"
-                                onClick={() => handleOpenTeamDetail(team.teamId)}
-                              />
-                            </TableActionsGroup>
-                          </TableActionsCell>
                         </TableRow>
                       );
                     })}
@@ -851,75 +922,92 @@ export const DashboardPage = (): JSX.Element => {
         </>
       )}
 
-      <Dialog open={!!selectedTeamId} onClose={handleCloseTeamDetail} maxWidth="sm" fullWidth>
+      <Dialog open={rankingInspectionsOpen} onClose={handleCloseRankingInspections} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          Desempenho da equipe
-          <IconButton onClick={handleCloseTeamDetail} size="small" aria-label="Fechar">
+          {rankingInspectionsMeta.teamName
+            ? `Equipe: ${rankingInspectionsMeta.teamName} - ${metricLabelMap[rankingInspectionsMeta.metric]}`
+            : 'Vistorias da métrica'}
+          <IconButton onClick={handleCloseRankingInspections} size="small" aria-label="Fechar">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent>
-          {teamDetailLoading && (
+          {rankingInspectionsLoading && (
             <Box display="flex" justifyContent="center" p={4}>
               <CircularProgress />
             </Box>
           )}
-          {teamDetailError && !teamDetailLoading && (
+          {rankingInspectionsError && !rankingInspectionsLoading && (
             <Typography color="text.secondary" sx={{ py: 2 }}>
-              {teamDetailError}
+              {rankingInspectionsError}
             </Typography>
           )}
-          {teamDetail && !teamDetailLoading && (
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid item xs={12}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {teamDetail.teamName}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Média
-                </Typography>
-                <PercentBadge percent={teamDetail.averagePercent} size="small" />
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Vistorias
-                </Typography>
-                <Typography variant="body1">{teamDetail.inspectionsCount}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Pendentes
-                </Typography>
-                <Chip
-                  label={teamDetail.pendingCount}
-                  color={teamDetail.pendingCount > 0 ? 'warning' : 'default'}
-                  size="small"
+          {!rankingInspectionsLoading && !rankingInspectionsError && (
+            <>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>OS</TableCell>
+                    <TableCell>Módulo</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Nota</TableCell>
+                    <TableCell>Finalizada em</TableCell>
+                    <TableCell>Criada em</TableCell>
+                    <TableActionsHeaderCell align="center" padding="none" />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rankingInspectionsItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Typography color="text.secondary" sx={{ py: 2 }}>
+                          Nenhuma vistoria encontrada para os filtros selecionados.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rankingInspectionsItems.map((inspection) => (
+                      <TableRow key={inspection.inspectionId}>
+                        <TableCell>{inspection.serviceOrderNumber || '-'}</TableCell>
+                        <TableCell>{inspection.module}</TableCell>
+                        <TableCell>{inspection.status}</TableCell>
+                        <TableCell align="center">
+                          <PercentBadge percent={inspection.scorePercent} size="small" />
+                        </TableCell>
+                        <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
+                        <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                        <TableActionsCell align="center" padding="none">
+                          <TableActionsGroup>
+                            <TableViewButton
+                              label="Ver detalhes"
+                              onClick={() => window.open(`/inspections/${inspection.inspectionId}`, '_blank', 'noopener,noreferrer')}
+                            />
+                          </TableActionsGroup>
+                        </TableActionsCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {rankingInspectionsMeta.total > 0 && (
+                <ListPagination
+                  meta={rankingInspectionsMeta}
+                  onPageChange={(page) => {
+                    const team = teamRanking.find((item) => item.teamId === rankingInspectionsMeta.teamId);
+                    if (!team) return;
+                    void openRankingInspections(team, rankingInspectionsMeta.metric, page);
+                  }}
+                  onRowsPerPageChange={(newLimit) => {
+                    setRankingInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                    const team = teamRanking.find((item) => item.teamId === rankingInspectionsMeta.teamId);
+                    if (!team) return;
+                    void openRankingInspections(team, rankingInspectionsMeta.metric, 1, newLimit);
+                  }}
+                  rowsPerPageOptions={[10, 20, 50, 100]}
+                  disabled={rankingInspectionsLoading}
                 />
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Paralisadas
-                </Typography>
-                <Chip
-                  label={teamDetail.paralyzedCount}
-                  color={teamDetail.paralyzedCount > 0 ? 'error' : 'default'}
-                  size="small"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">
-                  Taxa de paralisação
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color={teamDetail.paralysisRatePercent > 0 ? 'error.main' : 'text.primary'}
-                >
-                  {teamDetail.paralysisRatePercent}%
-                </Typography>
-              </Grid>
-            </Grid>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>

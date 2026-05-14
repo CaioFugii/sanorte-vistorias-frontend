@@ -1,4 +1,5 @@
 import { ApiRepository } from "@/api/repositories/ApiRepository";
+import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import {
   Checklist,
   ChecklistItem,
@@ -499,12 +500,52 @@ export class AppRepository implements IAppRepository {
       teamName: string;
       averagePercent: number;
       inspectionsCount: number;
+      postWorkPercent: number;
+      remotePercent: number;
+      fieldPercent: number;
+      safetyWorkPercent: number;
       pendingCount: number;
       paralyzedCount: number;
       paralysisRatePercent: number;
     }>
   > {
     return this.apiRepository.getDashboardTeamRanking(params);
+  }
+
+  async getDashboardTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
+      metric?: DashboardTeamRankingMetric;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardTeamRankingInspections(teamId, params);
   }
 
   async getDashboardTeam(
