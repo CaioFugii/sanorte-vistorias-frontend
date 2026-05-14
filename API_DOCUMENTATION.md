@@ -41,7 +41,7 @@ Authorization: Bearer <token>
   - consulta de formulário para renderização no frontend (sem persistência)
 - Sync offline: `POST /sync/inspections`
 - Upload genérico: `POST /uploads`, `DELETE /uploads/:publicId`
-- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`, `GET /dashboards/teams/:teamId`, `GET /dashboards/quality-by-service`, `GET /dashboards/current-month-by-service`, `GET /dashboards/safety-work/low-score-collaborators`, `GET /dashboards/team-performance-by-teams`, `GET /dashboards/non-conformities/by-checklist` (todas aceitam filtro opcional `contractId`; ver `Dashboards`)
+- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`, `GET /dashboards/teams/:teamId`, `GET /dashboards/quality-by-service`, `GET /dashboards/current-month-by-service`, `GET /dashboards/safety-work/low-score-collaborators`, `GET /dashboards/team-performance-by-teams`, `GET /dashboards/non-conformities/by-checklist`, `GET /dashboards/non-conformities/by-team` (todas aceitam filtro opcional `contractId`; ver `Dashboards`)
 
 ### Regras críticas que impactam UI
 
@@ -1879,6 +1879,18 @@ Response 200:
 
 Em todas as rotas abaixo, o query param opcional **`contractId`** (`uuid`) restringe os dados às vistorias cuja ordem de serviço pertence a esse contrato. A regra de escopo por perfil (`ADMIN` vs `GESTOR`) permanece; ver `Guia rápido` → Escopo por contrato.
 
+### Mapa rápido de gráficos -> endpoints
+
+- Card de resumo geral (qualidade média, total de vistorias, pendências): `GET /dashboards/summary`
+- Ranking de equipes: `GET /dashboards/ranking/teams`
+- Detalhe de desempenho por equipe: `GET /dashboards/teams/:teamId`
+- Evolução de qualidade por serviço (série mensal): `GET /dashboards/quality-by-service`
+- Qualidade do mês atual por serviço: `GET /dashboards/current-month-by-service`
+- Colaboradores com baixa pontuação (Segurança do Trabalho): `GET /dashboards/safety-work/low-score-collaborators`
+- Comparativo de desempenho entre equipes: `GET /dashboards/team-performance-by-teams`
+- Não conformidades por checklist (top perguntas por checklist): `GET /dashboards/non-conformities/by-checklist`
+- Não conformidades por equipe (top perguntas no período): `GET /dashboards/non-conformities/by-team`
+
 ### GET /dashboards/summary
 
 - Auth: JWT
@@ -2195,6 +2207,55 @@ Response 200:
           "nonConformityRatePercent": 20
         }
       ]
+    }
+  ]
+}
+```
+
+### GET /dashboards/non-conformities/by-team
+
+- Auth: JWT
+- Perfis permitidos: `ADMIN`, `GESTOR`
+- Query:
+  - `from` (`YYYY-MM-DD`) **obrigatório**
+  - `to` (`YYYY-MM-DD`) **obrigatório**
+  - `teamId` (`uuid`) **obrigatório**
+  - `module` (`ModuleType`) opcional
+  - `contractId` (`uuid`) opcional
+  - `limit` (`int`) opcional (default: `10`, máximo: `20`)
+- O intervalo entre `from` e `to` não pode ser maior que 2 anos (400 se exceder).
+- Status considerados:
+  - `FINALIZADA`
+  - `PENDENTE_AJUSTE`
+  - `RESOLVIDA`
+- Escopo: `GESTOR` vê apenas dados dos contratos permitidos; `ADMIN` vê tudo.
+- Retorna as maiores não conformidades da equipe no período, agregadas por pergunta (`checklistItem`) independentemente do checklist.
+
+Response 200:
+
+```json
+{
+  "from": "2026-01-01",
+  "to": "2026-01-31",
+  "module": "CAMPO",
+  "teamId": "7f214d1f-5e2a-46f8-8f90-e64129876f84",
+  "limit": 3,
+  "nonConformities": [
+    {
+      "checklistItemId": "0f4f9da6-0f43-4f22-a4d0-b0c4b6a7e31f",
+      "checklistItemTitle": "Uso correto de EPI",
+      "nonConformitiesCount": 10,
+      "answersCount": 40,
+      "nonConformityRatePercent": 25,
+      "checklistsCount": 2
+    },
+    {
+      "checklistItemId": "64a2783f-66a4-4fc7-b112-478b95f80f4d",
+      "checklistItemTitle": "Sinalização da área",
+      "nonConformitiesCount": 6,
+      "answersCount": 30,
+      "nonConformityRatePercent": 20,
+      "checklistsCount": 1
     }
   ]
 }

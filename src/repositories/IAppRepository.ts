@@ -354,6 +354,28 @@ export interface IAppRepository {
       }>;
     }>;
   }>;
+  getDashboardNonConformitiesByTeam(params: {
+    from: string;
+    to: string;
+    teamId: string;
+    module?: ModuleType;
+    contractId?: string;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId: string;
+    limit: number;
+    nonConformities: Array<{
+      checklistItemId: string;
+      checklistItemTitle: string;
+      nonConformitiesCount: number;
+      answersCount: number;
+      nonConformityRatePercent: number;
+      checklistsCount: number;
+    }>;
+  }>;
   getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;

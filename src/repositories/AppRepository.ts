@@ -600,6 +600,31 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardNonConformitiesByChecklist(params);
   }
 
+  async getDashboardNonConformitiesByTeam(params: {
+    from: string;
+    to: string;
+    teamId: string;
+    module?: ModuleType;
+    contractId?: string;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId: string;
+    limit: number;
+    nonConformities: Array<{
+      checklistItemId: string;
+      checklistItemTitle: string;
+      nonConformitiesCount: number;
+      answersCount: number;
+      nonConformityRatePercent: number;
+      checklistsCount: number;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardNonConformitiesByTeam(params);
+  }
+
   async getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;

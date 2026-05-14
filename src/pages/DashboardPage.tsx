@@ -69,9 +69,19 @@ type NonConformityChecklist = {
   questions: NonConformityQuestionItem[];
 };
 
+type NonConformityByTeamItem = {
+  checklistItemId: string;
+  checklistItemTitle: string;
+  nonConformitiesCount: number;
+  answersCount: number;
+  nonConformityRatePercent: number;
+  checklistsCount: number;
+};
+
 type SortKey = 'averagePercent' | 'pendingCount' | 'paralysisRatePercent' | null;
 const MIN_TEAM_SEARCH_LENGTH = 4;
 const NON_CONFORMITIES_LIMIT_PER_CHECKLIST = 3;
+const NON_CONFORMITIES_LIMIT_BY_TEAM = 5;
 
 function getDefaultDateRange(): { from: string; to: string } {
   const to = new Date();
@@ -106,6 +116,7 @@ export const DashboardPage = (): JSX.Element => {
   const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
   const [teamRanking, setTeamRanking] = useState<TeamRankingItem[]>([]);
   const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<NonConformityChecklist[]>([]);
+  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformityByTeamItem[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [teamDetail, setTeamDetail] = useState<TeamRankingItem | null>(null);
   const [teamDetailLoading, setTeamDetailLoading] = useState(false);
@@ -240,9 +251,20 @@ export const DashboardPage = (): JSX.Element => {
           limitPerChecklist: NON_CONFORMITIES_LIMIT_PER_CHECKLIST,
         }),
       ]);
+      const teamNonConformitiesData = effectiveFilters.teamId
+        ? await appRepository.getDashboardNonConformitiesByTeam({
+            from: effectiveFilters.from,
+            to: effectiveFilters.to,
+            teamId: effectiveFilters.teamId,
+            module: effectiveFilters.module,
+            contractId: effectiveFilters.contractId,
+            limit: NON_CONFORMITIES_LIMIT_BY_TEAM,
+          })
+        : null;
       setSummary(summaryData);
       setTeamRanking(rankingData);
       setNonConformitiesByChecklist(nonConformitiesData.checklists);
+      setNonConformitiesByTeam(teamNonConformitiesData?.nonConformities ?? []);
       setRankingPage(1);
     } catch (err) {
       const message =
@@ -266,6 +288,7 @@ export const DashboardPage = (): JSX.Element => {
     setSelectedSummaryTeam(null);
     setTeamFilterSearchInput('');
     setTeamFilterOptions([]);
+    setNonConformitiesByTeam([]);
     loadDashboardData(defaultRange);
   };
 
@@ -743,6 +766,86 @@ export const DashboardPage = (): JSX.Element => {
                   );
                 })}
               </Grid>
+            )}
+          </SectionTable>
+
+          <SectionTable
+            title={`Top NÃO CONFORMIDADES da equipe selecionada (TOP ${NON_CONFORMITIES_LIMIT_BY_TEAM})`}
+          >
+            {!filters.teamId ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography color="text.secondary">
+                  Selecione uma equipe no filtro para visualizar este gráfico.
+                </Typography>
+              </Box>
+            ) : nonConformitiesByTeam.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography color="text.secondary">
+                  Nenhuma não conformidade encontrada para a equipe e período selecionados.
+                </Typography>
+              </Box>
+            ) : (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+                  {nonConformitiesByTeam.map((item) => {
+                    const maxCount = Math.max(
+                      ...nonConformitiesByTeam.map((question) => question.nonConformitiesCount),
+                      1
+                    );
+                    const widthPercent = Math.max((item.nonConformitiesCount / maxCount) * 100, 4);
+                    return (
+                      <Box key={item.checklistItemId}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'baseline',
+                            gap: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            title={item.checklistItemTitle}
+                            sx={{
+                              fontWeight: 500,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.checklistItemTitle}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                            {item.nonConformitiesCount} Não conformes ({item.nonConformityRatePercent}%)
+                          </Typography>
+                        </Box>
+                        <Box
+                          sx={{
+                            mt: 0.6,
+                            height: 8,
+                            borderRadius: 99,
+                            bgcolor: 'grey.200',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: `${widthPercent}%`,
+                              height: '100%',
+                              bgcolor: 'warning.main',
+                              borderRadius: 99,
+                            }}
+                          />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.answersCount} respostas no período em {item.checklistsCount} checklist
+                          {item.checklistsCount === 1 ? '' : 's'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Paper>
             )}
           </SectionTable>
         </>

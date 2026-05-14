@@ -895,6 +895,46 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardNonConformitiesByTeam(params: {
+    from: string;
+    to: string;
+    teamId: string;
+    module?: ModuleType;
+    contractId?: string;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    module?: ModuleType;
+    teamId: string;
+    limit: number;
+    nonConformities: Array<{
+      checklistItemId: string;
+      checklistItemTitle: string;
+      nonConformitiesCount: number;
+      answersCount: number;
+      nonConformityRatePercent: number;
+      checklistsCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      module?: ModuleType;
+      teamId: string;
+      limit: number;
+      nonConformities: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+        checklistsCount: number;
+      }>;
+    }>("/dashboards/non-conformities/by-team", { params });
+    return response.data;
+  }
+
   async getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
