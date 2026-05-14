@@ -538,6 +538,7 @@ export class AppRepository implements IAppRepository {
       inspectionId: string;
       serviceOrderId: string;
       serviceOrderNumber: string;
+      serviceOrderAddress: string | null;
       module: ModuleType;
       status: InspectionStatus;
       scorePercent: number;

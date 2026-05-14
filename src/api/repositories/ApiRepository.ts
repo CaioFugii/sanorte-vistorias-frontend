@@ -778,6 +778,7 @@ export class ApiRepository {
       inspectionId: string;
       serviceOrderId: string;
       serviceOrderNumber: string;
+      serviceOrderAddress: string | null;
       module: ModuleType;
       status: InspectionStatus;
       scorePercent: number;
@@ -801,6 +802,7 @@ export class ApiRepository {
         inspectionId: string;
         serviceOrderId: string;
         serviceOrderNumber: string;
+        serviceOrderAddress: string | null;
         module: ModuleType;
         status: InspectionStatus;
         scorePercent: number;

@@ -16,7 +16,6 @@ import {
   TableHead,
   TableRow,
   CircularProgress,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -63,6 +62,7 @@ type TeamRankingInspectionItem = {
   inspectionId: string;
   serviceOrderId: string;
   serviceOrderNumber: string;
+  serviceOrderAddress: string | null;
   module: ModuleType;
   status: string;
   scorePercent: number;
@@ -948,6 +948,7 @@ export const DashboardPage = (): JSX.Element => {
                 <TableHead>
                   <TableRow>
                     <TableCell>OS</TableCell>
+                    <TableCell>Endereço</TableCell>
                     <TableCell>Módulo</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="center">Nota</TableCell>
@@ -959,7 +960,7 @@ export const DashboardPage = (): JSX.Element => {
                 <TableBody>
                   {rankingInspectionsItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         <Typography color="text.secondary" sx={{ py: 2 }}>
                           Nenhuma vistoria encontrada para os filtros selecionados.
                         </Typography>
@@ -969,6 +970,7 @@ export const DashboardPage = (): JSX.Element => {
                     rankingInspectionsItems.map((inspection) => (
                       <TableRow key={inspection.inspectionId}>
                         <TableCell>{inspection.serviceOrderNumber || '-'}</TableCell>
+                        <TableCell>{inspection.serviceOrderAddress || '-'}</TableCell>
                         <TableCell>{inspection.module}</TableCell>
                         <TableCell>{inspection.status}</TableCell>
                         <TableCell align="center">
