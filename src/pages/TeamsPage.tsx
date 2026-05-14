@@ -17,7 +17,7 @@ import {
   TextField,
   CircularProgress,
 } from '@mui/material';
-import { Add, Delete, Edit, Refresh } from '@mui/icons-material';
+import { Add, Refresh } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
 import { Collaborator, Contract, PaginatedResponse, Team } from '@/domain';

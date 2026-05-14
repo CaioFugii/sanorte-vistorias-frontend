@@ -16,7 +16,7 @@ import {
   TableRow,
   TextField,
 } from "@mui/material";
-import { Add, Delete, Edit, Refresh } from "@mui/icons-material";
+import { Add, Refresh } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";

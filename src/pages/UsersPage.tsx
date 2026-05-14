@@ -15,7 +15,7 @@ import {
   TableRow,
   TextField,
 } from "@mui/material";
-import { Add, Delete, Edit } from "@mui/icons-material";
+import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Contract, PaginatedResponse, User } from "@/domain";
 import { UserRole } from "@/domain/enums";

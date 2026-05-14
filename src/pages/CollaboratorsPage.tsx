@@ -19,7 +19,7 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
-import { Add, Delete, Edit } from "@mui/icons-material";
+import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Collaborator, Contract, PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
