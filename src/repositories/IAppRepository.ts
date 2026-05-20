@@ -471,6 +471,7 @@ export interface IAppRepository {
     inspectionScope?: InspectionScope;
     teamId?: string;
     checklistId: string;
+    contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
     collaboratorIds?: string[];

@@ -1,6 +1,7 @@
 export { LoginPage } from './LoginPage';
 export { DashboardPage } from './DashboardPage';
-export { AnalyticsPage } from './AnalyticsPage';
+export { QualityAnalyticsPage } from './QualityAnalyticsPage';
+export { SafetyAnalyticsPage } from './SafetyAnalyticsPage';
 export { TeamsPage } from './TeamsPage';
 export { ContractsPage } from './ContractsPage';
 export { SectorsPage } from './SectorsPage';
@@ -10,6 +11,8 @@ export { ChecklistsPage } from './ChecklistsPage';
 export { ServiceOrdersPage } from './ServiceOrdersPage';
 export { InvestmentWorksPage } from './InvestmentWorksPage';
 export { InspectionsPage } from './InspectionsPage';
+export { QualityInspectionsPage } from './QualityInspectionsPage';
+export { SafetyInspectionsPage } from './SafetyInspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';
 export { InspectionDetailPage } from './InspectionDetailPage';
 export { FillInspectionPage } from './FillInspectionPage';

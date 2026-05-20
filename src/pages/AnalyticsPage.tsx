@@ -17,19 +17,20 @@ import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { Contract, Team, UserRole } from "@/domain";
+import { Contract, Team, UserRole, ModuleType } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
-type SafetyWorkLowScoreCollaboratorsResponse = Awaited<
-  ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
->;
 type TeamPerformanceByTeamsResponse = Awaited<ReturnType<typeof appRepository.getDashboardTeamPerformanceByTeams>>;
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
-const DEFAULT_LOW_SCORE_THRESHOLD = 70;
-const DEFAULT_LOW_SCORE_LIMIT = 15;
+const QUALITY_MODULES: ModuleType[] = [
+  ModuleType.CAMPO,
+  ModuleType.REMOTO,
+  ModuleType.POS_OBRA,
+  ModuleType.OBRAS_INVESTIMENTO,
+];
 
 function getDefaultQualityRange(): { from: string; to: string } {
   const to = new Date();
@@ -61,10 +62,6 @@ function formatMonthYearLabel(yyyyMM: string): string {
   return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
     .format(date)
     .replace(/^./, (char) => char.toUpperCase());
-}
-
-function formatPercent(value: number, digits = 2): string {
-  return `${value.toFixed(digits).replace(".", ",")}%`;
 }
 
 function formatDateBr(yyyyMMdd: string): string {
@@ -138,6 +135,144 @@ function buildFakeTeamPerformanceByTeams(
   };
 }
 
+function mergeQualityByServiceResponses(
+  responses: QualityByServiceResponse[]
+): QualityByServiceResponse {
+  const period = Array.from(new Set(responses.flatMap((response) => response.period))).sort();
+  const servicesMap = new Map<
+    string,
+    {
+      serviceLabel: string;
+      byMonth: Map<string, { weightedQualitySum: number; inspectionsCount: number }>;
+    }
+  >();
+
+  for (const response of responses) {
+    for (const service of response.services) {
+      const current = servicesMap.get(service.serviceKey) ?? {
+        serviceLabel: service.serviceLabel,
+        byMonth: new Map<string, { weightedQualitySum: number; inspectionsCount: number }>(),
+      };
+      for (const point of service.series) {
+        const month = current.byMonth.get(point.month) ?? {
+          weightedQualitySum: 0,
+          inspectionsCount: 0,
+        };
+        month.weightedQualitySum += point.qualityPercent * point.inspectionsCount;
+        month.inspectionsCount += point.inspectionsCount;
+        current.byMonth.set(point.month, month);
+      }
+      servicesMap.set(service.serviceKey, current);
+    }
+  }
+
+  const services = Array.from(servicesMap.entries())
+    .map(([serviceKey, service]) => {
+      const series = period.map((month) => {
+        const monthData = service.byMonth.get(month);
+        const inspectionsCount = monthData?.inspectionsCount ?? 0;
+        return {
+          month,
+          inspectionsCount,
+          qualityPercent:
+            inspectionsCount > 0
+              ? Number((monthData!.weightedQualitySum / inspectionsCount).toFixed(2))
+              : 0,
+        };
+      });
+      const nonZeroSeries = series.filter((item) => item.inspectionsCount > 0);
+      const growth =
+        nonZeroSeries.length >= 2
+          ? {
+              fromMonth: nonZeroSeries[nonZeroSeries.length - 2].month,
+              toMonth: nonZeroSeries[nonZeroSeries.length - 1].month,
+              growthPercent: Number(
+                (
+                  nonZeroSeries[nonZeroSeries.length - 1].qualityPercent -
+                  nonZeroSeries[nonZeroSeries.length - 2].qualityPercent
+                ).toFixed(2)
+              ),
+              deltaPoints: Number(
+                (
+                  nonZeroSeries[nonZeroSeries.length - 1].qualityPercent -
+                  nonZeroSeries[nonZeroSeries.length - 2].qualityPercent
+                ).toFixed(2)
+              ),
+            }
+          : null;
+      return {
+        serviceKey,
+        serviceLabel: service.serviceLabel,
+        series,
+        growth,
+      };
+    })
+    .sort((a, b) => a.serviceLabel.localeCompare(b.serviceLabel));
+
+  return { period, services };
+}
+
+function mergeCurrentMonthByServiceResponses(
+  responses: CurrentMonthByServiceResponse[]
+): CurrentMonthByServiceResponse {
+  const serviceMap = new Map<
+    string,
+    {
+      serviceLabel: string;
+      weightedQualitySum: number;
+      inspectionsCount: number;
+    }
+  >();
+
+  for (const response of responses) {
+    for (const service of response.services) {
+      const current = serviceMap.get(service.serviceKey) ?? {
+        serviceLabel: service.serviceLabel,
+        weightedQualitySum: 0,
+        inspectionsCount: 0,
+      };
+      current.weightedQualitySum += service.qualityPercent * service.inspectionsCount;
+      current.inspectionsCount += service.inspectionsCount;
+      serviceMap.set(service.serviceKey, current);
+    }
+  }
+
+  const services = Array.from(serviceMap.entries()).map(([serviceKey, service]) => ({
+    serviceKey,
+    serviceLabel: service.serviceLabel,
+    inspectionsCount: service.inspectionsCount,
+    qualityPercent:
+      service.inspectionsCount > 0
+        ? Number((service.weightedQualitySum / service.inspectionsCount).toFixed(1))
+        : 0,
+  }));
+
+  const inspectionsCount = services.reduce((acc, item) => acc + item.inspectionsCount, 0);
+  const averagePercent =
+    inspectionsCount > 0
+      ? Number(
+          (
+            services.reduce((acc, item) => acc + item.qualityPercent * item.inspectionsCount, 0) /
+            inspectionsCount
+          ).toFixed(1)
+        )
+      : 0;
+  const pendingAdjustmentsCount = responses.reduce(
+    (acc, response) => acc + response.summary.pendingAdjustmentsCount,
+    0
+  );
+
+  return {
+    month: responses[0]?.month ?? "",
+    summary: {
+      averagePercent,
+      inspectionsCount,
+      pendingAdjustmentsCount,
+    },
+    services,
+  };
+}
+
 export function AnalyticsPage(): JSX.Element {
   const { hasAnyRole, user } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
@@ -146,15 +281,6 @@ export function AnalyticsPage(): JSX.Element {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState("");
-  const initialSafetyFilters = useMemo(() => {
-    const range = getCurrentMonthRange();
-    return {
-      from: range.from,
-      to: range.to,
-      lowScoreThreshold: DEFAULT_LOW_SCORE_THRESHOLD,
-      limit: DEFAULT_LOW_SCORE_LIMIT,
-    };
-  }, []);
   const initialTeamPerformanceFilters = useMemo(() => {
     const range = getCurrentMonthRange();
     return {
@@ -167,8 +293,6 @@ export function AnalyticsPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceResponse | null>(null);
   const [currentMonthByService, setCurrentMonthByService] = useState<CurrentMonthByServiceResponse | null>(null);
-  const [lowScoreFilters, setLowScoreFilters] = useState(initialSafetyFilters);
-  const [lowScoreCollaborators, setLowScoreCollaborators] = useState<SafetyWorkLowScoreCollaboratorsResponse | null>(null);
   const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [teamPerformanceFilters, setTeamPerformanceFilters] = useState(initialTeamPerformanceFilters);
   const [teamPerformanceByTeams, setTeamPerformanceByTeams] = useState<TeamPerformanceByTeamsResponse | null>(null);
@@ -203,29 +327,39 @@ export function AnalyticsPage(): JSX.Element {
     }
   }, [contractsForFilters]);
 
-  const loadAnalyticsData = async (
-    safetyFilters: typeof lowScoreFilters,
-    contractId?: string
-  ) => {
+  const loadAnalyticsData = async (contractId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [qualityRes, currentRes, lowScoreRes] = await Promise.all([
-        appRepository.getDashboardQualityByService({
-          ...qualityRange,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardCurrentMonthByService({
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardSafetyWorkLowScoreCollaborators({
-          ...safetyFilters,
-          contractId: contractId || undefined,
-        }),
+      const [qualityResponses, currentResponses] = await Promise.all([
+        Promise.all(
+          QUALITY_MODULES.map((module) =>
+            appRepository.getDashboardQualityByService({
+              ...qualityRange,
+              contractId: contractId || undefined,
+              module,
+            })
+          )
+        ),
+        Promise.all(
+          QUALITY_MODULES.map((module) =>
+            appRepository.getDashboardCurrentMonthByService({
+              contractId: contractId || undefined,
+              module,
+            })
+          )
+        ),
       ]);
-      setQualityByService(qualityRes);
-      setCurrentMonthByService(currentRes);
-      setLowScoreCollaborators(lowScoreRes);
+      const qualityRes =
+        qualityResponses.length > 1
+          ? mergeQualityByServiceResponses(qualityResponses)
+          : qualityResponses[0];
+      const currentRes =
+        currentResponses.length > 1
+          ? mergeCurrentMonthByServiceResponses(currentResponses)
+          : currentResponses[0];
+      setQualityByService(qualityRes ?? null);
+      setCurrentMonthByService(currentRes ?? null);
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const message =
@@ -294,8 +428,8 @@ export function AnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    void loadAnalyticsData(initialSafetyFilters, selectedContractId || undefined);
-  }, [canAccessAnalytics, initialSafetyFilters, qualityRange, selectedContractId]);
+    void loadAnalyticsData(selectedContractId || undefined);
+  }, [canAccessAnalytics, qualityRange, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -355,15 +489,6 @@ export function AnalyticsPage(): JSX.Element {
     return `CRESCIMENTO ${prev} - ${last}`;
   }, [chartMonths]);
 
-  const lowScoreBarMax = useMemo(
-    () =>
-      Math.max(
-        ...(lowScoreCollaborators?.collaborators.map((item) => item.badScoreRatePercent) || [0]),
-        100
-      ),
-    [lowScoreCollaborators]
-  );
-
   const teamPerformanceRows = useMemo(() => {
     if (!teamPerformanceByTeams) return [];
     return [...teamPerformanceByTeams.teams].sort((a, b) => b.averagePercent - a.averagePercent);
@@ -373,10 +498,6 @@ export function AnalyticsPage(): JSX.Element {
     () => Math.max(...(teamPerformanceRows.map((row) => row.averagePercent) || [0]), 100),
     [teamPerformanceRows]
   );
-
-  const handleSearchLowScoreCollaborators = () => {
-    void loadAnalyticsData(lowScoreFilters, selectedContractId || undefined);
-  };
 
   const handleSearchTeamPerformance = () => {
     void loadTeamPerformanceData(teamPerformanceFilters);
@@ -861,167 +982,6 @@ export function AnalyticsPage(): JSX.Element {
           </Box>
         </Paper>
 
-        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
-          <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#0b158a", color: "#fff" }}>
-            <Typography variant="h6" fontWeight={800}>
-              Segurança do Trabalho - Colaboradores com Nota Baixa
-            </Typography>
-          </Box>
-
-          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Data inicial"
-                  value={lowScoreFilters.from}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ max: lowScoreFilters.to }}
-                  onChange={(event) => {
-                    const from = event.target.value;
-                    setLowScoreFilters((prev) => ({
-                      ...prev,
-                      from,
-                      to: from > prev.to ? from : prev.to,
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Data final"
-                  value={lowScoreFilters.to}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: lowScoreFilters.from }}
-                  onChange={(event) => {
-                    const to = event.target.value;
-                    setLowScoreFilters((prev) => ({
-                      ...prev,
-                      to,
-                      from: to < prev.from ? to : prev.from,
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Limiar nota baixa"
-                  value={lowScoreFilters.lowScoreThreshold}
-                  inputProps={{ min: 0, max: 100, step: 1 }}
-                  onChange={(event) => {
-                    const parsed = Number(event.target.value);
-                    if (!Number.isFinite(parsed)) return;
-                    setLowScoreFilters((prev) => ({
-                      ...prev,
-                      lowScoreThreshold: Math.max(0, Math.min(100, parsed)),
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Limite"
-                  value={lowScoreFilters.limit}
-                  inputProps={{ min: 1, max: 100, step: 1 }}
-                  onChange={(event) => {
-                    const parsed = Number(event.target.value);
-                    if (!Number.isFinite(parsed)) return;
-                    setLowScoreFilters((prev) => ({
-                      ...prev,
-                      limit: Math.max(1, Math.min(100, parsed)),
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={2} display="flex" alignItems="stretch">
-                <Button
-                  variant="contained"
-                  onClick={handleSearchLowScoreCollaborators}
-                  disabled={loading}
-                  sx={{ width: "100%", fontWeight: 700 }}
-                >
-                  Buscar
-                </Button>
-              </Grid>
-            </Grid>
-
-            {lowScoreCollaborators && lowScoreCollaborators.collaborators.length === 0 && (
-              <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-                <Typography color="text.secondary">
-                  Nenhum colaborador encontrado abaixo do limiar selecionado no período.
-                </Typography>
-              </Paper>
-            )}
-
-            {lowScoreCollaborators && lowScoreCollaborators.collaborators.length > 0 && (
-              <Stack spacing={1.5}>
-                {lowScoreCollaborators.collaborators.map((item) => (
-                  <Paper key={item.collaboratorId} sx={{ p: 1.75, border: "1px solid #e2e8f0" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight={800}>
-                          {item.collaboratorName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.badScoresCount} notas ruins em {item.inspectionsCount} inspeções
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" fontWeight={800} color="error.main">
-                        {formatPercent(item.badScoreRatePercent)}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ mt: 1.25, height: 10, borderRadius: 999, bgcolor: "#e2e8f0", overflow: "hidden" }}>
-                      <Box
-                        sx={{
-                          width: `${(item.badScoreRatePercent / lowScoreBarMax) * 100}%`,
-                          bgcolor: "#d32f2f",
-                          height: "100%",
-                        }}
-                      />
-                    </Box>
-
-                    <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                      <Grid item xs={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          Média
-                        </Typography>
-                        <Typography variant="body2" fontWeight={700}>
-                          {formatPercent(item.averagePercent)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          Pior nota
-                        </Typography>
-                        <Typography variant="body2" fontWeight={700} color="error.main">
-                          {formatPercent(item.worstScorePercent, 0)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={4}>
-                        <Typography variant="caption" color="text.secondary">
-                          Melhor nota
-                        </Typography>
-                        <Typography variant="body2" fontWeight={700} color="success.main">
-                          {formatPercent(item.bestScorePercent, 0)}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                ))}
-              </Stack>
-            )}
-          </Box>
-        </Paper>
       </Box>
       )}
     </Box>

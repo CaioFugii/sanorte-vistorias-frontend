@@ -728,6 +728,7 @@ export class AppRepository implements IAppRepository {
     inspectionScope?: InspectionScope;
     teamId?: string;
     checklistId: string;
+    contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
     collaboratorIds?: string[];
@@ -740,6 +741,7 @@ export class AppRepository implements IAppRepository {
       inspectionScope: input.inspectionScope,
       checklistId: input.checklistId,
       ...(input.teamId ? { teamId: input.teamId } : {}),
+      ...(input.contractId ? { contractId: input.contractId } : {}),
       serviceOrderId: input.serviceOrderId,
       investmentWorkId: input.investmentWorkId,
       collaboratorIds: input.collaboratorIds,

@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Collapse,
   Toolbar,
   Tooltip,
   Typography,
@@ -25,6 +26,8 @@ import {
   Dashboard,
   Description,
   Engineering,
+  ExpandLess,
+  ExpandMore,
   Groups,
   HomeWork,
   Logout,
@@ -45,35 +48,102 @@ interface AppShellProps {
 const DRAWER_WIDTH_EXPANDED = 260;
 const DRAWER_WIDTH_COLLAPSED = 76;
 
-const menuByRole: Record<UserRole, Array<{ path: string; label: string; icon: JSX.Element }>> = {
+interface MenuLeaf {
+  path: string;
+  label: string;
+  icon: JSX.Element;
+}
+
+interface MenuGroup {
+  label: string;
+  icon: JSX.Element;
+  items?: MenuLeaf[];
+  path?: string;
+}
+
+const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
   ADMIN: [
-    { path: "/dashboard", label: "Dashboard", icon: <Dashboard fontSize="small" /> },
-    { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
-    { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
-    { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
-    { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" /> },
-    { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
-    { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" /> },
-    { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" /> },
-    { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
-    { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
-    { path: "/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
-    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
-    { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    {
+      label: "Qualidade",
+      icon: <Checklist fontSize="small" />,
+      items: [
+        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
+        { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Segurança do Trabalho",
+      icon: <Warning fontSize="small" />,
+      items: [
+        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Engenharia",
+      icon: <Engineering fontSize="small" />,
+      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
+    },
+    {
+      label: "Administração",
+      icon: <Groups fontSize="small" />,
+      items: [
+        { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
+        { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
+        { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" /> },
+        { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
+        { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" /> },
+        { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" /> },
+      ],
+    },
   ],
   GESTOR: [
-    { path: "/dashboard", label: "Dashboard", icon: <Dashboard fontSize="small" /> },
-    { path: "/dashboard/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
-    { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
-    { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
-    { path: "/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
-    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
-    { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    {
+      label: "Qualidade",
+      icon: <Checklist fontSize="small" />,
+      items: [
+        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
+        { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Segurança do Trabalho",
+      icon: <Warning fontSize="small" />,
+      items: [
+        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Engenharia",
+      icon: <Engineering fontSize="small" />,
+      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
+    },
   ],
   FISCAL: [
-    { path: "/inspections/mine", label: "Minhas vistorias", icon: <Assignment fontSize="small" /> },
-    { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
-    { path: "/inspections/new", label: "Nova vistoria", icon: <Checklist fontSize="small" /> },
+    {
+      label: "Minhas Vistorias",
+      icon: <Assignment fontSize="small" />,
+      path: "/inspections/mine",
+    },
+    {
+      label: "Nova Vistoria",
+      icon: <Assignment fontSize="small" />,
+      path: "/inspections/new",
+    },
+    {
+      label: "Relatórios",
+      icon: <Description fontSize="small" />,
+      path: "/reports/new",
+    },
   ],
 };
 
@@ -88,6 +158,12 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user, logout } = useAuthStore();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    Qualidade: false,
+    "Segurança do Trabalho": false,
+    Engenharia: false,
+    Administração: false,
+  });
   const desktopDrawerWidth = desktopCollapsed
     ? DRAWER_WIDTH_COLLAPSED
     : DRAWER_WIDTH_EXPANDED;
@@ -112,7 +188,22 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
     return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
   }, [logout, navigate]);
 
-  const menuItems = user ? menuByRole[user.role] : [];
+  const menuGroups = user ? menuGroupsByRole[user.role] : [];
+
+  useEffect(() => {
+    if (!user) return;
+    const routeGroup = menuGroupsByRole[user.role].find((group) =>
+      group.items?.some((item) =>
+        item.path === "/reports/new"
+          ? location.pathname.startsWith("/reports/")
+          : location.pathname === item.path
+      )
+    );
+    if (routeGroup) {
+      setOpenGroups((current) => ({ ...current, [routeGroup.label]: true }));
+    }
+  }, [location.pathname, user]);
+
   const isItemSelected = (path: string): boolean => {
     if (path === "/reports/new") {
       return location.pathname.startsWith("/reports/");
@@ -160,48 +251,115 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
       </Toolbar>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.15)" }} />
       <List sx={{ px: 1.25, py: 1.5, flexGrow: 1 }}>
-        {menuItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
-            <Tooltip
-              title={desktopCollapsed && !isMobile ? item.label : ""}
-              placement="right"
-            >
-              <ListItemButton
-                selected={isItemSelected(item.path)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 0.25,
-                  minHeight: 42,
-                  justifyContent: desktopCollapsed ? "center" : "initial",
-                  color: "rgba(255,255,255,0.92)",
-                  "& .MuiListItemIcon-root": {
-                    color: "inherit",
-                    minWidth: desktopCollapsed ? 0 : 34,
-                    mr: desktopCollapsed ? 0 : 0.5,
-                    justifyContent: "center",
-                  },
-                  "&.Mui-selected": {
-                    color: "success.main",
-                    bgcolor: "rgba(154, 214, 31, 0.14)",
-                    "&:hover": {
-                      bgcolor: "rgba(154, 214, 31, 0.2)",
-                    },
-                  },
-                  "&:hover": {
-                    bgcolor: "rgba(255,255,255,0.08)",
-                  },
-                }}
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) setMobileOpen(false);
-                }}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                {!desktopCollapsed && <ListItemText primary={item.label} />}
-              </ListItemButton>
-            </Tooltip>
-          </ListItem>
-        ))}
+        {menuGroups.map((group) => {
+          const groupHasChildren = Boolean(group.items?.length);
+          const isGroupOpen = openGroups[group.label] ?? false;
+          const groupSelected = group.path
+            ? isItemSelected(group.path)
+            : Boolean(group.items?.some((item) => isItemSelected(item.path)));
+
+          return (
+            <Box key={group.label}>
+              <ListItem disablePadding>
+                <Tooltip
+                  title={desktopCollapsed && !isMobile ? group.label : ""}
+                  placement="right"
+                >
+                  <ListItemButton
+                    selected={groupSelected}
+                    sx={{
+                      borderRadius: 2,
+                      mb: 0.25,
+                      minHeight: 42,
+                      justifyContent: desktopCollapsed ? "center" : "initial",
+                      color: "rgba(255,255,255,0.92)",
+                      "& .MuiListItemIcon-root": {
+                        color: "inherit",
+                        minWidth: desktopCollapsed ? 0 : 34,
+                        mr: desktopCollapsed ? 0 : 0.5,
+                        justifyContent: "center",
+                      },
+                      "&.Mui-selected": {
+                        color: "success.main",
+                        bgcolor: "rgba(154, 214, 31, 0.14)",
+                        "&:hover": {
+                          bgcolor: "rgba(154, 214, 31, 0.2)",
+                        },
+                      },
+                      "&:hover": {
+                        bgcolor: "rgba(255,255,255,0.08)",
+                      },
+                    }}
+                    onClick={() => {
+                      if (group.path) {
+                        navigate(group.path);
+                        if (isMobile) setMobileOpen(false);
+                        return;
+                      }
+                      setOpenGroups((current) => ({
+                        ...current,
+                        [group.label]: !isGroupOpen,
+                      }));
+                    }}
+                  >
+                    <ListItemIcon>{group.icon}</ListItemIcon>
+                    {!desktopCollapsed && (
+                      <>
+                        <ListItemText primary={group.label} />
+                        {groupHasChildren ? isGroupOpen ? <ExpandLess /> : <ExpandMore /> : null}
+                      </>
+                    )}
+                  </ListItemButton>
+                </Tooltip>
+              </ListItem>
+              {groupHasChildren && !desktopCollapsed && (
+                <Collapse in={isGroupOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {group.items?.map((item) => (
+                      <ListItem key={item.path + group.label} disablePadding>
+                        <ListItemButton
+                          selected={isItemSelected(item.path)}
+                          onClick={() => {
+                            navigate(item.path);
+                            if (isMobile) setMobileOpen(false);
+                          }}
+                          sx={{
+                            borderRadius: 2,
+                            ml: 1,
+                            mb: 0.25,
+                            minHeight: 38,
+                            color: "rgba(255,255,255,0.88)",
+                            "& .MuiListItemIcon-root": {
+                              color: "inherit",
+                              minWidth: 30,
+                              mr: 0.5,
+                            },
+                            "&.Mui-selected": {
+                              color: "success.main",
+                              bgcolor: "rgba(154, 214, 31, 0.14)",
+                              "&:hover": {
+                                bgcolor: "rgba(154, 214, 31, 0.2)",
+                              },
+                            },
+                            "&:hover": {
+                              bgcolor: "rgba(255,255,255,0.08)",
+                            },
+                          }}
+                        >
+                          <ListItemIcon>{item.icon}</ListItemIcon>
+                          <ListItemText
+                            primary={item.label}
+                            primaryTypographyProps={{ variant: "body2" }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
+            </Box>
+          );
+        })}
       </List>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.15)" }} />
       <Box sx={{ p: 1.5, display: "flex", justifyContent: "center" }}>

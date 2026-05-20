@@ -16,7 +16,7 @@ import {
   TableRow,
   TextField,
 } from "@mui/material";
-import { Add, Refresh } from "@mui/icons-material";
+import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { PaginatedResponse, Sector } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
@@ -88,9 +88,6 @@ export const SectorsPage = (): JSX.Element => {
         subtitle="Mantenha a estrutura setorial utilizada nas ordens de serviço e checklists."
         actions={
           <Box display="flex" gap={1}>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={() => load()}>
-              Atualizar catálogo
-            </Button>
             <Button
               variant="contained"
               startIcon={<Add />}

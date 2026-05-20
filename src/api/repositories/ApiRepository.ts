@@ -565,6 +565,7 @@ export class ApiRepository {
     inspectionScope?: InspectionScope;
     checklistId: string;
     teamId?: string;
+    contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
     serviceDescription: string;
@@ -583,6 +584,7 @@ export class ApiRepository {
       collaboratorIds: input.collaboratorIds,
     };
     if (input.teamId) payload.teamId = input.teamId;
+    if (input.contractId) payload.contractId = input.contractId;
     if (input.serviceOrderId) payload.serviceOrderId = input.serviceOrderId;
     if (input.investmentWorkId) payload.investmentWorkId = input.investmentWorkId;
     if (input.externalId) payload.externalId = input.externalId;

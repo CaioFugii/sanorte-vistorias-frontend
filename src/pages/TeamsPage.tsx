@@ -17,7 +17,7 @@ import {
   TextField,
   CircularProgress,
 } from '@mui/material';
-import { Add, Refresh } from '@mui/icons-material';
+import { Add } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
 import { Collaborator, Contract, PaginatedResponse, Team } from '@/domain';
@@ -119,13 +119,6 @@ export const TeamsPage = (): JSX.Element => {
         subtitle="Configure equipes de campo e mantenha o catálogo técnico atualizado."
         actions={
           <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={() => refreshFromApi().then(() => loadTeams())}
-            >
-              Atualizar catálogo
-            </Button>
             <Button
               variant="contained"
               startIcon={<Add />}

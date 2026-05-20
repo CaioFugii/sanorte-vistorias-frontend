@@ -6,11 +6,14 @@ import {
   Button,
   CircularProgress,
   FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
   FormControlLabel,
   FormLabel,
   Radio,
   RadioGroup,
+  Select,
   TextField,
   Typography,
 } from "@mui/material";
@@ -21,7 +24,8 @@ import { SectorSelect } from "@/components/SectorSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { Collaborator, InspectionScope, InvestmentWork, ModuleType, ServiceOrder, Team } from "@/domain";
+import { Collaborator, Contract, InspectionScope, InvestmentWork, ModuleType, ServiceOrder, Team } from "@/domain";
+import { UserRole } from "@/domain/enums";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
 export const NewInspectionPage = (): JSX.Element => {
@@ -53,6 +57,8 @@ export const NewInspectionPage = (): JSX.Element => {
   const [selectedInvestmentWork, setSelectedInvestmentWork] = useState<InvestmentWork | null>(null);
   const [investmentWorkOptions, setInvestmentWorkOptions] = useState<InvestmentWork[]>([]);
   const [investmentWorkSearchLoading, setInvestmentWorkSearchLoading] = useState(false);
+  const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
+  const [selectedContractId, setSelectedContractId] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
   const [locationDescription, setLocationDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -73,10 +79,17 @@ export const NewInspectionPage = (): JSX.Element => {
   const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
   const isWorkSafetyModule = module === ModuleType.SEGURANCA_TRABALHO;
   const isInvestmentWorkModule = module === ModuleType.OBRAS_INVESTIMENTO;
+  const isAdmin = user?.role === UserRole.ADMIN;
   const serviceOrderRequired = !isWorkSafetyModule && !isInvestmentWorkModule;
   const investmentWorkRequired = isInvestmentWorkModule && !selectedServiceOrder;
+  const requiresContractWithoutServiceOrder = isWorkSafetyModule || isInvestmentWorkModule;
+  const contractRequired = requiresContractWithoutServiceOrder && !selectedServiceOrder;
   const isCollaboratorScope = inspectionScope === InspectionScope.COLLABORATOR;
   const teamRequired = inspectionScope === InspectionScope.TEAM;
+  const contractsForSelection = useMemo<Array<Pick<Contract, "id" | "name">>>(
+    () => (isAdmin ? adminContracts : user?.contracts ?? []),
+    [adminContracts, isAdmin, user?.contracts]
+  );
   const workSafetySectorId = useMemo(
     () =>
       sectors.find(
@@ -104,6 +117,44 @@ export const NewInspectionPage = (): JSX.Element => {
     }
     return null;
   };
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAdminContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        if (!cancelled) setAdminContracts(result.data);
+      } catch {
+        if (!cancelled) setAdminContracts([]);
+      }
+    };
+    void loadContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (contractsForSelection.length === 1) {
+      setSelectedContractId((current) => current || contractsForSelection[0].id);
+    }
+  }, [contractsForSelection]);
+
+  useEffect(() => {
+    if (!contractsForSelection.some((contract) => contract.id === selectedContractId)) {
+      setSelectedContractId(contractsForSelection.length === 1 ? contractsForSelection[0].id : "");
+    }
+  }, [contractsForSelection, selectedContractId]);
+
+  useEffect(() => {
+    if (selectedServiceOrder) {
+      setSelectedContractId("");
+    }
+  }, [selectedServiceOrder]);
 
   useEffect(() => {
     if (!isWorkSafetyModule || !workSafetySectorId) return;
@@ -209,6 +260,7 @@ export const NewInspectionPage = (): JSX.Element => {
           page: 1,
           limit: 20,
           active: true,
+          contractId: selectedContractId || undefined,
           ...(trimmed.length >= MIN_INVESTMENT_WORK_SEARCH_LENGTH ? { search: trimmed } : {}),
         });
         if (requestId !== investmentWorkSearchRequestRef.current) return;
@@ -232,7 +284,7 @@ export const NewInspectionPage = (): JSX.Element => {
     return () => {
       if (investmentWorkSearchDebounceRef.current) clearTimeout(investmentWorkSearchDebounceRef.current);
     };
-  }, [isInvestmentWorkModule, investmentWorkSearchInput, selectedInvestmentWork]);
+  }, [isInvestmentWorkModule, investmentWorkSearchInput, selectedContractId, selectedInvestmentWork]);
 
   useEffect(() => {
     const trimmed = teamSearchInput.trim();
@@ -358,6 +410,11 @@ export const NewInspectionPage = (): JSX.Element => {
       setFormError("Vistoria por colaborador exige selecionar exatamente 1 colaborador.");
       return;
     }
+    if (contractRequired && !selectedContractId) {
+      setFormError("Selecione o contrato da vistoria quando não houver OS vinculada.");
+      return;
+    }
+
     setSubmitLoading(true);
     setFormError(null);
     let createdInspectionExternalId: string | null = null;
@@ -367,6 +424,7 @@ export const NewInspectionPage = (): JSX.Element => {
         inspectionScope,
         checklistId,
         ...(teamId ? { teamId } : {}),
+        ...(selectedContractId ? { contractId: selectedContractId } : {}),
         serviceOrderId: selectedServiceOrder?.id,
         investmentWorkId: selectedInvestmentWork?.id,
         collaboratorIds: isCollaboratorScope
@@ -446,6 +504,7 @@ export const NewInspectionPage = (): JSX.Element => {
                 setInvestmentWorkSearchInput("");
                 setSelectedInvestmentWork(null);
                 setInvestmentWorkOptions([]);
+                setSelectedContractId(contractsForSelection.length === 1 ? contractsForSelection[0].id : "");
                 setServiceDescription("");
                 setLocationDescription("");
                 setSelectedCollaborator(null);
@@ -532,6 +591,38 @@ export const NewInspectionPage = (): JSX.Element => {
                     />
                   )}
                 />
+              </Box>
+            )}
+            {requiresContractWithoutServiceOrder && (
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth required={contractRequired}>
+                  <InputLabel id="inspection-contract-label">Contrato</InputLabel>
+                  <Select
+                    labelId="inspection-contract-label"
+                    value={selectedContractId}
+                    label="Contrato"
+                    onChange={(event) => {
+                      const nextContractId = event.target.value;
+                      setSelectedContractId(nextContractId);
+                      setFormError(null);
+                      if (isInvestmentWorkModule) {
+                        setSelectedInvestmentWork(null);
+                        setInvestmentWorkOptions([]);
+                        setInvestmentWorkSearchInput("");
+                      }
+                    }}
+                    disabled={Boolean(selectedServiceOrder)}
+                  >
+                    <MenuItem value="">
+                      <em>{selectedServiceOrder ? "Contrato definido pela OS" : "Selecione"}</em>
+                    </MenuItem>
+                    {contractsForSelection.map((contract) => (
+                      <MenuItem key={contract.id} value={contract.id}>
+                        {contract.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
             )}
             {isInvestmentWorkModule && (

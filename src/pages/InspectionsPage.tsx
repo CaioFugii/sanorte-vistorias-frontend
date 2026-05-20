@@ -2,7 +2,11 @@ import {
   Box,
   Chip,
   CircularProgress,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -15,7 +19,7 @@ import { Delete, Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
-import { InspectionStatus, UserRole } from "@/domain/enums";
+import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { StatusChip } from "@/components/StatusChip";
@@ -35,11 +39,37 @@ import {
 
 const DEFAULT_LIMIT = 10;
 
-export const InspectionsPage = (): JSX.Element => {
+interface InspectionsPageProps {
+  moduleOptions?: ModuleType[];
+  defaultModule?: ModuleType;
+}
+
+export const InspectionsPage = ({
+  moduleOptions,
+  defaultModule,
+}: InspectionsPageProps = {}): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
+  const availableModules = moduleOptions && moduleOptions.length > 0
+    ? moduleOptions
+    : [
+        ModuleType.CAMPO,
+        ModuleType.REMOTO,
+        ModuleType.POS_OBRA,
+        ModuleType.OBRAS_INVESTIMENTO,
+        ModuleType.SEGURANCA_TRABALHO,
+      ];
+  const initialSelectedModule: ModuleType | "" =
+    defaultModule && availableModules.includes(defaultModule)
+      ? defaultModule
+      : moduleOptions && moduleOptions.length > 0
+        ? moduleOptions[0]
+        : "";
+  const [selectedModule, setSelectedModule] = useState<ModuleType | "">(
+    initialSelectedModule
+  );
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [osNumber, setOsNumber] = useState("");
@@ -60,6 +90,22 @@ export const InspectionsPage = (): JSX.Element => {
   const isFiscal = hasRole("FISCAL" as any) && user;
 
   useEffect(() => {
+    if (defaultModule && availableModules.includes(defaultModule)) {
+      setSelectedModule(defaultModule);
+      return;
+    }
+    if (moduleOptions && moduleOptions.length > 0) {
+      if (!selectedModule || !availableModules.includes(selectedModule)) {
+        setSelectedModule(moduleOptions[0]);
+      }
+      return;
+    }
+    if (selectedModule && !availableModules.includes(selectedModule)) {
+      setSelectedModule("");
+    }
+  }, [defaultModule, availableModules, moduleOptions, selectedModule]);
+
+  useEffect(() => {
     if (!isFiscal || !user) return;
     setLoading(true);
     appRepository
@@ -73,13 +119,18 @@ export const InspectionsPage = (): JSX.Element => {
     setAllForFiscal(null);
     setLoading(true);
     appRepository
-      .getInspections({ page, limit, osNumber: osNumber.trim() || undefined })
+      .getInspections({
+        page,
+        limit,
+        osNumber: osNumber.trim() || undefined,
+        module: selectedModule || undefined,
+      })
       .then((res) => {
         setInspections(res.data);
         setMeta(res.meta);
       })
       .finally(() => setLoading(false));
-  }, [isFiscal, page, limit, osNumber, refreshNonce]);
+  }, [isFiscal, page, limit, osNumber, refreshNonce, selectedModule]);
 
   useEffect(() => {
     if (allForFiscal === null) return;
@@ -89,10 +140,13 @@ export const InspectionsPage = (): JSX.Element => {
           (inspection.serviceOrder?.osNumber ?? "").toLowerCase().includes(normalizedSearch)
         )
       : allForFiscal;
-    const total = filtered.length;
+    const moduleFiltered = selectedModule
+      ? filtered.filter((inspection) => inspection.module === selectedModule)
+      : filtered;
+    const total = moduleFiltered.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const start = (page - 1) * limit;
-    setInspections(filtered.slice(start, start + limit));
+    setInspections(moduleFiltered.slice(start, start + limit));
     setMeta({
       page,
       limit,
@@ -101,7 +155,7 @@ export const InspectionsPage = (): JSX.Element => {
       hasNext: page < totalPages,
       hasPrev: page > 1,
     });
-  }, [allForFiscal, page, limit, osNumber]);
+  }, [allForFiscal, page, limit, osNumber, selectedModule]);
 
   if (loading && !meta) {
     return (
@@ -150,6 +204,28 @@ export const InspectionsPage = (): JSX.Element => {
           }}
           sx={{ minWidth: 280 }}
         />
+        {!isFiscal && (
+          <FormControl size="small" sx={{ minWidth: 240 }}>
+            <InputLabel>Módulo</InputLabel>
+            <Select
+              value={selectedModule}
+              label="Módulo"
+              onChange={(event) => {
+                setSelectedModule(event.target.value as ModuleType | "");
+                setPage(1);
+              }}
+            >
+              <MenuItem value="">
+                <em>Todos os módulos</em>
+              </MenuItem>
+              {availableModules.map((module) => (
+                <MenuItem key={module} value={module}>
+                  {getModuleLabel(module)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
       </Box>
 
       <SectionTable title="Lista de vistorias">

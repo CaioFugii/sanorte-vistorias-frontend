@@ -29,7 +29,6 @@ import {
   AddAPhoto,
   Delete,
   Edit,
-  Refresh,
   ExpandMore,
 } from '@mui/icons-material';
 import { ChangeEvent, useState, useEffect, useMemo } from 'react';
@@ -229,13 +228,6 @@ export const ChecklistsPage = (): JSX.Element => {
         subtitle="Estruture checklists por setor e módulo para padronizar inspeções."
         actions={
           <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={load}
-            >
-              Atualizar catálogo
-            </Button>
             <Button
               variant="contained"
               startIcon={<Add />}

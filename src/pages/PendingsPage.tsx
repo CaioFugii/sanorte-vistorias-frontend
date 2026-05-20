@@ -1,20 +1,27 @@
 import {
   Box,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  TextField,
 } from "@mui/material";
+import { Search } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
-import { InspectionStatus } from "@/domain/enums";
+import { InspectionStatus, ModuleType } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
+import { getModuleLabel } from "@/utils/moduleLabel";
 import {
   PageHeader,
   SectionTable,
@@ -25,11 +32,20 @@ import {
 } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
+const MODULE_OPTIONS: ModuleType[] = [
+  ModuleType.CAMPO,
+  ModuleType.REMOTO,
+  ModuleType.POS_OBRA,
+  ModuleType.OBRAS_INVESTIMENTO,
+  ModuleType.SEGURANCA_TRABALHO,
+];
 
 export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
+  const [selectedModule, setSelectedModule] = useState<ModuleType | "">("");
+  const [osNumber, setOsNumber] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
@@ -47,6 +63,8 @@ export const PendingsPage = (): JSX.Element => {
     setLoading(true);
     const res = await appRepository.getInspections({
       status: InspectionStatus.PENDENTE_AJUSTE,
+      module: selectedModule || undefined,
+      osNumber: osNumber.trim() || undefined,
       page,
       limit,
     });
@@ -57,7 +75,7 @@ export const PendingsPage = (): JSX.Element => {
 
   useEffect(() => {
     loadPendings();
-  }, [page, limit]);
+  }, [page, limit, selectedModule, osNumber]);
 
   if (loading && !meta) {
     return (
@@ -75,11 +93,48 @@ export const PendingsPage = (): JSX.Element => {
         subtitle="Resolva os itens não conformes nas vistorias para concluir o ciclo de qualidade."
       />
 
+      <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
+        <TextField
+          size="small"
+          placeholder="Pesquisar por número da OS"
+          value={osNumber}
+          onChange={(e) => {
+            setOsNumber(e.target.value);
+            setPage(1);
+          }}
+          InputProps={{
+            startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
+          }}
+          sx={{ minWidth: 280 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 240 }}>
+          <InputLabel>Módulo</InputLabel>
+          <Select
+            value={selectedModule}
+            label="Módulo"
+            onChange={(event) => {
+              setSelectedModule(event.target.value as ModuleType | "");
+              setPage(1);
+            }}
+          >
+            <MenuItem value="">
+              <em>Todos os módulos</em>
+            </MenuItem>
+            {MODULE_OPTIONS.map((module) => (
+              <MenuItem key={module} value={module}>
+                {getModuleLabel(module)}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <SectionTable title="Pendências ativas">
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>OS</TableCell>
+              <TableCell>Módulo</TableCell>
+              <TableCell>OS / Obra</TableCell>
               <TableCell>Serviço</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Equipe</TableCell>
@@ -92,20 +147,28 @@ export const PendingsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  Nenhuma pendência de ajuste.
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  {osNumber.trim()
+                    ? "Nenhuma pendência encontrada para o número da OS informado."
+                    : "Nenhuma pendência de ajuste."}
                 </TableCell>
               </TableRow>
             ) : (
             inspections.map((inspection) => (
               <TableRow key={inspection.externalId}>
-                <TableCell>{inspection.serviceOrder?.osNumber || "-"}</TableCell>
+                <TableCell>{getModuleLabel(inspection.module)}</TableCell>
+                <TableCell>
+                  {inspection.serviceOrder?.osNumber ??
+                    inspection.investmentWork?.workName ??
+                    inspection.investmentWork?.name ??
+                    "-"}
+                </TableCell>
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>
                   {inspection.locationDescription || "-"}
