@@ -16,7 +16,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Delete, Search } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem } from "@/domain";
 import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
@@ -88,6 +88,18 @@ export const InspectionsPage = ({
   const [deletingInspection, setDeletingInspection] = useState<InspectionListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const isFiscal = hasRole("FISCAL" as any) && user;
+  const inspectionsTitle = useMemo(() => {
+    if (location.pathname.startsWith("/safety/inspections")) {
+      return "Vistorias - Segurança do Trabalho";
+    }
+    if (location.pathname.startsWith("/quality/inspections")) {
+      return "Vistorias - Qualidade";
+    }
+    if (location.pathname.startsWith("/inspections/mine")) {
+      return "Vistorias - Minhas";
+    }
+    return "Vistorias";
+  }, [location.pathname]);
 
   useEffect(() => {
     if (defaultModule && availableModules.includes(defaultModule)) {
@@ -95,15 +107,15 @@ export const InspectionsPage = ({
       return;
     }
     if (moduleOptions && moduleOptions.length > 0) {
-      if (!selectedModule || !availableModules.includes(selectedModule)) {
-        setSelectedModule(moduleOptions[0]);
-      }
+      setSelectedModule((current) => {
+        if (current === "") return current;
+        if (!availableModules.includes(current)) return moduleOptions[0];
+        return current;
+      });
       return;
     }
-    if (selectedModule && !availableModules.includes(selectedModule)) {
-      setSelectedModule("");
-    }
-  }, [defaultModule, availableModules, moduleOptions, selectedModule]);
+    setSelectedModule((current) => (current && !availableModules.includes(current) ? "" : current));
+  }, [defaultModule, availableModules, moduleOptions]);
 
   useEffect(() => {
     if (!isFiscal || !user) return;
@@ -186,7 +198,7 @@ export const InspectionsPage = ({
     <Box>
       <PageHeader
         eyebrow="Operação"
-        title="Vistorias"
+        title={inspectionsTitle}
         subtitle="Acompanhe o andamento, status e desempenho das vistorias em campo."
       />
 
@@ -234,25 +246,27 @@ export const InspectionsPage = ({
             <TableRow>
               <TableCell>Módulo</TableCell>
               <TableCell>OS / Obra</TableCell>
+              <TableCell>Descrição do serviço</TableCell>
               <TableCell>Serviço</TableCell>
+              <TableCell>Data de execução</TableCell>
               <TableCell>Equipe</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
-              <TableCell>Data</TableCell>
+              <TableCell>Data da vistoria</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   {osNumber.trim()
                     ? "Nenhuma vistoria encontrada para o número da OS informado."
                     : "Nenhuma vistoria encontrada."}
@@ -269,6 +283,14 @@ export const InspectionsPage = ({
                       "-"}
                   </TableCell>
                   <TableCell>{inspection.serviceDescription}</TableCell>
+                  <TableCell>{inspection.serviceOrder?.resultado ?? "-"}</TableCell>
+                  <TableCell>
+                    {inspection.serviceOrder?.fimExecucao
+                      ? new Date(inspection.serviceOrder.fimExecucao).toLocaleString(
+                          "pt-BR",
+                        )
+                      : "-"}
+                  </TableCell>
                   <TableCell>{inspection.team?.name || "-"}</TableCell>
                   <TableCell>{inspection.locationDescription || "-"}</TableCell>
                   <TableCell>

@@ -1,4 +1,14 @@
-import { Alert, Box, Paper, TextField, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  ButtonBase,
+  Collapse,
+  Paper,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import { useEffect, useState } from "react";
 import { Checklist, Evidence, InspectionItem } from "@/domain";
 import { MAX_PHOTOS_PER_CHECKLIST_ITEM } from "@/domain/photoLimits";
 import { ChecklistAnswer } from "@/domain/enums";
@@ -36,6 +46,32 @@ export const ChecklistRenderer = ({
   showItemEvidenceUploader = true,
   onUploadEvidence,
 }: ChecklistRendererProps) => {
+  const [notesVisibilityByItemId, setNotesVisibilityByItemId] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setNotesVisibilityByItemId((current) => {
+      const next = { ...current };
+      let changed = false;
+      const validItemIds = new Set(inspectionItems.map((item) => item.id));
+
+      for (const itemId of Object.keys(next)) {
+        if (!validItemIds.has(itemId)) {
+          delete next[itemId];
+          changed = true;
+        }
+      }
+
+      for (const item of inspectionItems) {
+        if (next[item.id] === undefined) {
+          next[item.id] = Boolean(item.notes?.trim());
+          changed = true;
+        }
+      }
+
+      return changed ? next : current;
+    });
+  }, [inspectionItems]);
+
   const getInspectionItem = (checklistItemId: string): InspectionItem | undefined => {
     return (
       inspectionItems.find((item) => item.checklistItemId === checklistItemId)
@@ -68,11 +104,57 @@ export const ChecklistRenderer = ({
                   isNonConforme &&
                   item.requiresPhotoOnNonConformity &&
                   itemEvidences.length === 0;
+                const showNotes = notesVisibilityByItemId[inspectionItem.id] ?? false;
                 return (
                   <Paper key={item.id} sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="subtitle1">
-                      {index + 1}. {item.title}
-                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 1,
+                      }}
+                    >
+                      <Typography variant="subtitle1">
+                        {index + 1}. {item.title}
+                      </Typography>
+                      <ButtonBase
+                        onClick={() =>
+                          setNotesVisibilityByItemId((current) => ({
+                            ...current,
+                            [inspectionItem.id]: !showNotes,
+                          }))
+                        }
+                        aria-label={showNotes ? "Ocultar observações" : "Adicionar observações"}
+                        sx={{
+                          borderRadius: 1,
+                          px: 0.75,
+                          py: 0.25,
+                          color: "text.secondary",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          transition: "background-color 0.2s ease",
+                          "&:hover": {
+                            bgcolor: "action.hover",
+                          },
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ lineHeight: 1 }}>
+                          {showNotes ? "Ocultar observações" : "Adicionar observações"}
+                        </Typography>
+                        {showNotes ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                      </ButtonBase>
+                    </Box>
+                    {item.description && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        {item.description}
+                      </Typography>
+                    )}
                     {item.referenceImageUrl && (
                       <Box sx={{ mt: 1.5, mb: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -104,18 +186,21 @@ export const ChecklistRenderer = ({
                       }}
                       disabled={disabled}
                     />
-                    <TextField
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      label="Observações"
-                      value={inspectionItem.notes ?? ""}
-                      onChange={(event) =>
-                        onItemChange(inspectionItem.id, { notes: event.target.value })
-                      }
-                      disabled={disabled}
-                      sx={{ mb: 2 }}
-                    />
+                    <Collapse in={showNotes} timeout={220} unmountOnExit>
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        label="Observações (opcional)"
+                        value={inspectionItem.notes ?? ""}
+                        onChange={(event) =>
+                          onItemChange(inspectionItem.id, { notes: event.target.value })
+                        }
+                        disabled={disabled}
+                        sx={{ mt: 1, mb: 2 }}
+                      />
+                    </Collapse>
+                    {!showNotes && <Box sx={{ mb: 2 }} />}
                     {showPerItemPhotos && (
                       <>
                         {requiresPhoto && (

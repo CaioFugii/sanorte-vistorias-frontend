@@ -86,6 +86,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const contractRequired = requiresContractWithoutServiceOrder && !selectedServiceOrder;
   const isCollaboratorScope = inspectionScope === InspectionScope.COLLABORATOR;
   const teamRequired = inspectionScope === InspectionScope.TEAM;
+  const activeSectorsCount = useMemo(() => sectors.filter((sector) => sector.active).length, [sectors]);
   const contractsForSelection = useMemo<Array<Pick<Contract, "id" | "name">>>(
     () => (isAdmin ? adminContracts : user?.contracts ?? []),
     [adminContracts, isAdmin, user?.contracts]
@@ -384,6 +385,18 @@ export const NewInspectionPage = (): JSX.Element => {
   const osNumberError = Boolean(
     serviceOrderRequired && osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH && !osSearchLoading && !selectedServiceOrder
   );
+  const sectorSelectHelperText = useMemo(() => {
+    if (selectedServiceOrder) {
+      return "Setor definido automaticamente pela OS selecionada.";
+    }
+    if (!isInvestmentWorkModule) {
+      return "Neste módulo, o setor é definido pela OS.";
+    }
+    if (activeSectorsCount === 0) {
+      return "Nenhum setor ativo disponível para seleção.";
+    }
+    return undefined;
+  }, [selectedServiceOrder, isInvestmentWorkModule, activeSectorsCount]);
   const isRemoteModule = module === ModuleType.REMOTO;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -705,6 +718,7 @@ export const NewInspectionPage = (): JSX.Element => {
                   label={selectedServiceOrder ? "Setor (definido pela OS)" : "Setor"}
                   required
                   disabled={Boolean(selectedServiceOrder) || !isInvestmentWorkModule}
+                  helperText={sectorSelectHelperText}
                 />
               </Box>
             )}

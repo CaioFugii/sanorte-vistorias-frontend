@@ -21,7 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Edit, PictureAsPdf, ArrowBack, CheckCircle, Draw, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
+import { Edit, PictureAsPdf, ArrowBack, CheckCircle, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Inspection, InspectionItem } from '@/domain';
@@ -59,6 +59,10 @@ function getResolvedCount(items: InspectionItem[] | undefined): number {
 
 function getItemTitle(item: InspectionItem): string {
   return item.checklistItem?.title ?? item.checklistItemId ?? 'Item';
+}
+
+function getItemDescription(item: InspectionItem): string | null {
+  return item.checklistItem?.description?.trim() || null;
 }
 
 export const InspectionDetailPage = (): JSX.Element => {
@@ -421,6 +425,34 @@ export const InspectionDetailPage = (): JSX.Element => {
                 {inspection.collaborators.map((c) => c.name).join(', ')}
               </Typography>
             )}
+            {inspection.signatures && inspection.signatures.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Assinaturas
+                </Typography>
+                {inspection.signatures.map((sig) => (
+                  <Box key={sig.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+                    {(sig.url || sig.dataUrl) && (
+                      <Box
+                        component="img"
+                        src={sig.url ?? sig.dataUrl ?? ''}
+                        alt={`Assinatura de ${sig.signerName}`}
+                        sx={{ maxHeight: 80, border: 1, borderColor: 'divider', borderRadius: 1 }}
+                      />
+                    )}
+                    <Box>
+                      <Typography variant="body2">
+                        <strong>{sig.signerName}</strong>
+                        {sig.signerRoleLabel && ` · ${sig.signerRoleLabel}`}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Assinado em {formatDateTime(sig.signedAt)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>
@@ -465,6 +497,11 @@ export const InspectionDetailPage = (): JSX.Element => {
                       <TableRow key={item.id}>
                         <TableCell sx={{ verticalAlign: 'top' }}>
                           <Typography variant="body2">{getItemTitle(item)}</Typography>
+                          {getItemDescription(item) && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                              {getItemDescription(item)}
+                            </Typography>
+                          )}
                           {item.notes && (
                             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                               {item.notes}
@@ -495,35 +532,6 @@ export const InspectionDetailPage = (): JSX.Element => {
         );
       })()}
 
-      {inspection.signatures && inspection.signatures.length > 0 && (
-        <Paper sx={{ p: 3, mt: 3 }}>
-          <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-            <Draw /> Assinatura
-          </Typography>
-          {inspection.signatures.map((sig) => (
-            <Box key={sig.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-              {(sig.url || sig.dataUrl) && (
-                <Box
-                  component="img"
-                  src={sig.url ?? sig.dataUrl ?? ''}
-                  alt={`Assinatura de ${sig.signerName}`}
-                  sx={{ maxHeight: 80, border: 1, borderColor: 'divider', borderRadius: 1 }}
-                />
-              )}
-              <Box>
-                <Typography variant="body2">
-                  <strong>{sig.signerName}</strong>
-                  {sig.signerRoleLabel && ` · ${sig.signerRoleLabel}`}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Assinado em {formatDateTime(sig.signedAt)}
-                </Typography>
-              </Box>
-            </Box>
-          ))}
-        </Paper>
-      )}
-
       {(() => {
         const creationEvidences =
           inspection.evidences?.map((ev) => ({
@@ -542,7 +550,7 @@ export const InspectionDetailPage = (): JSX.Element => {
         const allEvidences = [...creationEvidences, ...resolutionEvidences];
         if (allEvidences.length === 0) return null;
         return (
-          <Paper sx={{ p: 3, mt: 3, maxWidth: 480 }}>
+          <Paper sx={{ p: 3, mt: 3, width: '100%' }}>
             <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
               <PhotoLibrary /> Evidências
             </Typography>
@@ -677,31 +685,64 @@ export const InspectionDetailPage = (): JSX.Element => {
                 >
                   <Box flex={1}>
                     <Typography variant="subtitle2">{getItemTitle(item)}</Typography>
+                    {getItemDescription(item) && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                        {getItemDescription(item)}
+                      </Typography>
+                    )}
                     {item.notes && (
                       <Typography variant="body2" color="text.secondary">
                         Notas: {item.notes}
                       </Typography>
                     )}
                     {isResolved && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="caption" color="success.main" display="flex" alignItems="center" gap={0.5}>
-                          <CheckCircle fontSize="small" /> Resolvido
+                      <Box
+                        sx={{
+                          mt: 1,
+                          p: 1.25,
+                          borderRadius: 1.5,
+                          border: '1px solid',
+                          borderColor: 'success.light',
+                          bgcolor: 'rgba(46, 125, 50, 0.06)',
+                        }}
+                      >
+                        <Chip
+                          size="small"
+                          color="success"
+                          icon={<CheckCircle fontSize="small" />}
+                          label="Resolvido"
+                          sx={{ fontWeight: 600 }}
+                        />
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75 }}>
                           {item.resolvedAt &&
-                            ` em ${new Date(item.resolvedAt).toLocaleDateString('pt-BR')}`}
-                          {item.resolvedBy?.name && ` por ${item.resolvedBy.name}`}
+                            `Data: ${new Date(item.resolvedAt).toLocaleDateString('pt-BR')}`}
+                          {item.resolvedBy?.name && ` • Responsável: ${item.resolvedBy.name}`}
                         </Typography>
                         {item.resolutionNotes && (
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {item.resolutionNotes}
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              mt: 1,
+                              px: 1,
+                              py: 0.75,
+                              borderRadius: 1,
+                              bgcolor: 'background.paper',
+                              border: '1px solid',
+                              borderColor: 'divider',
+                            }}
+                          >
+                            <strong>Notas:</strong> {item.resolutionNotes}
                           </Typography>
                         )}
                         {item.resolutionEvidencePath && (
                           <Button
                             size="small"
+                            variant="outlined"
+                            color="success"
                             href={item.resolutionEvidencePath}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{ mt: 0.5 }}
+                            sx={{ mt: 1 }}
                           >
                             Ver evidência
                           </Button>
@@ -817,6 +858,11 @@ export const InspectionDetailPage = (): JSX.Element => {
               <Typography variant="subtitle2" gutterBottom>
                 {getItemTitle(resolveItem)}
               </Typography>
+              {getItemDescription(resolveItem) && (
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {getItemDescription(resolveItem)}
+                </Typography>
+              )}
               <TextField
                 fullWidth
                 label="Notas de resolução"

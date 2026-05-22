@@ -76,6 +76,13 @@ export interface ServiceOrder {
   updatedAt?: string;
 }
 
+/**
+ * Resumo de OS usado em payloads de vistoria (listagem/detalhe),
+ * onde alguns campos podem ou não vir conforme o endpoint.
+ */
+export type InspectionServiceOrderSummary = Pick<ServiceOrder, "osNumber"> &
+  Partial<Pick<ServiceOrder, "id" | "address" | "resultado" | "fimExecucao">>;
+
 export interface Contract {
   id: string;
   name: string;
@@ -175,8 +182,8 @@ export interface InspectionListItem {
   hasParalysisPenalty?: boolean;
   finalizedAt?: string | null;
   createdAt: string;
-  /** API pode retornar só `{ osNumber }` ou `null` sem OS vinculada. */
-  serviceOrder?: { osNumber: string } | null;
+  /** API pode retornar payload enxuto da OS nas listagens. */
+  serviceOrder?: InspectionServiceOrderSummary | null;
   investmentWork?: { id: string; name?: string; workName?: string } | null;
 }
 
@@ -191,8 +198,8 @@ export interface Inspection extends InspectionListItem {
   teamId?: string;
   serviceOrderId?: string;
   investmentWorkId?: string;
-  /** OS: detalhe pode incluir id/endereço; listagem costuma trazer só `osNumber`. */
-  serviceOrder?: Pick<ServiceOrder, "id" | "osNumber" | "address"> | { osNumber: string } | null;
+  /** OS: detalhe/listagem podem trazer combinações diferentes de campos. */
+  serviceOrder?: InspectionServiceOrderSummary | null;
   investmentWork?: Pick<InvestmentWork, "id" | "workName" | "name" | "address"> | { id: string; name?: string; workName?: string } | null;
   collaboratorIds?: string[];
   createdByUserId?: string;

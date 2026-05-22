@@ -135,25 +135,27 @@ export const PendingsPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Módulo</TableCell>
               <TableCell>OS / Obra</TableCell>
+              <TableCell>Descrição do serviço</TableCell>
               <TableCell>Serviço</TableCell>
+              <TableCell>Data de execução</TableCell>
               <TableCell>Localização</TableCell>
               <TableCell>Equipe</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
-              <TableCell>Data</TableCell>
+              <TableCell>Data da vistoria</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                   {osNumber.trim()
                     ? "Nenhuma pendência encontrada para o número da OS informado."
                     : "Nenhuma pendência de ajuste."}
@@ -170,6 +172,12 @@ export const PendingsPage = (): JSX.Element => {
                     "-"}
                 </TableCell>
                 <TableCell>{inspection.serviceDescription}</TableCell>
+                <TableCell>{inspection.serviceOrder?.resultado ?? "-"}</TableCell>
+                <TableCell>
+                  {inspection.serviceOrder?.fimExecucao
+                    ? new Date(inspection.serviceOrder.fimExecucao).toLocaleString("pt-BR")
+                    : "-"}
+                </TableCell>
                 <TableCell>
                   {inspection.locationDescription || "-"}
                 </TableCell>
