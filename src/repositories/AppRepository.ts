@@ -65,9 +65,12 @@ function normalizeInspectionListItem(
     status: inspection.status as InspectionStatus,
     scorePercent: inspection.scorePercent,
     hasParalysisPenalty: inspection.hasParalysisPenalty,
+    pendingItemsCount: inspection.pendingItemsCount,
+    pendingItemsPreview: inspection.pendingItemsPreview,
     finalizedAt: inspection.finalizedAt,
     createdAt: inspection.createdAt ?? "",
     serviceOrder: inspection.serviceOrder ?? null,
+    investmentWork: inspection.investmentWork ?? null,
   };
 }
 

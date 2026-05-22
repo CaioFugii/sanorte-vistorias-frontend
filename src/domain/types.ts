@@ -180,6 +180,10 @@ export interface InspectionListItem {
   status: InspectionStatus;
   scorePercent?: number | null;
   hasParalysisPenalty?: boolean;
+  /** Quantidade de itens não conformes pendentes de ajuste (payload de listagem). */
+  pendingItemsCount?: number;
+  /** Prévia com títulos dos itens pendentes (payload de listagem). */
+  pendingItemsPreview?: string[];
   finalizedAt?: string | null;
   createdAt: string;
   /** API pode retornar payload enxuto da OS nas listagens. */
