@@ -41,7 +41,7 @@ Authorization: Bearer <token>
   - consulta de formulário para renderização no frontend (sem persistência)
 - Sync offline: `POST /sync/inspections`
 - Upload genérico: `POST /uploads`, `DELETE /uploads/:publicId`
-- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`, `GET /dashboards/teams/:teamId`, `GET /dashboards/quality-by-service`, `GET /dashboards/current-month-by-service`, `GET /dashboards/safety-work/low-score-collaborators`, `GET /dashboards/team-performance-by-teams`, `GET /dashboards/non-conformities/by-checklist`, `GET /dashboards/non-conformities/by-team` (todas aceitam filtro opcional `contractId`; ver `Dashboards`)
+- Dashboards: `GET /dashboards/summary`, `GET /dashboards/ranking/teams`, `GET /dashboards/ranking/teams/safety-work`, `GET /dashboards/teams/:teamId`, `GET /dashboards/quality-by-service`, `GET /dashboards/current-month-by-service`, `GET /dashboards/safety-work/low-score-collaborators`, `GET /dashboards/team-performance-by-teams`, `GET /dashboards/non-conformities/by-checklist`, `GET /dashboards/non-conformities/by-team` (todas aceitam filtro opcional `contractId`; ver `Dashboards`)
 
 ### Regras críticas que impactam UI
 
@@ -1342,14 +1342,36 @@ Contrato por item (`InspectionListDTO`):
   "finalizedAt": "2026-02-19T12:00:00.000Z",
   "createdAt": "2026-02-19T12:00:00.000Z",
   "team": { "name": "Equipe A" },
-  "serviceOrder": { "osNumber": "OS-001" },
+  "serviceOrder": {
+    "osNumber": "OS-001",
+    "fimExecucao": "2026-02-18T17:30:00.000Z",
+    "resultado": "EXECUTADO"
+  },
   "investmentWork": {
     "id": "uuid",
     "name": "Ampliação Rede Bairro Norte",
     "workName": "Ampliação Rede Bairro Norte"
-  }
+  },
+  "pendingItemsCount": 3,
+  "pendingItemsPreview": [
+    "Extintor vencido",
+    "Sinalização de saída ausente",
+    "Quadro elétrico sem identificação"
+  ]
 }
 ```
+
+Campos opcionais de pendências de ajuste na listagem:
+
+- `pendingItemsCount`:
+  - quantidade total de itens **não conformes pendentes** da vistoria;
+  - considera apenas itens com `answer = NAO_CONFORME` e `resolvedAt = null`;
+  - quando não houver pendências, retorna `0`.
+- `pendingItemsPreview`:
+  - lista com até `3` textos dos itens pendentes;
+  - usa ordem estável por criação do item (`inspection_items.createdAt ASC`);
+  - fallback de texto: `title` -> `description` -> `"Item sem descrição"`;
+  - quando não houver pendências, retorna `[]`.
 
 ### GET /inspections/mine
 
@@ -1359,6 +1381,7 @@ Contrato por item (`InspectionListDTO`):
 - Regras de serialização:
   - `externalId` sempre vem preenchido; quando não existir no banco, retorna fallback com `id` interno.
   - `serviceOrder` e `team` podem ser `null`.
+  - quando `serviceOrder` existir, retorna `{ osNumber, fimExecucao, resultado }`.
   - `investmentWork` pode ser `null`; quando preenchido, retorna `{ id, name, workName }`.
 - Escopo: além de `createdByUserId`, aplica contrato permitido da vistoria (`inspection.contractId`)
 
@@ -1376,7 +1399,11 @@ Exemplo de item em `data`:
   "finalizedAt": null,
   "createdAt": "2026-04-19T12:00:00.000Z",
   "team": { "name": "Equipe A" },
-  "serviceOrder": { "osNumber": "1234567" }
+  "serviceOrder": {
+    "osNumber": "1234567",
+    "fimExecucao": "2026-04-18T15:10:00.000Z",
+    "resultado": "EXECUTADO"
+  }
 }
 ```
 
@@ -1964,10 +1991,7 @@ Response 200:
     "postWorkPercent": 94.2,
     "remotePercent": 96.5,
     "fieldPercent": 93.8,
-    "safetyWorkPercent": 92.4,
-    "pendingCount": 2,
-    "paralyzedCount": 1,
-    "paralysisRatePercent": 8.33
+    "pendingCount": 2
   },
   {
     "teamId": "uuid-2",
@@ -1977,20 +2001,45 @@ Response 200:
     "postWorkPercent": 89.3,
     "remotePercent": 91.7,
     "fieldPercent": 90.1,
-    "safetyWorkPercent": 88.9,
-    "pendingCount": 1,
-    "paralyzedCount": 0,
-    "paralysisRatePercent": 0
+    "pendingCount": 1
   }
 ]
 ```
 
-- `paralyzedCount`: quantidade de vistorias com penalidade de paralisação no período.
-- `paralysisRatePercent`: percentual de vistorias paralisadas (paralyzedCount / inspectionsCount).
 - `postWorkPercent`: média (%) da equipe no módulo `POS_OBRA` no período (0 quando não houver vistoria no módulo).
 - `remotePercent`: média (%) da equipe no módulo `REMOTO` no período (0 quando não houver vistoria no módulo).
 - `fieldPercent`: média (%) da equipe no módulo `CAMPO` no período (0 quando não houver vistoria no módulo).
-- `safetyWorkPercent`: média (%) da equipe no módulo `SEGURANCA_TRABALHO` no período (0 quando não houver vistoria no módulo).
+
+### GET /dashboards/ranking/teams/safety-work
+
+- Auth: JWT
+- Query:
+  - `from` (`YYYY-MM-DD`) **obrigatório**
+  - `to` (`YYYY-MM-DD`) **obrigatório**
+  - `contractId` (`uuid`) opcional
+- O intervalo entre `from` e `to` não pode ser maior que 2 anos (400 se exceder).
+- Escopo: `GESTOR` vê apenas dados dos contratos permitidos; `ADMIN` vê tudo.
+
+Response 200:
+
+```json
+[
+  {
+    "teamId": "uuid",
+    "teamName": "Equipe Norte",
+    "averagePercent": 95.1,
+    "safetyWorkPercent": 92.4,
+    "inspectionsCount": 12
+  },
+  {
+    "teamId": "uuid-2",
+    "teamName": "Equipe Sul",
+    "averagePercent": 90.2,
+    "safetyWorkPercent": 88.9,
+    "inspectionsCount": 10
+  }
+]
+```
 
 ### GET /dashboards/ranking/teams/:teamId/inspections
 

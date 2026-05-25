@@ -506,13 +506,26 @@ export class AppRepository implements IAppRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
-      safetyWorkPercent: number;
       pendingCount: number;
-      paralyzedCount: number;
-      paralysisRatePercent: number;
     }>
   > {
     return this.apiRepository.getDashboardTeamRanking(params);
+  }
+
+  async getDashboardTeamRankingSafetyWork(params?: {
+    from?: string;
+    to?: string;
+    contractId?: string;
+  }): Promise<
+    Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      safetyWorkPercent: number;
+      inspectionsCount: number;
+    }>
+  > {
+    return this.apiRepository.getDashboardTeamRankingSafetyWork(params);
   }
 
   async getDashboardTeamRankingInspections(

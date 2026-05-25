@@ -272,10 +272,20 @@ export interface IAppRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
-      safetyWorkPercent: number;
       pendingCount: number;
-      paralyzedCount: number;
-      paralysisRatePercent: number;
+    }>
+  >;
+  getDashboardTeamRankingSafetyWork(params?: {
+    from?: string;
+    to?: string;
+    contractId?: string;
+  }): Promise<
+    Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      safetyWorkPercent: number;
+      inspectionsCount: number;
     }>
   >;
   getDashboardTeamRankingInspections(

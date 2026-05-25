@@ -3,28 +3,60 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, Team, UserRole, ModuleType } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
+import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
+import { PercentBadge } from "@/components/PercentBadge";
+import { ListPagination } from "@/components/ListPagination";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
 type TeamPerformanceByTeamsResponse = Awaited<ReturnType<typeof appRepository.getDashboardTeamPerformanceByTeams>>;
+type TeamRankingInspectionItem = {
+  inspectionId: string;
+  serviceOrderId: string;
+  serviceOrderNumber: string;
+  serviceOrderAddress: string | null;
+  module: ModuleType;
+  status: string;
+  scorePercent: number;
+  finishedAt: string | null;
+  createdAt: string;
+};
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
+const CHART_HEADER_SX = {
+  px: 2.5,
+  py: 1.7,
+  bgcolor: "transparent",
+  borderBottom: "1px solid #e2e8f0",
+};
 const QUALITY_MODULES: ModuleType[] = [
   ModuleType.CAMPO,
   ModuleType.REMOTO,
@@ -62,12 +94,6 @@ function formatMonthYearLabel(yyyyMM: string): string {
   return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" })
     .format(date)
     .replace(/^./, (char) => char.toUpperCase());
-}
-
-function formatDateBr(yyyyMMdd: string): string {
-  const [year, month, day] = yyyyMMdd.split("-");
-  if (!year || !month || !day) return yyyyMMdd;
-  return `${day}/${month}/${year}`;
 }
 
 function buildFakeTeamPerformanceByTeams(
@@ -299,6 +325,35 @@ export function AnalyticsPage(): JSX.Element {
   const [teamPerformanceLoading, setTeamPerformanceLoading] = useState(false);
   const [teamPerformanceError, setTeamPerformanceError] = useState<string | null>(null);
   const [usingFakeTeamPerformance, setUsingFakeTeamPerformance] = useState(false);
+  const [teamRankingQuality, setTeamRankingQuality] = useState<
+    Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingCount: number;
+      fieldPercent: number;
+      remotePercent: number;
+      postWorkPercent: number;
+    }>
+  >([]);
+  const [rankingOrderBy, setRankingOrderBy] = useState<"average" | "field" | "remote" | "postWork">("average");
+  const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
+  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
+  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
+  const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
+  const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
+  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
+    teamId: "",
+    teamName: "",
+    metric: "field" as DashboardTeamRankingMetric,
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  });
   const qualityRange = useMemo(() => getDefaultQualityRange(), []);
 
   useEffect(() => {
@@ -350,6 +405,11 @@ export function AnalyticsPage(): JSX.Element {
           )
         ),
       ]);
+      const teamRanking = await appRepository.getDashboardTeamRanking({
+        from: qualityRange.from,
+        to: qualityRange.to,
+        contractId: contractId || undefined,
+      });
       const qualityRes =
         qualityResponses.length > 1
           ? mergeQualityByServiceResponses(qualityResponses)
@@ -360,6 +420,18 @@ export function AnalyticsPage(): JSX.Element {
           : currentResponses[0];
       setQualityByService(qualityRes ?? null);
       setCurrentMonthByService(currentRes ?? null);
+      setTeamRankingQuality(
+        teamRanking.map((item) => ({
+          teamId: item.teamId,
+          teamName: item.teamName,
+          averagePercent: item.averagePercent,
+          inspectionsCount: item.inspectionsCount,
+          pendingCount: item.pendingCount,
+          fieldPercent: item.fieldPercent,
+          remotePercent: item.remotePercent,
+          postWorkPercent: item.postWorkPercent,
+        }))
+      );
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const message =
@@ -502,6 +574,71 @@ export function AnalyticsPage(): JSX.Element {
   const handleSearchTeamPerformance = () => {
     void loadTeamPerformanceData(teamPerformanceFilters);
   };
+  const sortedTeamRankingQuality = useMemo(() => {
+    return [...teamRankingQuality].sort((a, b) => {
+      const aValue =
+        rankingOrderBy === "average"
+          ? a.averagePercent
+          : rankingOrderBy === "field"
+          ? a.fieldPercent
+          : rankingOrderBy === "remote"
+            ? a.remotePercent
+            : a.postWorkPercent;
+      const bValue =
+        rankingOrderBy === "average"
+          ? b.averagePercent
+          : rankingOrderBy === "field"
+          ? b.fieldPercent
+          : rankingOrderBy === "remote"
+            ? b.remotePercent
+            : b.postWorkPercent;
+      return rankingOrder === "asc" ? aValue - bValue : bValue - aValue;
+    });
+  }, [teamRankingQuality, rankingOrder, rankingOrderBy]);
+  const formatDateTime = (value: string | null): string => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return parsed.toLocaleString("pt-BR");
+  };
+  const openRankingInspections = async (
+    teamId: string,
+    teamName: string,
+    metric: DashboardTeamRankingMetric,
+    page = 1,
+    limit = rankingInspectionsMeta.limit
+  ) => {
+    setRankingInspectionsOpen(true);
+    setRankingInspectionsLoading(true);
+    setRankingInspectionsError(null);
+    try {
+      const response = await appRepository.getDashboardTeamRankingInspections(teamId, {
+        from: qualityRange.from,
+        to: qualityRange.to,
+        metric,
+        page,
+        limit,
+        contractId: selectedContractId || undefined,
+      });
+      setRankingInspectionsItems(response.inspections);
+      setRankingInspectionsMeta({
+        teamId: response.teamId,
+        teamName: response.teamName || teamName,
+        metric: response.metric,
+        page: response.page,
+        limit: response.limit,
+        total: response.total,
+        totalPages: response.totalPages,
+        hasNext: response.hasNext,
+        hasPrev: response.hasPrev,
+      });
+    } catch {
+      setRankingInspectionsError("Falha ao carregar as vistorias da métrica selecionada.");
+      setRankingInspectionsItems([]);
+    } finally {
+      setRankingInspectionsLoading(false);
+    }
+  };
 
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
@@ -556,22 +693,16 @@ export function AnalyticsPage(): JSX.Element {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
-              <Box sx={{ px: 2.5, py: 2, bgcolor: "#9bc400", color: "#fff" }}>
-                <Typography variant="h6" fontWeight={800} align="center">
+              <Box sx={CHART_HEADER_SX}>
+                <Typography variant="h6" fontWeight={800}>
                   Desempenho Mensal de Qualidade
                 </Typography>
-                <Typography variant="subtitle1" fontWeight={700} align="center">
+                <Typography variant="subtitle1" fontWeight={700}>
                   
                 </Typography>
               </Box>
 
               <Box sx={{ px: 2.5, pt: 2, pb: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Visão comparativa multi-mês por tipo de serviço
-                  </Typography>
-                </Box>
-
                 <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 2, flexWrap: "wrap" }}>
                   {chartMonths.map((month) => (
                     <Box key={month.key} sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
@@ -629,17 +760,17 @@ export function AnalyticsPage(): JSX.Element {
                 </Box>
               </Box>
 
-              <Box sx={{ px: 2.5, py: 1.8, bgcolor: "#001970", color: "#fff" }}>
-                <Typography variant="subtitle2" fontWeight={800} align="center" sx={{ mb: 1 }}>
+              <Box sx={{ px: 2.5, py: 1.8, borderTop: "1px solid #e2e8f0" }}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
                   {growthTitle}
                 </Typography>
                 <Box sx={{ display: "flex", gap: 1.5, pb: 0.5 }}>
                   {qualityByService.services.map((item) => (
                     <Box key={`growth-${item.serviceKey}`} sx={{ minWidth: 110, flex: 1, textAlign: "center" }}>
-                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.9)" }}>
+                      <Typography variant="caption" color="text.secondary">
                         {item.serviceLabel}
                       </Typography>
-                      <Typography variant="body2" fontWeight={800} sx={{ color: "#d3e86b" }}>
+                      <Typography variant="body2" fontWeight={800}>
                         {item.growth ? `${item.growth.growthPercent >= 0 ? "+" : ""}${item.growth.growthPercent.toFixed(2).replace(".", ",")}%` : "-"}
                       </Typography>
                     </Box>
@@ -651,11 +782,11 @@ export function AnalyticsPage(): JSX.Element {
 
           <Grid item xs={12}>
             <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
-              <Box sx={{ px: 2, py: 1.5, bgcolor: "#9bc400", color: "#fff" }}>
-                <Typography variant="subtitle1" fontWeight={800} align="center">
+              <Box sx={CHART_HEADER_SX}>
+                <Typography variant="subtitle1" fontWeight={800}>
                   Desempenho Mensal por Serviço
                 </Typography>
-                <Typography variant="subtitle2" fontWeight={700} align="center">
+                <Typography variant="subtitle2" fontWeight={700}>
                   {currentMonthLabel}
                 </Typography>
               </Box>
@@ -748,12 +879,9 @@ export function AnalyticsPage(): JSX.Element {
         </Grid>
 
         <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
-          <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#9bc400", color: "#fff" }}>
+          <Box sx={CHART_HEADER_SX}>
             <Typography variant="h6" fontWeight={800}>
               Desempenho por Equipe (Multi-equipes)
-            </Typography>
-            <Typography variant="subtitle2" fontWeight={700}>
-              Período: {formatDateBr(teamPerformanceFilters.from)} a {formatDateBr(teamPerformanceFilters.to)}
             </Typography>
           </Box>
 
@@ -981,6 +1109,246 @@ export function AnalyticsPage(): JSX.Element {
             )}
           </Box>
         </Paper>
+
+        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
+          <Box sx={CHART_HEADER_SX}>
+            <Typography variant="h6" fontWeight={800}>
+              Ranking por Equipes - Qualidade
+            </Typography>
+          </Box>
+
+          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+            {teamRankingQuality.length === 0 ? (
+              <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+                <Typography color="text.secondary">
+                  Nenhum dado de ranking encontrado para o período selecionado.
+                </Typography>
+              </Paper>
+            ) : (
+              <Paper sx={{ overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Equipe</TableCell>
+                      <TableCell align="center">
+                        <TableSortLabel
+                          active={rankingOrderBy === "average"}
+                          direction={rankingOrderBy === "average" ? rankingOrder : "desc"}
+                          onClick={() => {
+                            if (rankingOrderBy === "average") {
+                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+                            } else {
+                              setRankingOrderBy("average");
+                              setRankingOrder("desc");
+                            }
+                          }}
+                        >
+                          Média
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center">
+                        <TableSortLabel
+                          active={rankingOrderBy === "field"}
+                          direction={rankingOrderBy === "field" ? rankingOrder : "desc"}
+                          onClick={() => {
+                            if (rankingOrderBy === "field") {
+                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+                            } else {
+                              setRankingOrderBy("field");
+                              setRankingOrder("desc");
+                            }
+                          }}
+                        >
+                          Campo
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center">
+                        <TableSortLabel
+                          active={rankingOrderBy === "remote"}
+                          direction={rankingOrderBy === "remote" ? rankingOrder : "desc"}
+                          onClick={() => {
+                            if (rankingOrderBy === "remote") {
+                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+                            } else {
+                              setRankingOrderBy("remote");
+                              setRankingOrder("desc");
+                            }
+                          }}
+                        >
+                          Remoto
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center">
+                        <TableSortLabel
+                          active={rankingOrderBy === "postWork"}
+                          direction={rankingOrderBy === "postWork" ? rankingOrder : "desc"}
+                          onClick={() => {
+                            if (rankingOrderBy === "postWork") {
+                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+                            } else {
+                              setRankingOrderBy("postWork");
+                              setRankingOrder("desc");
+                            }
+                          }}
+                        >
+                          Pós-obra
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center">Pendentes</TableCell>
+                      <TableCell align="center">Qtd Vistorias</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sortedTeamRankingQuality.map((team) => (
+                      <TableRow key={team.teamId} hover>
+                        <TableCell>{team.teamName}</TableCell>
+                        <TableCell align="center">
+                          <PercentBadge percent={team.averagePercent} size="small" />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Ver vistorias da métrica">
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() =>
+                                void openRankingInspections(team.teamId, team.teamName, "field")
+                              }
+                            >
+                              <PercentBadge percent={team.fieldPercent} size="small" />
+                            </Button>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Ver vistorias da métrica">
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() =>
+                                void openRankingInspections(team.teamId, team.teamName, "remote")
+                              }
+                            >
+                              <PercentBadge percent={team.remotePercent} size="small" />
+                            </Button>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Ver vistorias da métrica">
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() =>
+                                void openRankingInspections(team.teamId, team.teamName, "postWork")
+                              }
+                            >
+                              <PercentBadge percent={team.postWorkPercent} size="small" />
+                            </Button>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="center">{team.pendingCount}</TableCell>
+                        <TableCell align="center">{team.inspectionsCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+          </Box>
+        </Paper>
+
+        <Dialog
+          open={rankingInspectionsOpen}
+          onClose={() => setRankingInspectionsOpen(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {rankingInspectionsMeta.teamName
+              ? `Equipe: ${rankingInspectionsMeta.teamName}`
+              : "Vistorias da métrica"}
+            <IconButton onClick={() => setRankingInspectionsOpen(false)} size="small" aria-label="Fechar">
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            {rankingInspectionsLoading && (
+              <Box display="flex" justifyContent="center" p={4}>
+                <CircularProgress />
+              </Box>
+            )}
+            {rankingInspectionsError && !rankingInspectionsLoading && (
+              <Typography color="text.secondary" sx={{ py: 2 }}>
+                {rankingInspectionsError}
+              </Typography>
+            )}
+            {!rankingInspectionsLoading && !rankingInspectionsError && (
+              <>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>OS</TableCell>
+                      <TableCell>Endereço</TableCell>
+                      <TableCell>Módulo</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="center">Nota</TableCell>
+                      <TableCell>Finalizada em</TableCell>
+                      <TableCell>Criada em</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {rankingInspectionsItems.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <Typography color="text.secondary" sx={{ py: 2 }}>
+                            Nenhuma vistoria encontrada para os filtros selecionados.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      rankingInspectionsItems.map((inspection) => (
+                        <TableRow key={inspection.inspectionId}>
+                          <TableCell>{inspection.serviceOrderNumber || "-"}</TableCell>
+                          <TableCell>{inspection.serviceOrderAddress || "-"}</TableCell>
+                          <TableCell>{inspection.module}</TableCell>
+                          <TableCell>{inspection.status}</TableCell>
+                          <TableCell align="center">
+                            <PercentBadge percent={inspection.scorePercent} size="small" />
+                          </TableCell>
+                          <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
+                          <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+                {rankingInspectionsMeta.total > 0 && (
+                  <ListPagination
+                    meta={rankingInspectionsMeta}
+                    onPageChange={(page) =>
+                      void openRankingInspections(
+                        rankingInspectionsMeta.teamId,
+                        rankingInspectionsMeta.teamName,
+                        rankingInspectionsMeta.metric,
+                        page
+                      )
+                    }
+                    onRowsPerPageChange={(newLimit) => {
+                      setRankingInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                      void openRankingInspections(
+                        rankingInspectionsMeta.teamId,
+                        rankingInspectionsMeta.teamName,
+                        rankingInspectionsMeta.metric,
+                        1,
+                        newLimit
+                      );
+                    }}
+                    rowsPerPageOptions={[10, 20, 50, 100]}
+                    disabled={rankingInspectionsLoading}
+                  />
+                )}
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
       </Box>
       )}

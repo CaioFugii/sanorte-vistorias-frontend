@@ -730,10 +730,7 @@ export class ApiRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
-      safetyWorkPercent: number;
       pendingCount: number;
-      paralyzedCount: number;
-      paralysisRatePercent: number;
     }>
   > {
     const response = await apiClient.get<
@@ -745,12 +742,34 @@ export class ApiRepository {
         postWorkPercent: number;
         remotePercent: number;
         fieldPercent: number;
-        safetyWorkPercent: number;
         pendingCount: number;
-        paralyzedCount: number;
-        paralysisRatePercent: number;
       }>
     >("/dashboards/ranking/teams", { params });
+    return response.data;
+  }
+
+  async getDashboardTeamRankingSafetyWork(params?: {
+    from?: string;
+    to?: string;
+    contractId?: string;
+  }): Promise<
+    Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      safetyWorkPercent: number;
+      inspectionsCount: number;
+    }>
+  > {
+    const response = await apiClient.get<
+      Array<{
+        teamId: string;
+        teamName: string;
+        averagePercent: number;
+        safetyWorkPercent: number;
+        inspectionsCount: number;
+      }>
+    >("/dashboards/ranking/teams/safety-work", { params });
     return response.data;
   }
 

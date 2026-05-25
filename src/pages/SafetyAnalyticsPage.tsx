@@ -2,22 +2,56 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableSortLabel,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { Contract, UserRole } from "@/domain";
+import { Contract, ModuleType, UserRole } from "@/domain";
+import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { appRepository } from "@/repositories/AppRepository";
+import { PercentBadge } from "@/components/PercentBadge";
+import { ListPagination } from "@/components/ListPagination";
+
+const CHART_HEADER_SX = {
+  px: 2.5,
+  py: 1.7,
+  bgcolor: "transparent",
+  borderBottom: "1px solid #e2e8f0",
+};
+
+type TeamRankingInspectionItem = {
+  inspectionId: string;
+  serviceOrderId: string;
+  serviceOrderNumber: string;
+  serviceOrderAddress: string | null;
+  module: ModuleType;
+  status: string;
+  scorePercent: number;
+  finishedAt: string | null;
+  createdAt: string;
+};
 
 export function SafetyAnalyticsPage(): JSX.Element {
   const { hasAnyRole, user } = useAuthStore();
@@ -43,6 +77,31 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [data, setData] = useState<Awaited<
     ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
   > | null>(null);
+  const [teamRanking, setTeamRanking] = useState<
+    Array<{
+      teamId: string;
+      teamName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+      safetyWorkPercent: number;
+    }>
+  >([]);
+  const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
+  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
+  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
+  const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
+  const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
+  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
+    teamId: "",
+    teamName: "",
+    metric: "safetyWork" as DashboardTeamRankingMetric,
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+    hasNext: false,
+    hasPrev: false,
+  });
 
   useEffect(() => {
     if (!isAdmin) {
@@ -74,11 +133,27 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const result = await appRepository.getDashboardSafetyWorkLowScoreCollaborators({
-        ...nextFilters,
-        contractId: selectedContractId || undefined,
-      });
+      const [result, rankingResult] = await Promise.all([
+        appRepository.getDashboardSafetyWorkLowScoreCollaborators({
+          ...nextFilters,
+          contractId: selectedContractId || undefined,
+        }),
+        appRepository.getDashboardTeamRankingSafetyWork({
+          from: nextFilters.from,
+          to: nextFilters.to,
+          contractId: selectedContractId || undefined,
+        }),
+      ]);
       setData(result);
+      setTeamRanking(
+        rankingResult.map((item) => ({
+          teamId: item.teamId,
+          teamName: item.teamName,
+          averagePercent: item.averagePercent,
+          inspectionsCount: item.inspectionsCount,
+          safetyWorkPercent: item.safetyWorkPercent,
+        }))
+      );
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       setError(
@@ -106,6 +181,54 @@ export function SafetyAnalyticsPage(): JSX.Element {
   );
   const formatPercent = (value: number, digits = 2) =>
     `${value.toFixed(digits).replace(".", ",")}%`;
+  const formatDateTime = (value: string | null): string => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return parsed.toLocaleString("pt-BR");
+  };
+  const sortedTeamRanking = useMemo(
+    () =>
+      [...teamRanking].sort((a, b) =>
+        rankingOrder === "asc"
+          ? a.safetyWorkPercent - b.safetyWorkPercent
+          : b.safetyWorkPercent - a.safetyWorkPercent
+      ),
+    [teamRanking, rankingOrder]
+  );
+
+  const openRankingInspections = async (teamId: string, teamName: string, page = 1, limit = rankingInspectionsMeta.limit) => {
+    setRankingInspectionsOpen(true);
+    setRankingInspectionsLoading(true);
+    setRankingInspectionsError(null);
+    try {
+      const response = await appRepository.getDashboardTeamRankingInspections(teamId, {
+        from: filters.from,
+        to: filters.to,
+        metric: "safetyWork",
+        page,
+        limit,
+        contractId: selectedContractId || undefined,
+      });
+      setRankingInspectionsItems(response.inspections);
+      setRankingInspectionsMeta({
+        teamId: response.teamId,
+        teamName: response.teamName || teamName,
+        metric: response.metric,
+        page: response.page,
+        limit: response.limit,
+        total: response.total,
+        totalPages: response.totalPages,
+        hasNext: response.hasNext,
+        hasPrev: response.hasPrev,
+      });
+    } catch {
+      setRankingInspectionsError("Falha ao carregar as vistorias da métrica selecionada.");
+      setRankingInspectionsItems([]);
+    } finally {
+      setRankingInspectionsLoading(false);
+    }
+  };
 
   return (
     <Box>
@@ -140,7 +263,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
       </Paper>
 
       <Paper sx={{ p: 0, overflow: "hidden" }}>
-        <Box sx={{ px: 2.5, py: 1.7, bgcolor: "#0b158a", color: "#fff" }}>
+        <Box sx={CHART_HEADER_SX}>
           <Typography variant="h6" fontWeight={800}>
             Segurança do Trabalho - Colaboradores com Nota Baixa
           </Typography>
@@ -314,6 +437,164 @@ export function SafetyAnalyticsPage(): JSX.Element {
           )}
         </Box>
       </Paper>
+
+      <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
+        <Box sx={CHART_HEADER_SX}>
+          <Typography variant="h6" fontWeight={800}>
+            Ranking por Equipes
+          </Typography>
+          <Typography variant="subtitle2" fontWeight={700}>
+            Segurança do Trabalho
+          </Typography>
+        </Box>
+        <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+          {teamRanking.length === 0 ? (
+            <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+              <Typography color="text.secondary">
+                Nenhum dado de ranking encontrado para o período selecionado.
+              </Typography>
+            </Paper>
+          ) : (
+            <Paper sx={{ overflow: "hidden", border: "1px solid #e2e8f0" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Equipe</TableCell>
+                    <TableCell align="center">Média</TableCell>
+                    <TableCell align="center">
+                      <TableSortLabel
+                        active
+                        direction={rankingOrder}
+                        onClick={() =>
+                          setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                        }
+                      >
+                        Seg. Trabalho
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="center">Qtd Vistorias</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedTeamRanking.map((team) => (
+                    <TableRow key={team.teamId} hover>
+                      <TableCell>{team.teamName}</TableCell>
+                      <TableCell align="center">
+                        <PercentBadge percent={team.averagePercent} size="small" />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Ver vistorias da métrica">
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => void openRankingInspections(team.teamId, team.teamName)}
+                          >
+                            <PercentBadge percent={team.safetyWorkPercent} size="small" />
+                          </Button>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="center">{team.inspectionsCount}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          )}
+        </Box>
+      </Paper>
+
+      <Dialog
+        open={rankingInspectionsOpen}
+        onClose={() => setRankingInspectionsOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {rankingInspectionsMeta.teamName
+            ? `Equipe: ${rankingInspectionsMeta.teamName} - Segurança do Trabalho`
+            : "Vistorias da métrica"}
+          <IconButton onClick={() => setRankingInspectionsOpen(false)} size="small" aria-label="Fechar">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {rankingInspectionsLoading && (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          )}
+          {rankingInspectionsError && !rankingInspectionsLoading && (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              {rankingInspectionsError}
+            </Typography>
+          )}
+          {!rankingInspectionsLoading && !rankingInspectionsError && (
+            <>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>OS</TableCell>
+                    <TableCell>Endereço</TableCell>
+                    <TableCell>Módulo</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Nota</TableCell>
+                    <TableCell>Finalizada em</TableCell>
+                    <TableCell>Criada em</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rankingInspectionsItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Typography color="text.secondary" sx={{ py: 2 }}>
+                          Nenhuma vistoria encontrada para os filtros selecionados.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rankingInspectionsItems.map((inspection) => (
+                      <TableRow key={inspection.inspectionId}>
+                        <TableCell>{inspection.serviceOrderNumber || "-"}</TableCell>
+                        <TableCell>{inspection.serviceOrderAddress || "-"}</TableCell>
+                        <TableCell>{inspection.module}</TableCell>
+                        <TableCell>{inspection.status}</TableCell>
+                        <TableCell align="center">
+                          <PercentBadge percent={inspection.scorePercent} size="small" />
+                        </TableCell>
+                        <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
+                        <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {rankingInspectionsMeta.total > 0 && (
+                <ListPagination
+                  meta={rankingInspectionsMeta}
+                  onPageChange={(page) =>
+                    void openRankingInspections(
+                      rankingInspectionsMeta.teamId,
+                      rankingInspectionsMeta.teamName,
+                      page
+                    )
+                  }
+                  onRowsPerPageChange={(newLimit) => {
+                    setRankingInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                    void openRankingInspections(
+                      rankingInspectionsMeta.teamId,
+                      rankingInspectionsMeta.teamName,
+                      1,
+                      newLimit
+                    );
+                  }}
+                  rowsPerPageOptions={[10, 20, 50, 100]}
+                  disabled={rankingInspectionsLoading}
+                />
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

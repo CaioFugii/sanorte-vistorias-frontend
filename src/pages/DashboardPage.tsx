@@ -10,65 +10,18 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
-  TableSortLabel,
-  Tooltip,
 } from '@mui/material';
-import { Search, Clear, TrendingUp, Assignment, Warning, Close } from '@mui/icons-material';
+import { Search, Clear, TrendingUp, Assignment, Warning } from '@mui/icons-material';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { appRepository } from '@/repositories/AppRepository';
-import { DashboardTeamRankingMetric } from '@/api/repositories/ApiRepository';
 import { PercentBadge } from '@/components/PercentBadge';
-import { ListPagination } from '@/components/ListPagination';
 import { ModuleType } from '@/domain/enums';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
 import { Contract, Team, UserRole } from '@/domain';
-import {
-  KpiCard,
-  PageHeader,
-  SectionTable,
-  TableActionsCell,
-  TableActionsGroup,
-  TableActionsHeaderCell,
-  TableViewButton,
-} from '@/components/ui';
-
-type TeamRankingItem = {
-  teamId: string;
-  teamName: string;
-  averagePercent: number;
-  inspectionsCount: number;
-  postWorkPercent: number;
-  remotePercent: number;
-  fieldPercent: number;
-  safetyWorkPercent: number;
-  pendingCount: number;
-  paralyzedCount: number;
-  paralysisRatePercent: number;
-};
-
-type TeamRankingInspectionItem = {
-  inspectionId: string;
-  serviceOrderId: string;
-  serviceOrderNumber: string;
-  serviceOrderAddress: string | null;
-  module: ModuleType;
-  status: string;
-  scorePercent: number;
-  finishedAt: string | null;
-  createdAt: string;
-};
+import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
 
 type NonConformityQuestionItem = {
   checklistItemId: string;
@@ -94,7 +47,6 @@ type NonConformityByTeamItem = {
   checklistsCount: number;
 };
 
-type SortKey = 'averagePercent' | 'paralysisRatePercent' | null;
 const MIN_TEAM_SEARCH_LENGTH = 4;
 const NON_CONFORMITIES_LIMIT_PER_CHECKLIST = 3;
 const NON_CONFORMITIES_LIMIT_BY_TEAM = 5;
@@ -130,34 +82,14 @@ export const DashboardPage = (): JSX.Element => {
     contractId: undefined,
   }));
   const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
-  const [teamRanking, setTeamRanking] = useState<TeamRankingItem[]>([]);
   const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<NonConformityChecklist[]>([]);
   const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformityByTeamItem[]>([]);
-  const [orderBy, setOrderBy] = useState<SortKey>(null);
-  const [order, setOrder] = useState<'asc' | 'desc'>('asc');
-  const [rankingPage, setRankingPage] = useState(1);
-  const [rankingLimit, setRankingLimit] = useState(10);
   const [teamFilterSearchInput, setTeamFilterSearchInput] = useState('');
   const [selectedSummaryTeam, setSelectedSummaryTeam] = useState<Team | null>(null);
   const [teamFilterOptions, setTeamFilterOptions] = useState<Team[]>([]);
   const [teamFilterLoading, setTeamFilterLoading] = useState(false);
   const teamFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teamFilterRequestRef = useRef(0);
-  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
-  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
-  const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
-  const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
-    teamId: '',
-    teamName: '',
-    metric: 'average' as DashboardTeamRankingMetric,
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 1,
-    hasNext: false,
-    hasPrev: false,
-  });
 
   const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
 
@@ -261,14 +193,8 @@ export const DashboardPage = (): JSX.Element => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, rankingData, nonConformitiesData] = await Promise.all([
+      const [summaryData, nonConformitiesData] = await Promise.all([
         appRepository.getDashboardSummary(effectiveFilters),
-        appRepository.getDashboardTeamRanking({
-          from: effectiveFilters.from,
-          to: effectiveFilters.to,
-          module: effectiveFilters.module,
-          contractId: effectiveFilters.contractId,
-        }),
         appRepository.getDashboardNonConformitiesByChecklist({
           from: effectiveFilters.from,
           to: effectiveFilters.to,
@@ -289,10 +215,8 @@ export const DashboardPage = (): JSX.Element => {
           })
         : null;
       setSummary(summaryData);
-      setTeamRanking(rankingData);
       setNonConformitiesByChecklist(nonConformitiesData.checklists);
       setNonConformitiesByTeam(teamNonConformitiesData?.nonConformities ?? []);
-      setRankingPage(1);
     } catch (err) {
       const message =
         (err as { response?: { status?: number } })?.response?.status === 403
@@ -318,112 +242,6 @@ export const DashboardPage = (): JSX.Element => {
     setNonConformitiesByTeam([]);
     loadDashboardData(defaultRange);
   };
-
-  const metricLabelMap: Record<DashboardTeamRankingMetric, string> = {
-    average: 'Média geral',
-    postWork: 'Pós-obra',
-    remote: 'Remoto',
-    field: 'Campo',
-    safetyWork: 'Segurança do Trabalho',
-  };
-
-  const openRankingInspections = async (
-    team: TeamRankingItem,
-    metric: DashboardTeamRankingMetric,
-    page = 1,
-    limit = rankingInspectionsMeta.limit
-  ) => {
-    if (!filters.from || !filters.to) return;
-    setRankingInspectionsOpen(true);
-    setRankingInspectionsLoading(true);
-    setRankingInspectionsError(null);
-    try {
-      const response = await appRepository.getDashboardTeamRankingInspections(team.teamId, {
-        from: filters.from,
-        to: filters.to,
-        metric,
-        page,
-        limit,
-        contractId: filters.contractId,
-      });
-      setRankingInspectionsItems(response.inspections);
-      setRankingInspectionsMeta({
-        teamId: response.teamId,
-        teamName: response.teamName,
-        metric: response.metric,
-        page: response.page,
-        limit: response.limit,
-        total: response.total,
-        totalPages: response.totalPages,
-        hasNext: response.hasNext,
-        hasPrev: response.hasPrev,
-      });
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 404) {
-        setRankingInspectionsError('Equipe não encontrada.');
-      } else {
-        setRankingInspectionsError('Falha ao carregar as vistorias da métrica selecionada.');
-      }
-      setRankingInspectionsItems([]);
-    } finally {
-      setRankingInspectionsLoading(false);
-    }
-  };
-
-  const handleCloseRankingInspections = () => {
-    setRankingInspectionsOpen(false);
-    setRankingInspectionsError(null);
-    setRankingInspectionsItems([]);
-  };
-
-  const formatDateTime = (value: string | null): string => {
-    if (!value) return '-';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return '-';
-    return parsed.toLocaleString('pt-BR');
-  };
-
-  const handleSort = (key: SortKey) => {
-    if (orderBy === key) {
-      setOrder(order === 'asc' ? 'desc' : 'asc');
-    } else {
-      setOrderBy(key);
-      setOrder(key === 'averagePercent' ? 'desc' : 'asc');
-    }
-  };
-
-  const sortedRanking = useMemo(() => {
-    if (!orderBy) return teamRanking;
-    return [...teamRanking].sort((a, b) => {
-      const aVal = a[orderBy];
-      const bVal = b[orderBy];
-      const cmp = typeof aVal === 'number' && typeof bVal === 'number' ? aVal - bVal : 0;
-      return order === 'asc' ? cmp : -cmp;
-    });
-  }, [teamRanking, orderBy, order]);
-
-  const rankingMeta = useMemo(() => {
-    const total = sortedRanking.length;
-    const totalPages = Math.max(1, Math.ceil(total / rankingLimit));
-    return {
-      page: rankingPage,
-      limit: rankingLimit,
-      total,
-      totalPages,
-      hasNext: rankingPage < totalPages,
-      hasPrev: rankingPage > 1,
-    };
-  }, [sortedRanking.length, rankingPage, rankingLimit]);
-
-  const pagedRanking = useMemo(
-    () =>
-      sortedRanking.slice(
-        (rankingPage - 1) * rankingLimit,
-        rankingPage * rankingLimit
-      ),
-    [sortedRanking, rankingPage, rankingLimit]
-  );
 
   if (!canAccessDashboard) {
     return <Navigate to="/inspections/mine" replace />;
@@ -636,126 +454,6 @@ export const DashboardPage = (): JSX.Element => {
             </Grid>
           </Grid>
 
-          <SectionTable title="Ranking por Equipes">
-            {teamRanking.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                  Nenhum dado no período ou módulo selecionado. Ajuste os filtros e busque novamente.
-                </Typography>
-              </Box>
-            ) : (
-              <>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Equipe</TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={orderBy === 'averagePercent'}
-                          direction={orderBy === 'averagePercent' ? order : 'asc'}
-                          onClick={() => handleSort('averagePercent')}
-                        >
-                          Média
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">Campo</TableCell>
-                      <TableCell align="center">Remoto</TableCell>
-                      <TableCell align="center">Pós-obra</TableCell>
-                      <TableCell align="center">Seg. Trabalho</TableCell>
-                      <TableCell align="center">Qtd Vistorias</TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={orderBy === 'paralysisRatePercent'}
-                          direction={orderBy === 'paralysisRatePercent' ? order : 'asc'}
-                          onClick={() => handleSort('paralysisRatePercent')}
-                        >
-                          Taxa paralisação
-                        </TableSortLabel>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {pagedRanking.map((team) => {
-                      return (
-                        <TableRow key={team.teamId} hover>
-                          <TableCell>{team.teamName}</TableCell>
-                          <TableCell align="center">
-                            <PercentBadge percent={team.averagePercent} size="small" />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="Ver vistorias da métrica">
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openRankingInspections(team, 'field')}
-                              >
-                                <PercentBadge percent={team.fieldPercent} size="small" />
-                              </Button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="Ver vistorias da métrica">
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openRankingInspections(team, 'remote')}
-                              >
-                                <PercentBadge percent={team.remotePercent} size="small" />
-                              </Button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="Ver vistorias da métrica">
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openRankingInspections(team, 'postWork')}
-                              >
-                                <PercentBadge percent={team.postWorkPercent} size="small" />
-                              </Button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="Ver vistorias da métrica">
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openRankingInspections(team, 'safetyWork')}
-                              >
-                                <PercentBadge percent={team.safetyWorkPercent} size="small" />
-                              </Button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell align="center">{team.inspectionsCount}</TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="body2"
-                              color={team.paralysisRatePercent > 0 ? 'error.main' : 'text.secondary'}
-                            >
-                              {team.paralysisRatePercent}%
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-                {rankingMeta.total > 0 && (
-                  <ListPagination
-                    meta={rankingMeta}
-                    onPageChange={setRankingPage}
-                    onRowsPerPageChange={(newLimit) => {
-                      setRankingLimit(newLimit);
-                      setRankingPage(1);
-                    }}
-                    rowsPerPageOptions={[5, 10, 25, 50]}
-                    disabled={loading}
-                  />
-                )}
-              </>
-            )}
-          </SectionTable>
-
           <SectionTable
             title={`Perguntas com mais NÃO CONFORMIDADES por checklist (TOP ${NON_CONFORMITIES_LIMIT_PER_CHECKLIST})`}
           >
@@ -922,97 +620,6 @@ export const DashboardPage = (): JSX.Element => {
         </>
       )}
 
-      <Dialog open={rankingInspectionsOpen} onClose={handleCloseRankingInspections} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {rankingInspectionsMeta.teamName
-            ? `Equipe: ${rankingInspectionsMeta.teamName} - ${metricLabelMap[rankingInspectionsMeta.metric]}`
-            : 'Vistorias da métrica'}
-          <IconButton onClick={handleCloseRankingInspections} size="small" aria-label="Fechar">
-            <Close />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          {rankingInspectionsLoading && (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
-            </Box>
-          )}
-          {rankingInspectionsError && !rankingInspectionsLoading && (
-            <Typography color="text.secondary" sx={{ py: 2 }}>
-              {rankingInspectionsError}
-            </Typography>
-          )}
-          {!rankingInspectionsLoading && !rankingInspectionsError && (
-            <>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>OS</TableCell>
-                    <TableCell>Endereço</TableCell>
-                    <TableCell>Módulo</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="center">Nota</TableCell>
-                    <TableCell>Finalizada em</TableCell>
-                    <TableCell>Criada em</TableCell>
-                    <TableActionsHeaderCell align="center" padding="none" />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rankingInspectionsItems.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        <Typography color="text.secondary" sx={{ py: 2 }}>
-                          Nenhuma vistoria encontrada para os filtros selecionados.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    rankingInspectionsItems.map((inspection) => (
-                      <TableRow key={inspection.inspectionId}>
-                        <TableCell>{inspection.serviceOrderNumber || '-'}</TableCell>
-                        <TableCell>{inspection.serviceOrderAddress || '-'}</TableCell>
-                        <TableCell>{inspection.module}</TableCell>
-                        <TableCell>{inspection.status}</TableCell>
-                        <TableCell align="center">
-                          <PercentBadge percent={inspection.scorePercent} size="small" />
-                        </TableCell>
-                        <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
-                        <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
-                        <TableActionsCell align="center" padding="none">
-                          <TableActionsGroup>
-                            <TableViewButton
-                              label="Ver detalhes"
-                              onClick={() => window.open(`/inspections/${inspection.inspectionId}`, '_blank', 'noopener,noreferrer')}
-                            />
-                          </TableActionsGroup>
-                        </TableActionsCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              {rankingInspectionsMeta.total > 0 && (
-                <ListPagination
-                  meta={rankingInspectionsMeta}
-                  onPageChange={(page) => {
-                    const team = teamRanking.find((item) => item.teamId === rankingInspectionsMeta.teamId);
-                    if (!team) return;
-                    void openRankingInspections(team, rankingInspectionsMeta.metric, page);
-                  }}
-                  onRowsPerPageChange={(newLimit) => {
-                    setRankingInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-                    const team = teamRanking.find((item) => item.teamId === rankingInspectionsMeta.teamId);
-                    if (!team) return;
-                    void openRankingInspections(team, rankingInspectionsMeta.metric, 1, newLimit);
-                  }}
-                  rowsPerPageOptions={[10, 20, 50, 100]}
-                  disabled={rankingInspectionsLoading}
-                />
-              )}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </Box>
   );
 };
