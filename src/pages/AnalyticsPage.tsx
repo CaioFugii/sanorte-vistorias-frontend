@@ -1,30 +1,19 @@
 import {
-  Autocomplete,
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
-  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableSortLabel,
+  Tab,
+  Tabs,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Clear } from "@mui/icons-material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
@@ -32,31 +21,23 @@ import { useAuthStore } from "@/stores/authStore";
 import { Contract, Team, UserRole, ModuleType } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
-import { PercentBadge } from "@/components/PercentBadge";
-import { ListPagination } from "@/components/ListPagination";
+import { QualityKpiStrip } from "@/pages/analytics/components/QualityKpiStrip";
+import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
+import { QualityRankingTab } from "@/pages/analytics/components/QualityRankingTab";
+import { QualityServicesTab } from "@/pages/analytics/components/QualityServicesTab";
+import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
+import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { TeamRankingInspectionItem, TeamRankingOrderBy } from "@/pages/analytics/components/models";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
 type TeamPerformanceByTeamsResponse = Awaited<ReturnType<typeof appRepository.getDashboardTeamPerformanceByTeams>>;
-type TeamRankingInspectionItem = {
-  inspectionId: string;
-  serviceOrderId: string;
-  serviceOrderNumber: string;
-  serviceOrderAddress: string | null;
-  module: ModuleType;
-  status: string;
-  scorePercent: number;
-  finishedAt: string | null;
-  createdAt: string;
-};
-
+type QualitySummaryFromApi = Awaited<ReturnType<typeof appRepository.getDashboardQualitySummary>>;
+type NonConformitiesByChecklistResponse = Awaited<
+  ReturnType<typeof appRepository.getDashboardNonConformitiesByChecklist>
+>;
+type NonConformitiesByTeamResponse = Awaited<ReturnType<typeof appRepository.getDashboardNonConformitiesByTeam>>;
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
-const CHART_HEADER_SX = {
-  px: 2.5,
-  py: 1.7,
-  bgcolor: "transparent",
-  borderBottom: "1px solid #e2e8f0",
-};
 const QUALITY_MODULES: ModuleType[] = [
   ModuleType.CAMPO,
   ModuleType.REMOTO,
@@ -73,13 +54,18 @@ function getDefaultQualityRange(): { from: string; to: string } {
   };
 }
 
-function getCurrentMonthRange(): { from: string; to: string } {
+function getInitialGlobalPeriod(): { from: string; to: string } {
   const to = new Date();
-  const from = new Date(to.getFullYear(), to.getMonth(), 1);
+  const from = new Date(to);
+  from.setMonth(from.getMonth() - 1);
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
   };
+}
+
+function getFixedQualityRange(): { from: string; to: string } {
+  return getDefaultQualityRange();
 }
 
 function formatMonthLabel(yyyyMM: string): string {
@@ -96,69 +82,10 @@ function formatMonthYearLabel(yyyyMM: string): string {
     .replace(/^./, (char) => char.toUpperCase());
 }
 
-function buildFakeTeamPerformanceByTeams(
-  params: {
-    from: string;
-    to: string;
-    teamIds: string[];
-  },
-  teamOptions: Team[]
-): TeamPerformanceByTeamsResponse {
-  const selectedTeams =
-    params.teamIds.length > 0
-      ? teamOptions.filter((team) => params.teamIds.includes(team.id))
-      : teamOptions.slice(0, 3);
-
-  const baseTeams =
-    selectedTeams.length > 0
-      ? selectedTeams
-      : [
-          { id: "fake-team-1", name: "Equipe Alpha", active: true },
-          { id: "fake-team-2", name: "Equipe Beta", active: true },
-          { id: "fake-team-3", name: "Equipe Gama", active: true },
-        ];
-
-  const teams = baseTeams.map((team, teamIndex) => {
-    const collaborators = Array.from({ length: 4 }, (_, collaboratorIndex) => {
-      const qualityPercent = Math.max(52, 88 - teamIndex * 4 - collaboratorIndex * 3.4);
-      const inspectionsCount = 8 + teamIndex * 3 + collaboratorIndex * 4;
-      return {
-        collaboratorId: `${team.id}-fake-c-${collaboratorIndex + 1}`,
-        collaboratorName: `Colaborador ${collaboratorIndex + 1}`,
-        qualityPercent: Number(qualityPercent.toFixed(1)),
-        inspectionsCount,
-      };
-    });
-
-    const averagePercent =
-      collaborators.reduce((acc, collaborator) => acc + collaborator.qualityPercent, 0) / collaborators.length;
-    const inspectionsCount = collaborators.reduce((acc, collaborator) => acc + collaborator.inspectionsCount, 0);
-    const pendingAdjustmentsCount = Math.max(0, Math.round((100 - averagePercent) / 8));
-
-    return {
-      teamId: team.id,
-      teamName: team.name,
-      averagePercent: Number(averagePercent.toFixed(1)),
-      inspectionsCount,
-      pendingAdjustmentsCount,
-      collaborators,
-    };
-  });
-
-  const averagePercent = teams.reduce((acc, team) => acc + team.averagePercent, 0) / Math.max(teams.length, 1);
-
-  return {
-    from: params.from,
-    to: params.to,
-    teamIds: baseTeams.map((team) => team.id),
-    summary: {
-      averagePercent: Number(averagePercent.toFixed(1)),
-      previousAveragePercent: Number((averagePercent - 1.7).toFixed(1)),
-      inspectionsCount: teams.reduce((acc, team) => acc + team.inspectionsCount, 0),
-      pendingAdjustmentsCount: teams.reduce((acc, team) => acc + team.pendingAdjustmentsCount, 0),
-    },
-    teams,
-  };
+function teamMatchesContract(team: Team, contractId?: string): boolean {
+  if (!contractId) return true;
+  if (team.contractIds?.includes(contractId)) return true;
+  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
 }
 
 function mergeQualityByServiceResponses(
@@ -238,67 +165,6 @@ function mergeQualityByServiceResponses(
   return { period, services };
 }
 
-function mergeCurrentMonthByServiceResponses(
-  responses: CurrentMonthByServiceResponse[]
-): CurrentMonthByServiceResponse {
-  const serviceMap = new Map<
-    string,
-    {
-      serviceLabel: string;
-      weightedQualitySum: number;
-      inspectionsCount: number;
-    }
-  >();
-
-  for (const response of responses) {
-    for (const service of response.services) {
-      const current = serviceMap.get(service.serviceKey) ?? {
-        serviceLabel: service.serviceLabel,
-        weightedQualitySum: 0,
-        inspectionsCount: 0,
-      };
-      current.weightedQualitySum += service.qualityPercent * service.inspectionsCount;
-      current.inspectionsCount += service.inspectionsCount;
-      serviceMap.set(service.serviceKey, current);
-    }
-  }
-
-  const services = Array.from(serviceMap.entries()).map(([serviceKey, service]) => ({
-    serviceKey,
-    serviceLabel: service.serviceLabel,
-    inspectionsCount: service.inspectionsCount,
-    qualityPercent:
-      service.inspectionsCount > 0
-        ? Number((service.weightedQualitySum / service.inspectionsCount).toFixed(1))
-        : 0,
-  }));
-
-  const inspectionsCount = services.reduce((acc, item) => acc + item.inspectionsCount, 0);
-  const averagePercent =
-    inspectionsCount > 0
-      ? Number(
-          (
-            services.reduce((acc, item) => acc + item.qualityPercent * item.inspectionsCount, 0) /
-            inspectionsCount
-          ).toFixed(1)
-        )
-      : 0;
-  const pendingAdjustmentsCount = responses.reduce(
-    (acc, response) => acc + response.summary.pendingAdjustmentsCount,
-    0
-  );
-
-  return {
-    month: responses[0]?.month ?? "",
-    summary: {
-      averagePercent,
-      inspectionsCount,
-      pendingAdjustmentsCount,
-    },
-    services,
-  };
-}
-
 export function AnalyticsPage(): JSX.Element {
   const { hasAnyRole, user } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
@@ -307,11 +173,9 @@ export function AnalyticsPage(): JSX.Element {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState("");
+  const [globalPeriod, setGlobalPeriod] = useState(getInitialGlobalPeriod);
   const initialTeamPerformanceFilters = useMemo(() => {
-    const range = getCurrentMonthRange();
     return {
-      from: range.from,
-      to: range.to,
       teamIds: [] as string[],
     };
   }, []);
@@ -319,12 +183,18 @@ export function AnalyticsPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceResponse | null>(null);
   const [currentMonthByService, setCurrentMonthByService] = useState<CurrentMonthByServiceResponse | null>(null);
+  const [qualitySummaryFromApi, setQualitySummaryFromApi] = useState<QualitySummaryFromApi | null>(null);
   const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [teamPerformanceFilters, setTeamPerformanceFilters] = useState(initialTeamPerformanceFilters);
   const [teamPerformanceByTeams, setTeamPerformanceByTeams] = useState<TeamPerformanceByTeamsResponse | null>(null);
   const [teamPerformanceLoading, setTeamPerformanceLoading] = useState(false);
   const [teamPerformanceError, setTeamPerformanceError] = useState<string | null>(null);
-  const [usingFakeTeamPerformance, setUsingFakeTeamPerformance] = useState(false);
+  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] =
+    useState<NonConformitiesByChecklistResponse | null>(null);
+  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformitiesByTeamResponse | null>(null);
+  const [nonConformitiesTeamId, setNonConformitiesTeamId] = useState("");
+  const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
+  const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
   const [teamRankingQuality, setTeamRankingQuality] = useState<
     Array<{
       teamId: string;
@@ -335,9 +205,10 @@ export function AnalyticsPage(): JSX.Element {
       fieldPercent: number;
       remotePercent: number;
       postWorkPercent: number;
+      investmentWorksPercent: number;
     }>
   >([]);
-  const [rankingOrderBy, setRankingOrderBy] = useState<"average" | "field" | "remote" | "postWork">("average");
+  const [rankingOrderBy, setRankingOrderBy] = useState<TeamRankingOrderBy>("average");
   const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
   const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
@@ -354,7 +225,7 @@ export function AnalyticsPage(): JSX.Element {
     hasNext: false,
     hasPrev: false,
   });
-  const qualityRange = useMemo(() => getDefaultQualityRange(), []);
+  const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -382,11 +253,12 @@ export function AnalyticsPage(): JSX.Element {
     }
   }, [contractsForFilters]);
 
-  const loadAnalyticsData = async (contractId?: string) => {
+  const loadAnalyticsData = async (contractId?: string, period: { from: string; to: string } = globalPeriod) => {
     setLoading(true);
     setError(null);
     try {
-      const [qualityResponses, currentResponses] = await Promise.all([
+      const qualityRange = getFixedQualityRange();
+      const [qualityResponses, currentResponse, summaryResponse, nonConformitiesChecklistResponse] = await Promise.all([
         Promise.all(
           QUALITY_MODULES.map((module) =>
             appRepository.getDashboardQualityByService({
@@ -396,30 +268,34 @@ export function AnalyticsPage(): JSX.Element {
             })
           )
         ),
-        Promise.all(
-          QUALITY_MODULES.map((module) =>
-            appRepository.getDashboardCurrentMonthByService({
-              contractId: contractId || undefined,
-              module,
-            })
-          )
-        ),
+        appRepository.getDashboardCurrentMonthByService({
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardQualitySummary({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardNonConformitiesByChecklist({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+          limitPerChecklist: 3,
+        }),
       ]);
       const teamRanking = await appRepository.getDashboardTeamRanking({
-        from: qualityRange.from,
-        to: qualityRange.to,
+        from: period.from,
+        to: period.to,
         contractId: contractId || undefined,
       });
       const qualityRes =
         qualityResponses.length > 1
           ? mergeQualityByServiceResponses(qualityResponses)
           : qualityResponses[0];
-      const currentRes =
-        currentResponses.length > 1
-          ? mergeCurrentMonthByServiceResponses(currentResponses)
-          : currentResponses[0];
       setQualityByService(qualityRes ?? null);
-      setCurrentMonthByService(currentRes ?? null);
+      setCurrentMonthByService(currentResponse ?? null);
+      setQualitySummaryFromApi(summaryResponse);
+      setNonConformitiesByChecklist(nonConformitiesChecklistResponse ?? null);
       setTeamRankingQuality(
         teamRanking.map((item) => ({
           teamId: item.teamId,
@@ -430,6 +306,7 @@ export function AnalyticsPage(): JSX.Element {
           fieldPercent: item.fieldPercent,
           remotePercent: item.remotePercent,
           postWorkPercent: item.postWorkPercent,
+          investmentWorksPercent: item.investmentWorksPercent,
         }))
       );
     } catch (err) {
@@ -449,9 +326,10 @@ export function AnalyticsPage(): JSX.Element {
       const result = await appRepository.getTeams({
         page: 1,
         limit: 100,
-        contractId: selectedContractId || undefined,
       });
-      const activeTeams = result.data.filter((team) => team.active);
+      const activeTeams = result.data.filter(
+        (team) => team.active && teamMatchesContract(team, selectedContractId || undefined)
+      );
       setTeamOptions(activeTeams);
       return activeTeams;
     } catch {
@@ -460,24 +338,19 @@ export function AnalyticsPage(): JSX.Element {
     }
   };
 
-  const loadTeamPerformanceData = async (
-    filters: typeof teamPerformanceFilters,
-    options: Team[] = teamOptions
-  ): Promise<void> => {
+  const loadTeamPerformanceData = async (filters: typeof teamPerformanceFilters): Promise<void> => {
     if (filters.teamIds.length === 0) {
       setTeamPerformanceByTeams(null);
       setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
-      setUsingFakeTeamPerformance(false);
       return;
     }
 
     setTeamPerformanceLoading(true);
     setTeamPerformanceError(null);
-    setUsingFakeTeamPerformance(false);
 
     const payload = {
-      from: filters.from,
-      to: filters.to,
+      from: globalPeriod.from,
+      to: globalPeriod.to,
       teamIds: filters.teamIds,
       contractId: selectedContractId || undefined,
     };
@@ -485,14 +358,8 @@ export function AnalyticsPage(): JSX.Element {
     try {
       const result = await appRepository.getDashboardTeamPerformanceByTeams(payload);
       setTeamPerformanceByTeams(result);
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 404) {
-        setTeamPerformanceByTeams(buildFakeTeamPerformanceByTeams(payload, options));
-        setUsingFakeTeamPerformance(true);
-      } else {
-        setTeamPerformanceError("Falha ao carregar o gráfico de desempenho por equipes.");
-      }
+    } catch {
+      setTeamPerformanceError("Falha ao carregar o gráfico de desempenho por equipes.");
     } finally {
       setTeamPerformanceLoading(false);
     }
@@ -500,8 +367,8 @@ export function AnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    void loadAnalyticsData(selectedContractId || undefined);
-  }, [canAccessAnalytics, qualityRange, selectedContractId]);
+    void loadAnalyticsData(selectedContractId || undefined, globalPeriod);
+  }, [canAccessAnalytics, globalPeriod, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -514,7 +381,6 @@ export function AnalyticsPage(): JSX.Element {
       };
       setTeamPerformanceFilters(nextFilters);
       setTeamPerformanceByTeams(null);
-      setUsingFakeTeamPerformance(false);
       if (teams.length === 0) {
         setTeamPerformanceError("Nenhuma equipe ativa encontrada para pesquisa.");
       } else {
@@ -523,7 +389,38 @@ export function AnalyticsPage(): JSX.Element {
     };
 
     void bootstrapTeamPerformance();
-  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId]);
+  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod]);
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    if (!nonConformitiesTeamId) {
+      setNonConformitiesByTeam(null);
+      setNonConformitiesByTeamError(null);
+      return;
+    }
+
+    const loadNonConformitiesByTeam = async () => {
+      setNonConformitiesByTeamLoading(true);
+      setNonConformitiesByTeamError(null);
+      try {
+        const response = await appRepository.getDashboardNonConformitiesByTeam({
+          from: globalPeriod.from,
+          to: globalPeriod.to,
+          teamId: nonConformitiesTeamId,
+          contractId: selectedContractId || undefined,
+          limit: 5,
+        });
+        setNonConformitiesByTeam(response);
+      } catch {
+        setNonConformitiesByTeam(null);
+        setNonConformitiesByTeamError("Falha ao carregar o top de não conformidades da equipe.");
+      } finally {
+        setNonConformitiesByTeamLoading(false);
+      }
+    };
+
+    void loadNonConformitiesByTeam();
+  }, [canAccessAnalytics, globalPeriod, nonConformitiesTeamId, selectedContractId]);
 
   const chartMonths = useMemo(
     () =>
@@ -544,22 +441,12 @@ export function AnalyticsPage(): JSX.Element {
     [qualityByService]
   );
 
-  const currentMonthBarMax = useMemo(
-    () => Math.max(...(currentMonthByService?.services.map((item) => item.qualityPercent) || [0]), 100),
-    [currentMonthByService]
-  );
-
   const currentMonthLabel = useMemo(() => {
     if (!currentMonthByService?.month) return "";
     return formatMonthYearLabel(currentMonthByService.month);
   }, [currentMonthByService]);
 
-  const growthTitle = useMemo(() => {
-    if (chartMonths.length < 2) return "CRESCIMENTO MENSAL";
-    const prev = chartMonths[chartMonths.length - 2].label;
-    const last = chartMonths[chartMonths.length - 1].label;
-    return `CRESCIMENTO ${prev} - ${last}`;
-  }, [chartMonths]);
+  const growthTitle = "CRESCIMENTO (MÊS ANTERIOR VS MÊS VIGENTE)";
 
   const teamPerformanceRows = useMemo(() => {
     if (!teamPerformanceByTeams) return [];
@@ -583,7 +470,9 @@ export function AnalyticsPage(): JSX.Element {
           ? a.fieldPercent
           : rankingOrderBy === "remote"
             ? a.remotePercent
-            : a.postWorkPercent;
+            : rankingOrderBy === "postWork"
+              ? a.postWorkPercent
+              : a.investmentWorksPercent;
       const bValue =
         rankingOrderBy === "average"
           ? b.averagePercent
@@ -591,7 +480,9 @@ export function AnalyticsPage(): JSX.Element {
           ? b.fieldPercent
           : rankingOrderBy === "remote"
             ? b.remotePercent
-            : b.postWorkPercent;
+            : rankingOrderBy === "postWork"
+              ? b.postWorkPercent
+              : b.investmentWorksPercent;
       return rankingOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
   }, [teamRankingQuality, rankingOrder, rankingOrderBy]);
@@ -613,8 +504,8 @@ export function AnalyticsPage(): JSX.Element {
     setRankingInspectionsError(null);
     try {
       const response = await appRepository.getDashboardTeamRankingInspections(teamId, {
-        from: qualityRange.from,
-        to: qualityRange.to,
+        from: globalPeriod.from,
+        to: globalPeriod.to,
         metric,
         page,
         limit,
@@ -643,6 +534,11 @@ export function AnalyticsPage(): JSX.Element {
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
   }
+
+  const handleClearFilters = () => {
+    setSelectedContractId("");
+    setGlobalPeriod(getInitialGlobalPeriod());
+  };
 
   return (
     <Box>
@@ -673,6 +569,50 @@ export function AnalyticsPage(): JSX.Element {
               </Select>
             </FormControl>
           </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Período inicial"
+              value={globalPeriod.from}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ max: globalPeriod.to }}
+              onChange={(event) => {
+                const from = event.target.value;
+                setGlobalPeriod((prev) => ({
+                  from,
+                  to: from > prev.to ? from : prev.to,
+                }));
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Período final"
+              value={globalPeriod.to}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ min: globalPeriod.from }}
+              onChange={(event) => {
+                const to = event.target.value;
+                setGlobalPeriod((prev) => ({
+                  to,
+                  from: to < prev.from ? to : prev.from,
+                }));
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2} display="flex" alignItems="stretch">
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={handleClearFilters}
+            >
+              Limpar filtros
+            </Button>
+          </Grid>
         </Grid>
       </Paper>
 
@@ -689,668 +629,95 @@ export function AnalyticsPage(): JSX.Element {
       )}
 
       {!loading && !error && qualityByService && currentMonthByService && (
-      <Box sx={{ minWidth: 1180 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
-              <Box sx={CHART_HEADER_SX}>
-                <Typography variant="h6" fontWeight={800}>
-                  Desempenho Mensal de Qualidade
-                </Typography>
-                <Typography variant="subtitle1" fontWeight={700}>
-                  
-                </Typography>
-              </Box>
+        <Box sx={{ minWidth: 1180 }}>
+          {qualitySummaryFromApi && (
+            <QualityKpiStrip qualitySummary={qualitySummaryFromApi} />
+          )}
 
-              <Box sx={{ px: 2.5, pt: 2, pb: 2 }}>
-                <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 2, flexWrap: "wrap" }}>
-                  {chartMonths.map((month) => (
-                    <Box key={month.key} sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
-                      <Box sx={{ width: 10, height: 10, bgcolor: month.color, borderRadius: 0.5 }} />
-                      <Typography variant="caption" fontWeight={700}>
-                        {month.label}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
+          <Paper sx={{ mb: 3 }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, nextTab) => setActiveTab(nextTab)}
+              variant="scrollable"
+              scrollButtons="auto"
+            >
+              <Tab label="Visão Geral" />
+              <Tab label="Serviços" />
+              <Tab label="Equipes" />
+              <Tab label="Ranking" />
+              <Tab label="Não conformidades" />
+            </Tabs>
+          </Paper>
 
-                <Box sx={{ height: 290, display: "flex", alignItems: "flex-end", gap: 2, pb: 1 }}>
-                  {qualityByService.services.map((item) => (
-                    <Box key={item.serviceKey} sx={{ minWidth: 92, flex: 1 }}>
-                      <Box sx={{ height: 240, display: "flex", alignItems: "flex-end", gap: 0.6, mb: 1 }}>
-                        {chartMonths.map((month, index) => {
-                          const point = item.series.find((seriesItem) => seriesItem.month === month.key);
-                          const value = point?.qualityPercent ?? 0;
-                          return (
-                            <Box
-                              key={`${item.serviceKey}-${month.key}`}
-                              sx={{
-                                flex: 1,
-                                height: `${(value / qualityChartMax) * 100}%`,
-                                bgcolor: month.color,
-                                borderRadius: "4px 4px 0 0",
-                                position: "relative",
-                              }}
-                            >
-                              {index === chartMonths.length - 1 && (
-                                <Typography
-                                  variant="caption"
-                                  fontWeight={700}
-                                  sx={{
-                                    position: "absolute",
-                                    top: -20,
-                                    left: "50%",
-                                    transform: "translateX(-50%)",
-                                    color: "#2e7d32",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {value.toFixed(2).replace(".", ",")}%
-                                </Typography>
-                              )}
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                      <Typography variant="caption" fontWeight={700} display="block" align="center">
-                        {item.serviceLabel}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
+          {activeTab === 0 && (
+            <QualityOverviewTab
+              qualityByService={qualityByService}
+              chartMonths={chartMonths}
+              qualityChartMax={qualityChartMax}
+              growthTitle={growthTitle}
+            />
+          )}
 
-              <Box sx={{ px: 2.5, py: 1.8, borderTop: "1px solid #e2e8f0" }}>
-                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
-                  {growthTitle}
-                </Typography>
-                <Box sx={{ display: "flex", gap: 1.5, pb: 0.5 }}>
-                  {qualityByService.services.map((item) => (
-                    <Box key={`growth-${item.serviceKey}`} sx={{ minWidth: 110, flex: 1, textAlign: "center" }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {item.serviceLabel}
-                      </Typography>
-                      <Typography variant="body2" fontWeight={800}>
-                        {item.growth ? `${item.growth.growthPercent >= 0 ? "+" : ""}${item.growth.growthPercent.toFixed(2).replace(".", ",")}%` : "-"}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            </Paper>
-          </Grid>
+          {activeTab === 1 && (
+            <QualityServicesTab
+              qualityByService={qualityByService}
+              currentMonthByService={currentMonthByService}
+              currentMonthLabel={currentMonthLabel}
+            />
+          )}
 
-          <Grid item xs={12}>
-            <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
-              <Box sx={CHART_HEADER_SX}>
-                <Typography variant="subtitle1" fontWeight={800}>
-                  Desempenho Mensal por Serviço
-                </Typography>
-                <Typography variant="subtitle2" fontWeight={700}>
-                  {currentMonthLabel}
-                </Typography>
-              </Box>
+          {activeTab === 2 && (
+            <QualityTeamsTab
+              teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+              teamPerformanceFilters={teamPerformanceFilters}
+              setTeamPerformanceFilters={setTeamPerformanceFilters}
+              globalPeriod={globalPeriod}
+              onSearchTeamPerformance={handleSearchTeamPerformance}
+              teamPerformanceLoading={teamPerformanceLoading}
+              teamPerformanceError={teamPerformanceError}
+              teamPerformanceByTeams={teamPerformanceByTeams}
+              teamPerformanceRows={teamPerformanceRows}
+              teamPerformanceBarMax={teamPerformanceBarMax}
+              clearTeamSelection={() => {
+                setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
+                setTeamPerformanceByTeams(null);
+                setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+              }}
+            />
+          )}
 
-              <Box sx={{ px: 1.5, py: 1.5, bgcolor: "#f7f8fa" }}>
-                <Box sx={{ display: "flex", gap: 1.5 }}>
-                  <Box
-                    sx={{
-                      width: 132,
-                      bgcolor: "#001970",
-                      color: "#fff",
-                      borderRadius: 1,
-                      overflow: "hidden",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Box sx={{ px: 1.2, py: 1.25, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Média Geral
-                      </Typography>
-                      <Typography variant="h5" fontWeight={900}>
-                        {currentMonthByService.summary.averagePercent.toFixed(1).replace(".", ",")}%
-                      </Typography>
-                    </Box>
-                    <Box sx={{ px: 1.2, py: 1.25, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Serviços Avaliados
-                      </Typography>
-                      <Typography variant="h5" fontWeight={900}>
-                        {currentMonthByService.summary.inspectionsCount.toLocaleString("pt-BR")}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ px: 1.2, py: 1.25 }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Pendentes de Ajuste
-                      </Typography>
-                      <Typography variant="h5" fontWeight={900}>
-                        {currentMonthByService.summary.pendingAdjustmentsCount.toLocaleString("pt-BR")}
-                      </Typography>
-                    </Box>
-                  </Box>
+          {activeTab === 3 && (
+            <QualityRankingTab
+              teamRankingQuality={teamRankingQuality}
+              rankingOrderBy={rankingOrderBy}
+              rankingOrder={rankingOrder}
+              setRankingOrderBy={setRankingOrderBy}
+              setRankingOrder={setRankingOrder}
+              sortedTeamRankingQuality={sortedTeamRankingQuality}
+              rankingInspectionsOpen={rankingInspectionsOpen}
+              setRankingInspectionsOpen={setRankingInspectionsOpen}
+              rankingInspectionsLoading={rankingInspectionsLoading}
+              rankingInspectionsError={rankingInspectionsError}
+              rankingInspectionsItems={rankingInspectionsItems}
+              rankingInspectionsMeta={rankingInspectionsMeta}
+              openRankingInspections={openRankingInspections}
+              formatDateTime={formatDateTime}
+              setRankingInspectionsMeta={setRankingInspectionsMeta}
+            />
+          )}
 
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ height: 248, display: "flex", alignItems: "flex-end", gap: 1.1 }}>
-                      {currentMonthByService.services.map((item) => (
-                        <Box key={item.serviceKey} sx={{ flex: 1, minWidth: 56 }}>
-                          <Box sx={{ height: 210, display: "flex", alignItems: "flex-end" }}>
-                            <Box
-                              sx={{
-                                width: "100%",
-                                height: `${(item.qualityPercent / currentMonthBarMax) * 100}%`,
-                                bgcolor: "#0b158a",
-                                borderRadius: "4px 4px 0 0",
-                                position: "relative",
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                fontWeight={800}
-                                sx={{
-                                  position: "absolute",
-                                  top: -20,
-                                  left: "50%",
-                                  transform: "translateX(-50%)",
-                                  color: "#0f172a",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {item.qualityPercent.toFixed(1).replace(".", ",")}%
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Typography
-                            variant="caption"
-                            display="block"
-                            align="center"
-                            fontWeight={800}
-                            sx={{ mt: 0.5, lineHeight: 1.1 }}
-                          >
-                            {item.serviceLabel}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                </Box>
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-
-        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
-          <Box sx={CHART_HEADER_SX}>
-            <Typography variant="h6" fontWeight={800}>
-              Desempenho por Equipe (Multi-equipes)
-            </Typography>
-          </Box>
-
-          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Data inicial"
-                  value={teamPerformanceFilters.from}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ max: teamPerformanceFilters.to }}
-                  onChange={(event) => {
-                    const from = event.target.value;
-                    setTeamPerformanceFilters((prev) => ({
-                      ...prev,
-                      from,
-                      to: from > prev.to ? from : prev.to,
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  label="Data final"
-                  value={teamPerformanceFilters.to}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: teamPerformanceFilters.from }}
-                  onChange={(event) => {
-                    const to = event.target.value;
-                    setTeamPerformanceFilters((prev) => ({
-                      ...prev,
-                      to,
-                      from: to < prev.from ? to : prev.from,
-                    }));
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <Autocomplete
-                  multiple
-                  disableCloseOnSelect
-                  options={teamOptions}
-                  value={teamOptions.filter((team) => teamPerformanceFilters.teamIds.includes(team.id))}
-                  onChange={(_, selectedTeams) => {
-                    setTeamPerformanceFilters((prev) => ({
-                      ...prev,
-                      teamIds: selectedTeams.map((team) => team.id),
-                    }));
-                  }}
-                  getOptionLabel={(option) => option.name}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Equipes"
-                      placeholder={teamOptions.length === 0 ? "Sem equipes ativas" : "Selecione as equipes"}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12} md={2} display="flex" alignItems="stretch">
-                <Button
-                  variant="contained"
-                  onClick={handleSearchTeamPerformance}
-                  disabled={
-                    teamPerformanceLoading ||
-                    teamPerformanceFilters.from === "" ||
-                    teamPerformanceFilters.to === "" ||
-                    teamPerformanceFilters.teamIds.length === 0
-                  }
-                  sx={{ width: "100%", fontWeight: 700 }}
-                >
-                  Buscar
-                </Button>
-              </Grid>
-            </Grid>
-
-            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => {
-                  setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
-                  setTeamPerformanceByTeams(null);
-                  setUsingFakeTeamPerformance(false);
-                  setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
-                }}
-                disabled={teamPerformanceFilters.teamIds.length === 0 || teamPerformanceLoading}
-              >
-                Limpar equipes
-              </Button>
-            </Box>
-
-            {usingFakeTeamPerformance && (
-              <Paper sx={{ p: 1.5, mb: 2, bgcolor: "#fff8e1", border: "1px solid #ffe082" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Dados fake em uso para este gráfico porque a rota ainda não está disponível no backend.
-                </Typography>
-              </Paper>
-            )}
-
-            {teamPerformanceError && (
-              <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
-                <Typography variant="body2" color="error.contrastText">
-                  {teamPerformanceError}
-                </Typography>
-              </Paper>
-            )}
-
-            {teamPerformanceLoading && (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                <CircularProgress size={28} />
-              </Box>
-            )}
-
-            {!teamPerformanceLoading && teamPerformanceByTeams && (
-              <Paper sx={{ p: 0, overflow: "hidden", border: "1px solid #dbe1ea" }}>
-                <Box sx={{ display: "flex", bgcolor: "#f6f8fb" }}>
-                  <Box
-                    sx={{
-                      width: 210,
-                      bgcolor: "#001970",
-                      color: "#fff",
-                      borderRight: "1px solid rgba(255,255,255,0.2)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Box sx={{ px: 2, py: 1.6, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Média Geral
-                      </Typography>
-                      <Typography variant="h4" fontWeight={900}>
-                        {teamPerformanceByTeams.summary.averagePercent.toFixed(1).replace(".", ",")}%
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: "#ff8a80" }}>
-                        Anterior: {teamPerformanceByTeams.summary.previousAveragePercent.toFixed(1).replace(".", ",")}%
-                      </Typography>
-                    </Box>
-                    <Box sx={{ px: 2, py: 1.6, borderBottom: "1px dashed rgba(255,255,255,0.35)" }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Serviços Avaliados
-                      </Typography>
-                      <Typography variant="h4" fontWeight={900}>
-                        {teamPerformanceByTeams.summary.inspectionsCount.toLocaleString("pt-BR")}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ px: 2, py: 1.6 }}>
-                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                        Pendentes de Ajuste
-                      </Typography>
-                      <Typography variant="h4" fontWeight={900}>
-                        {teamPerformanceByTeams.summary.pendingAdjustmentsCount.toLocaleString("pt-BR")}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ flex: 1, px: 2, py: 1.5 }}>
-                    {teamPerformanceRows.length === 0 ? (
-                      <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-                        <Typography color="text.secondary">
-                          Nenhuma equipe com dados no período selecionado.
-                        </Typography>
-                      </Paper>
-                    ) : (
-                      <Stack spacing={1.1}>
-                        {teamPerformanceRows.map((row) => (
-                          <Box key={row.teamId} sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                            <Typography
-                              variant="caption"
-                              fontWeight={700}
-                              sx={{
-                                width: 210,
-                                textTransform: "uppercase",
-                                lineHeight: 1.1,
-                              }}
-                            >
-                              {row.teamName}
-                            </Typography>
-
-                            <Box sx={{ flex: 1, height: 28, bgcolor: "#e2e8f0", borderRadius: 1, overflow: "hidden" }}>
-                              <Box
-                                sx={{
-                                  width: `${(row.averagePercent / teamPerformanceBarMax) * 100}%`,
-                                  bgcolor: "#030a79",
-                                  height: "100%",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "flex-end",
-                                  px: 1,
-                                }}
-                              >
-                                <Typography variant="caption" fontWeight={800} sx={{ color: "#fff" }}>
-                                  {row.averagePercent.toFixed(1).replace(".", ",")}%
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </Box>
-                        ))}
-                      </Stack>
-                    )}
-                  </Box>
-                </Box>
-
-                <Box sx={{ px: 2, py: 1.4, bgcolor: "#001970", color: "#fff" }}>
-                  <Stack direction="row" spacing={3} useFlexGap flexWrap="wrap">
-                    {teamPerformanceRows.map((row) => (
-                      <Box key={`${row.teamId}-inspections`} sx={{ minWidth: 118 }}>
-                        <Typography variant="caption" fontWeight={700}>
-                          {row.teamName.toUpperCase()}
-                        </Typography>
-                        <Typography variant="subtitle1" fontWeight={800}>
-                          {row.inspectionsCount}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-              </Paper>
-            )}
-          </Box>
-        </Paper>
-
-        <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
-          <Box sx={CHART_HEADER_SX}>
-            <Typography variant="h6" fontWeight={800}>
-              Ranking por Equipes - Qualidade
-            </Typography>
-          </Box>
-
-          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-            {teamRankingQuality.length === 0 ? (
-              <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-                <Typography color="text.secondary">
-                  Nenhum dado de ranking encontrado para o período selecionado.
-                </Typography>
-              </Paper>
-            ) : (
-              <Paper sx={{ overflow: "hidden", border: "1px solid #e2e8f0" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Equipe</TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={rankingOrderBy === "average"}
-                          direction={rankingOrderBy === "average" ? rankingOrder : "desc"}
-                          onClick={() => {
-                            if (rankingOrderBy === "average") {
-                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-                            } else {
-                              setRankingOrderBy("average");
-                              setRankingOrder("desc");
-                            }
-                          }}
-                        >
-                          Média
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={rankingOrderBy === "field"}
-                          direction={rankingOrderBy === "field" ? rankingOrder : "desc"}
-                          onClick={() => {
-                            if (rankingOrderBy === "field") {
-                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-                            } else {
-                              setRankingOrderBy("field");
-                              setRankingOrder("desc");
-                            }
-                          }}
-                        >
-                          Campo
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={rankingOrderBy === "remote"}
-                          direction={rankingOrderBy === "remote" ? rankingOrder : "desc"}
-                          onClick={() => {
-                            if (rankingOrderBy === "remote") {
-                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-                            } else {
-                              setRankingOrderBy("remote");
-                              setRankingOrder("desc");
-                            }
-                          }}
-                        >
-                          Remoto
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">
-                        <TableSortLabel
-                          active={rankingOrderBy === "postWork"}
-                          direction={rankingOrderBy === "postWork" ? rankingOrder : "desc"}
-                          onClick={() => {
-                            if (rankingOrderBy === "postWork") {
-                              setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-                            } else {
-                              setRankingOrderBy("postWork");
-                              setRankingOrder("desc");
-                            }
-                          }}
-                        >
-                          Pós-obra
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center">Pendentes</TableCell>
-                      <TableCell align="center">Qtd Vistorias</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {sortedTeamRankingQuality.map((team) => (
-                      <TableRow key={team.teamId} hover>
-                        <TableCell>{team.teamName}</TableCell>
-                        <TableCell align="center">
-                          <PercentBadge percent={team.averagePercent} size="small" />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Ver vistorias da métrica">
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() =>
-                                void openRankingInspections(team.teamId, team.teamName, "field")
-                              }
-                            >
-                              <PercentBadge percent={team.fieldPercent} size="small" />
-                            </Button>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Ver vistorias da métrica">
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() =>
-                                void openRankingInspections(team.teamId, team.teamName, "remote")
-                              }
-                            >
-                              <PercentBadge percent={team.remotePercent} size="small" />
-                            </Button>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Ver vistorias da métrica">
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() =>
-                                void openRankingInspections(team.teamId, team.teamName, "postWork")
-                              }
-                            >
-                              <PercentBadge percent={team.postWorkPercent} size="small" />
-                            </Button>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell align="center">{team.pendingCount}</TableCell>
-                        <TableCell align="center">{team.inspectionsCount}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Paper>
-            )}
-          </Box>
-        </Paper>
-
-        <Dialog
-          open={rankingInspectionsOpen}
-          onClose={() => setRankingInspectionsOpen(false)}
-          maxWidth="lg"
-          fullWidth
-        >
-          <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            {rankingInspectionsMeta.teamName
-              ? `Equipe: ${rankingInspectionsMeta.teamName}`
-              : "Vistorias da métrica"}
-            <IconButton onClick={() => setRankingInspectionsOpen(false)} size="small" aria-label="Fechar">
-              <Close />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent>
-            {rankingInspectionsLoading && (
-              <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress />
-              </Box>
-            )}
-            {rankingInspectionsError && !rankingInspectionsLoading && (
-              <Typography color="text.secondary" sx={{ py: 2 }}>
-                {rankingInspectionsError}
-              </Typography>
-            )}
-            {!rankingInspectionsLoading && !rankingInspectionsError && (
-              <>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>OS</TableCell>
-                      <TableCell>Endereço</TableCell>
-                      <TableCell>Módulo</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell align="center">Nota</TableCell>
-                      <TableCell>Finalizada em</TableCell>
-                      <TableCell>Criada em</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rankingInspectionsItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          <Typography color="text.secondary" sx={{ py: 2 }}>
-                            Nenhuma vistoria encontrada para os filtros selecionados.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rankingInspectionsItems.map((inspection) => (
-                        <TableRow key={inspection.inspectionId}>
-                          <TableCell>{inspection.serviceOrderNumber || "-"}</TableCell>
-                          <TableCell>{inspection.serviceOrderAddress || "-"}</TableCell>
-                          <TableCell>{inspection.module}</TableCell>
-                          <TableCell>{inspection.status}</TableCell>
-                          <TableCell align="center">
-                            <PercentBadge percent={inspection.scorePercent} size="small" />
-                          </TableCell>
-                          <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
-                          <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-                {rankingInspectionsMeta.total > 0 && (
-                  <ListPagination
-                    meta={rankingInspectionsMeta}
-                    onPageChange={(page) =>
-                      void openRankingInspections(
-                        rankingInspectionsMeta.teamId,
-                        rankingInspectionsMeta.teamName,
-                        rankingInspectionsMeta.metric,
-                        page
-                      )
-                    }
-                    onRowsPerPageChange={(newLimit) => {
-                      setRankingInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-                      void openRankingInspections(
-                        rankingInspectionsMeta.teamId,
-                        rankingInspectionsMeta.teamName,
-                        rankingInspectionsMeta.metric,
-                        1,
-                        newLimit
-                      );
-                    }}
-                    rowsPerPageOptions={[10, 20, 50, 100]}
-                    disabled={rankingInspectionsLoading}
-                  />
-                )}
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-
-      </Box>
+          {activeTab === 4 && (
+            <QualityNonConformitiesTab
+              byChecklist={nonConformitiesByChecklist}
+              byTeam={nonConformitiesByTeam}
+              teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+              selectedTeamId={nonConformitiesTeamId}
+              onSelectedTeamIdChange={setNonConformitiesTeamId}
+              byTeamLoading={nonConformitiesByTeamLoading}
+              byTeamError={nonConformitiesByTeamError}
+            />
+          )}
+        </Box>
       )}
     </Box>
   );

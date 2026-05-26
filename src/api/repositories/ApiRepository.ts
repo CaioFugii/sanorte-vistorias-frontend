@@ -46,7 +46,13 @@ export interface InvestmentWorksParams {
   active?: boolean;
 }
 
-export type DashboardTeamRankingMetric = "average" | "postWork" | "remote" | "field" | "safetyWork";
+export type DashboardTeamRankingMetric =
+  | "average"
+  | "postWork"
+  | "remote"
+  | "field"
+  | "investmentWorks"
+  | "safetyWork";
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";
 
@@ -716,6 +722,60 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardQualitySummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    field: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    postWork: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    remote: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    investmentWorks: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+  }> {
+    const response = await apiClient.get<{
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingCount: number;
+      field: {
+        inspectionsCount: number;
+        averagePercent: number;
+      };
+      postWork: {
+        inspectionsCount: number;
+        averagePercent: number;
+      };
+      remote: {
+        inspectionsCount: number;
+        averagePercent: number;
+      };
+      investmentWorks: {
+        inspectionsCount: number;
+        averagePercent: number;
+      };
+    }>(
+      "/dashboards/quality/summary",
+      { params }
+    );
+    return response.data;
+  }
+
   async getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;
@@ -730,6 +790,7 @@ export class ApiRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
+        investmentWorksPercent: number;
       pendingCount: number;
     }>
   > {
@@ -742,6 +803,7 @@ export class ApiRepository {
         postWorkPercent: number;
         remotePercent: number;
         fieldPercent: number;
+        investmentWorksPercent: number;
         pendingCount: number;
       }>
     >("/dashboards/ranking/teams", { params });
@@ -832,6 +894,70 @@ export class ApiRepository {
       }>;
     }>(`/dashboards/ranking/teams/${teamId}/inspections`, { params });
     return response.data;
+  }
+
+  async getDashboardSafetyWorkTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      serviceOrderAddress: string | null;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      teamId: string;
+      teamName: string;
+      metric?: DashboardTeamRankingMetric;
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+      inspections: Array<{
+        inspectionId: string;
+        serviceOrderId: string;
+        serviceOrderNumber: string;
+        serviceOrderAddress: string | null;
+        module: ModuleType;
+        status: InspectionStatus;
+        scorePercent: number;
+        finishedAt: string | null;
+        createdAt: string;
+      }>;
+    }>(`/dashboards/safety-work/ranking/teams/${teamId}/inspections`, { params });
+
+    return {
+      ...response.data,
+      metric: response.data.metric ?? "safetyWork",
+    };
   }
 
   async getDashboardTeam(

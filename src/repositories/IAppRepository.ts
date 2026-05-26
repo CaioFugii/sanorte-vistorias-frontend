@@ -258,6 +258,33 @@ export interface IAppRepository {
     teamId?: string;
     contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>;
+  getDashboardQualitySummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    field: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    postWork: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    remote: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    investmentWorks: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+  }>;
   getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;
@@ -272,6 +299,7 @@ export interface IAppRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
+      investmentWorksPercent: number;
       pendingCount: number;
     }>
   >;
@@ -294,6 +322,39 @@ export interface IAppRepository {
       from: string;
       to: string;
       metric?: DashboardTeamRankingMetric;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      serviceOrderAddress: string | null;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }>;
+  getDashboardSafetyWorkTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
       page?: number;
       limit?: number;
       contractId?: string;

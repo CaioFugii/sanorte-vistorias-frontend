@@ -21,35 +21,9 @@ import { ModuleType } from '@/domain/enums';
 import { ModuleSelect } from '@/components/ModuleSelect';
 import { useAuthStore } from '@/stores/authStore';
 import { Contract, Team, UserRole } from '@/domain';
-import { KpiCard, PageHeader, SectionTable } from '@/components/ui';
-
-type NonConformityQuestionItem = {
-  checklistItemId: string;
-  checklistItemTitle: string;
-  nonConformitiesCount: number;
-  answersCount: number;
-  nonConformityRatePercent: number;
-};
-
-type NonConformityChecklist = {
-  checklistId: string;
-  checklistName: string;
-  totalNonConformities: number;
-  questions: NonConformityQuestionItem[];
-};
-
-type NonConformityByTeamItem = {
-  checklistItemId: string;
-  checklistItemTitle: string;
-  nonConformitiesCount: number;
-  answersCount: number;
-  nonConformityRatePercent: number;
-  checklistsCount: number;
-};
+import { KpiCard, PageHeader } from '@/components/ui';
 
 const MIN_TEAM_SEARCH_LENGTH = 4;
-const NON_CONFORMITIES_LIMIT_PER_CHECKLIST = 3;
-const NON_CONFORMITIES_LIMIT_BY_TEAM = 5;
 
 function getDefaultDateRange(): { from: string; to: string } {
   const to = new Date();
@@ -59,6 +33,12 @@ function getDefaultDateRange(): { from: string; to: string } {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
   };
+}
+
+function teamMatchesContract(team: Team, contractId?: string): boolean {
+  if (!contractId) return true;
+  if (team.contractIds?.includes(contractId)) return true;
+  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
 }
 
 export const DashboardPage = (): JSX.Element => {
@@ -82,8 +62,6 @@ export const DashboardPage = (): JSX.Element => {
     contractId: undefined,
   }));
   const [summary, setSummary] = useState({ averagePercent: 0, inspectionsCount: 0, pendingCount: 0 });
-  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<NonConformityChecklist[]>([]);
-  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformityByTeamItem[]>([]);
   const [teamFilterSearchInput, setTeamFilterSearchInput] = useState('');
   const [selectedSummaryTeam, setSelectedSummaryTeam] = useState<Team | null>(null);
   const [teamFilterOptions, setTeamFilterOptions] = useState<Team[]>([]);
@@ -158,14 +136,16 @@ export const DashboardPage = (): JSX.Element => {
       try {
         const result = await appRepository.getTeams({
           page: 1,
-          limit: 20,
+          limit: 100,
           name: trimmed,
-          contractId: filters.contractId,
         });
+        const filteredByContract = result.data.filter((team) =>
+          teamMatchesContract(team, filters.contractId)
+        );
         if (requestId !== teamFilterRequestRef.current) return;
         const selectedOptions = selectedSummaryTeam ? [selectedSummaryTeam] : [];
         setTeamFilterOptions(
-          [...selectedOptions, ...result.data].filter(
+          [...selectedOptions, ...filteredByContract].filter(
             (team, index, all) => all.findIndex((existing) => existing.id === team.id) === index
           )
         );
@@ -193,30 +173,8 @@ export const DashboardPage = (): JSX.Element => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryData, nonConformitiesData] = await Promise.all([
-        appRepository.getDashboardSummary(effectiveFilters),
-        appRepository.getDashboardNonConformitiesByChecklist({
-          from: effectiveFilters.from,
-          to: effectiveFilters.to,
-          module: effectiveFilters.module,
-          teamId: effectiveFilters.teamId,
-          contractId: effectiveFilters.contractId,
-          limitPerChecklist: NON_CONFORMITIES_LIMIT_PER_CHECKLIST,
-        }),
-      ]);
-      const teamNonConformitiesData = effectiveFilters.teamId
-        ? await appRepository.getDashboardNonConformitiesByTeam({
-            from: effectiveFilters.from,
-            to: effectiveFilters.to,
-            teamId: effectiveFilters.teamId,
-            module: effectiveFilters.module,
-            contractId: effectiveFilters.contractId,
-            limit: NON_CONFORMITIES_LIMIT_BY_TEAM,
-          })
-        : null;
+      const summaryData = await appRepository.getDashboardSummary(effectiveFilters);
       setSummary(summaryData);
-      setNonConformitiesByChecklist(nonConformitiesData.checklists);
-      setNonConformitiesByTeam(teamNonConformitiesData?.nonConformities ?? []);
     } catch (err) {
       const message =
         (err as { response?: { status?: number } })?.response?.status === 403
@@ -239,7 +197,6 @@ export const DashboardPage = (): JSX.Element => {
     setSelectedSummaryTeam(null);
     setTeamFilterSearchInput('');
     setTeamFilterOptions([]);
-    setNonConformitiesByTeam([]);
     loadDashboardData(defaultRange);
   };
 
@@ -453,170 +410,6 @@ export const DashboardPage = (): JSX.Element => {
               />
             </Grid>
           </Grid>
-
-          <SectionTable
-            title={`Perguntas com mais NÃO CONFORMIDADES por checklist (TOP ${NON_CONFORMITIES_LIMIT_PER_CHECKLIST})`}
-          >
-            {nonConformitiesByChecklist.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                  Nenhuma não conformidade encontrada para os filtros selecionados.
-                </Typography>
-              </Box>
-            ) : (
-              <Grid container spacing={2}>
-                {nonConformitiesByChecklist.map((checklist) => {
-                  const maxCount = Math.max(...checklist.questions.map((question) => question.nonConformitiesCount), 1);
-                  return (
-                    <Grid item xs={12} lg={6} key={checklist.checklistId}>
-                      <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle1" fontWeight={700}>
-                            {checklist.checklistName}
-                          </Typography>
-                        </Box>
-
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-                          {checklist.questions.map((question) => {
-                            const widthPercent = Math.max((question.nonConformitiesCount / maxCount) * 100, 4);
-                            return (
-                              <Box key={question.checklistItemId}>
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'baseline',
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Typography
-                                    variant="body2"
-                                    title={question.checklistItemTitle}
-                                    sx={{
-                                      fontWeight: 500,
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {question.checklistItemTitle}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                                    {question.nonConformitiesCount} Não conformes ({question.nonConformityRatePercent}%)
-                                  </Typography>
-                                </Box>
-                                <Box
-                                  sx={{
-                                    mt: 0.6,
-                                    height: 8,
-                                    borderRadius: 99,
-                                    bgcolor: 'grey.200',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  <Box
-                                    sx={{
-                                      width: `${widthPercent}%`,
-                                      height: '100%',
-                                      bgcolor: 'error.main',
-                                      borderRadius: 99,
-                                    }}
-                                  />
-                                </Box>
-                                <Typography variant="caption" color="text.secondary">
-                                  {question.answersCount} respostas no período
-                                </Typography>
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      </Paper>
-                    </Grid>
-                  );
-                })}
-              </Grid>
-            )}
-          </SectionTable>
-
-          <SectionTable
-            title={`Top NÃO CONFORMIDADES da equipe selecionada (TOP ${NON_CONFORMITIES_LIMIT_BY_TEAM})`}
-          >
-            {!filters.teamId ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                  Selecione uma equipe no filtro para visualizar este gráfico.
-                </Typography>
-              </Box>
-            ) : nonConformitiesByTeam.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">
-                  Nenhuma não conformidade encontrada para a equipe e período selecionados.
-                </Typography>
-              </Box>
-            ) : (
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-                  {nonConformitiesByTeam.map((item) => {
-                    const maxCount = Math.max(
-                      ...nonConformitiesByTeam.map((question) => question.nonConformitiesCount),
-                      1
-                    );
-                    const widthPercent = Math.max((item.nonConformitiesCount / maxCount) * 100, 4);
-                    return (
-                      <Box key={item.checklistItemId}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'baseline',
-                            gap: 1,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            title={item.checklistItemTitle}
-                            sx={{
-                              fontWeight: 500,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {item.checklistItemTitle}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                            {item.nonConformitiesCount} Não conformes ({item.nonConformityRatePercent}%)
-                          </Typography>
-                        </Box>
-                        <Box
-                          sx={{
-                            mt: 0.6,
-                            height: 8,
-                            borderRadius: 99,
-                            bgcolor: 'grey.200',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: `${widthPercent}%`,
-                              height: '100%',
-                              bgcolor: 'warning.main',
-                              borderRadius: 99,
-                            }}
-                          />
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.answersCount} respostas no período em {item.checklistsCount} checklist
-                          {item.checklistsCount === 1 ? '' : 's'}
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Paper>
-            )}
-          </SectionTable>
         </>
       )}
 

@@ -202,10 +202,9 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setRankingInspectionsLoading(true);
     setRankingInspectionsError(null);
     try {
-      const response = await appRepository.getDashboardTeamRankingInspections(teamId, {
+      const response = await appRepository.getDashboardSafetyWorkTeamRankingInspections(teamId, {
         from: filters.from,
         to: filters.to,
-        metric: "safetyWork",
         page,
         limit,
         contractId: selectedContractId || undefined,

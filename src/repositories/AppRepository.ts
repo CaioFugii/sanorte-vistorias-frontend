@@ -492,6 +492,36 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardSummary(params);
   }
 
+  async getDashboardQualitySummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    field: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    postWork: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    remote: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+    investmentWorks: {
+      inspectionsCount: number;
+      averagePercent: number;
+    };
+  }> {
+    return this.apiRepository.getDashboardQualitySummary(params);
+  }
+
   async getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;
@@ -506,6 +536,7 @@ export class AppRepository implements IAppRepository {
       postWorkPercent: number;
       remotePercent: number;
       fieldPercent: number;
+      investmentWorksPercent: number;
       pendingCount: number;
     }>
   > {
@@ -563,6 +594,42 @@ export class AppRepository implements IAppRepository {
     }>;
   }> {
     return this.apiRepository.getDashboardTeamRankingInspections(teamId, params);
+  }
+
+  async getDashboardSafetyWorkTeamRankingInspections(
+    teamId: string,
+    params: {
+      from: string;
+      to: string;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    teamName: string;
+    metric: DashboardTeamRankingMetric;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      serviceOrderId: string;
+      serviceOrderNumber: string;
+      serviceOrderAddress: string | null;
+      module: ModuleType;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardSafetyWorkTeamRankingInspections(teamId, params);
   }
 
   async getDashboardTeam(
