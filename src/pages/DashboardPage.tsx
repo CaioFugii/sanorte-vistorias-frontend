@@ -13,7 +13,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Search, Clear, TrendingUp, Assignment, Warning } from '@mui/icons-material';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { appRepository } from '@/repositories/AppRepository';
 import { PercentBadge } from '@/components/PercentBadge';
