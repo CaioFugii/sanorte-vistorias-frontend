@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -23,6 +24,7 @@ import { appRepository } from "@/repositories/AppRepository";
 import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
+import { Team } from "@/domain";
 
 export const ManageInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
@@ -31,7 +33,7 @@ export const ManageInspectionPage = (): JSX.Element => {
   const fromState = (location.state as { from?: string } | null)?.from;
   const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
   const user = useAuthStore((state) => state.user);
-  const { loadCache, checklists } = useReferenceStore();
+  const { loadCache, checklists, teams } = useReferenceStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingEvidenceId, setDeletingEvidenceId] = useState<string | null>(null);
@@ -46,6 +48,8 @@ export const ManageInspectionPage = (): JSX.Element => {
   const [paralyzeLoading, setParalyzeLoading] = useState(false);
   const [unparalyzeDialogOpen, setUnparalyzeDialogOpen] = useState(false);
   const [unparalyzeLoading, setUnparalyzeLoading] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamSearchInput, setTeamSearchInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAllowed =
@@ -106,6 +110,31 @@ export const ManageInspectionPage = (): JSX.Element => {
 
   const evidences = useMemo<Evidence[]>(() => inspection?.evidences ?? [], [inspection]);
   const signature = useMemo<Signature | null>(() => inspection?.signatures?.[0] ?? null, [inspection]);
+  const teamRequired = inspection?.module !== "SEGURANCA_TRABALHO";
+  const currentTeamName = inspection?.team?.name ?? "Não definida";
+  const selectedTeamName = selectedTeam?.name ?? "Não definida";
+  const teamChanged = Boolean(
+    inspection &&
+      ((inspection.teamId && selectedTeam?.id && inspection.teamId !== selectedTeam.id) ||
+        (!inspection.teamId && selectedTeam?.id))
+  );
+  const teamOptions = useMemo(() => {
+    if (!inspection) return [];
+    const currentTeamId = inspection.teamId;
+    return teams.filter((team) => team.active || team.id === currentTeamId);
+  }, [inspection, teams]);
+
+  useEffect(() => {
+    if (!inspection) return;
+    if (!inspection.teamId) {
+      setSelectedTeam(null);
+      setTeamSearchInput("");
+      return;
+    }
+    const currentTeam = teamOptions.find((team) => team.id === inspection.teamId) ?? null;
+    setSelectedTeam(currentTeam);
+    setTeamSearchInput(currentTeam?.name ?? "");
+  }, [inspection, teamOptions]);
 
   if (loading) {
     return (
@@ -130,10 +159,14 @@ export const ManageInspectionPage = (): JSX.Element => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await appRepository.setInspectionItemsOnline(inspection.externalId, inspectionItems);
-      await appRepository.updateInspectionOnline(inspection.externalId, {
+      const updates: Partial<Inspection> = {
         updatedAt: new Date().toISOString(),
-      });
+      };
+      if (selectedTeam?.id && selectedTeam.id !== inspection.teamId) {
+        updates.teamId = selectedTeam.id;
+      }
+      await appRepository.setInspectionItemsOnline(inspection.externalId, inspectionItems);
+      await appRepository.updateInspectionOnline(inspection.externalId, updates);
       navigate(`/inspections/${inspection.externalId}`, {
         state: { from: detailBackTarget },
       });
@@ -301,6 +334,49 @@ export const ManageInspectionPage = (): JSX.Element => {
       </Box>
 
       <Paper sx={{ p: 2 }}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Equipe atual: <strong>{currentTeamName}</strong>
+          {teamChanged && (
+            <>
+              {" "}
+              | Nova equipe selecionada: <strong>{selectedTeamName}</strong>
+            </>
+          )}
+        </Alert>
+        <Box sx={{ mb: 2 }}>
+          <Autocomplete
+            options={teamOptions}
+            value={selectedTeam}
+            inputValue={teamSearchInput}
+            onChange={(_, value) => {
+              setSelectedTeam(value);
+              if (value) setTeamSearchInput(value.name);
+            }}
+            onInputChange={(_, value, reason) => {
+              setTeamSearchInput(value);
+              if (reason === "clear") {
+                setSelectedTeam(null);
+              }
+            }}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            filterOptions={(options, state) => {
+              const normalized = state.inputValue.trim().toLowerCase();
+              if (!normalized) return options;
+              return options.filter((team) => team.name.toLowerCase().includes(normalized));
+            }}
+            noOptionsText="Nenhuma equipe encontrada"
+            disabled={saving}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Equipe da vistoria"
+                required={teamRequired}
+                placeholder="Busque equipes pelo nome"
+              />
+            )}
+          />
+        </Box>
         <ChecklistRenderer
           checklist={checklist}
           inspectionItems={inspectionItems}
