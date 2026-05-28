@@ -8,6 +8,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Skeleton,
   Tab,
   Tabs,
   TextField,
@@ -27,6 +28,7 @@ import { QualityRankingTab } from "@/pages/analytics/components/QualityRankingTa
 import { QualityServicesTab } from "@/pages/analytics/components/QualityServicesTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import { TeamRankingInspectionItem, TeamRankingOrderBy } from "@/pages/analytics/components/models";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
@@ -45,6 +47,44 @@ const QUALITY_MODULES: ModuleType[] = [
   ModuleType.OBRAS_INVESTIMENTO,
 ];
 
+function QualityKpiStripSkeleton(): JSX.Element {
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Grid container spacing={2}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Grid key={`quality-kpi-main-skeleton-${index}`} item xs={12} sm={6} md={4}>
+            <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
+              <Skeleton variant="text" width="45%" height={18} />
+              <Skeleton variant="rounded" width={120} height={34} sx={{ mt: 1 }} />
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+      <Grid container spacing={2} sx={{ mt: 0.5 }}>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Grid key={`quality-kpi-module-skeleton-${index}`} item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+              <Skeleton variant="text" width="55%" height={16} />
+              <Skeleton variant="text" width="65%" height={24} sx={{ mt: 0.75 }} />
+              <Skeleton variant="rounded" width={96} height={22} />
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+}
+
+function AnalyticsTabSkeleton(): JSX.Element {
+  return (
+    <Paper sx={{ p: 2.5 }}>
+      <Skeleton variant="text" width="28%" height={28} />
+      <Skeleton variant="rounded" width="100%" height={180} sx={{ mt: 2 }} />
+      <Skeleton variant="rounded" width="100%" height={180} sx={{ mt: 2 }} />
+    </Paper>
+  );
+}
+
 function getDefaultQualityRange(): { from: string; to: string } {
   const to = new Date();
   const from = new Date(to.getFullYear(), to.getMonth() - 3, 1);
@@ -62,6 +102,20 @@ function getInitialGlobalPeriod(): { from: string; to: string } {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
   };
+}
+
+function formatDateLabel(value: string): string {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function formatMonthYearLabelPtBR(yyyyMM: string): string {
+  const [year, month] = yyyyMM.split("-").map(Number);
+  if (!year || !month) return yyyyMM;
+  const date = new Date(year, month - 1, 1);
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date).replace(".", "");
+  return `${monthLabel}/${year}`;
 }
 
 function getFixedQualityRange(): { from: string; to: string } {
@@ -539,6 +593,16 @@ export function AnalyticsPage(): JSX.Element {
     setSelectedContractId("");
     setGlobalPeriod(getInitialGlobalPeriod());
   };
+  const hasCoreAnalyticsData = Boolean(qualityByService && currentMonthByService);
+  const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
+  const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
+  const fixedQualityRange = getFixedQualityRange();
+  const fixedQualityRangeLabel = `${formatDateLabel(fixedQualityRange.from)} a ${formatDateLabel(
+    fixedQualityRange.to
+  )}`;
+  const currentMonthHintLabel = currentMonthByService?.month
+    ? formatMonthYearLabelPtBR(currentMonthByService.month)
+    : "";
 
   return (
     <Box>
@@ -616,9 +680,9 @@ export function AnalyticsPage(): JSX.Element {
         </Grid>
       </Paper>
 
-      {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
+      {loading && hasCoreAnalyticsData && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+          <CircularProgress size={20} />
         </Box>
       )}
 
@@ -628,10 +692,12 @@ export function AnalyticsPage(): JSX.Element {
         </Paper>
       )}
 
-      {!loading && !error && qualityByService && currentMonthByService && (
+      {(hasCoreAnalyticsData || loading) && (
         <Box sx={{ minWidth: 1180 }}>
-          {qualitySummaryFromApi && (
+          {qualitySummaryFromApi ? (
             <QualityKpiStrip qualitySummary={qualitySummaryFromApi} />
+          ) : (
+            <QualityKpiStripSkeleton />
           )}
 
           <Paper sx={{ mb: 3 }}>
@@ -649,73 +715,106 @@ export function AnalyticsPage(): JSX.Element {
             </Tabs>
           </Paper>
 
-          {activeTab === 0 && (
-            <QualityOverviewTab
-              qualityByService={qualityByService}
-              chartMonths={chartMonths}
-              qualityChartMax={qualityChartMax}
-              growthTitle={growthTitle}
-            />
-          )}
+          {hasCoreAnalyticsData ? (
+            <>
+              {activeTab === 0 && (
+                <QualityOverviewTab
+                  qualityByService={qualityByService!}
+                  chartMonths={chartMonths}
+                  qualityChartMax={qualityChartMax}
+                  growthTitle={growthTitle}
+                  dateFilterHint={
+                    <DateFilterHint
+                      label={fixedQualityRangeLabel}
+                      isFiltered
+                      textOverride={`Período fixo: ${fixedQualityRangeLabel}`}
+                    />
+                  }
+                />
+              )}
 
-          {activeTab === 1 && (
-            <QualityServicesTab
-              qualityByService={qualityByService}
-              currentMonthByService={currentMonthByService}
-              currentMonthLabel={currentMonthLabel}
-            />
-          )}
+              {activeTab === 1 && (
+                <QualityServicesTab
+                  qualityByService={qualityByService!}
+                  currentMonthByService={currentMonthByService!}
+                  currentMonthLabel={currentMonthLabel}
+                  dateFilterHint={
+                    <DateFilterHint
+                      label={currentMonthHintLabel}
+                      isFiltered={Boolean(currentMonthHintLabel)}
+                      textOverride={
+                        currentMonthHintLabel
+                          ? `Referência: ${currentMonthHintLabel}`
+                          : "Referência: mês atual"
+                      }
+                    />
+                  }
+                />
+              )}
 
-          {activeTab === 2 && (
-            <QualityTeamsTab
-              teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
-              teamPerformanceFilters={teamPerformanceFilters}
-              setTeamPerformanceFilters={setTeamPerformanceFilters}
-              globalPeriod={globalPeriod}
-              onSearchTeamPerformance={handleSearchTeamPerformance}
-              teamPerformanceLoading={teamPerformanceLoading}
-              teamPerformanceError={teamPerformanceError}
-              teamPerformanceByTeams={teamPerformanceByTeams}
-              teamPerformanceRows={teamPerformanceRows}
-              teamPerformanceBarMax={teamPerformanceBarMax}
-              clearTeamSelection={() => {
-                setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
-                setTeamPerformanceByTeams(null);
-                setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
-              }}
-            />
-          )}
+              {activeTab === 2 && (
+                <QualityTeamsTab
+                  teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+                  teamPerformanceFilters={teamPerformanceFilters}
+                  setTeamPerformanceFilters={setTeamPerformanceFilters}
+                  globalPeriod={globalPeriod}
+                  onSearchTeamPerformance={handleSearchTeamPerformance}
+                  teamPerformanceLoading={teamPerformanceLoading}
+                  teamPerformanceError={teamPerformanceError}
+                  teamPerformanceByTeams={teamPerformanceByTeams}
+                  teamPerformanceRows={teamPerformanceRows}
+                  teamPerformanceBarMax={teamPerformanceBarMax}
+                  clearTeamSelection={() => {
+                    setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
+                    setTeamPerformanceByTeams(null);
+                    setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+                  }}
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
 
-          {activeTab === 3 && (
-            <QualityRankingTab
-              teamRankingQuality={teamRankingQuality}
-              rankingOrderBy={rankingOrderBy}
-              rankingOrder={rankingOrder}
-              setRankingOrderBy={setRankingOrderBy}
-              setRankingOrder={setRankingOrder}
-              sortedTeamRankingQuality={sortedTeamRankingQuality}
-              rankingInspectionsOpen={rankingInspectionsOpen}
-              setRankingInspectionsOpen={setRankingInspectionsOpen}
-              rankingInspectionsLoading={rankingInspectionsLoading}
-              rankingInspectionsError={rankingInspectionsError}
-              rankingInspectionsItems={rankingInspectionsItems}
-              rankingInspectionsMeta={rankingInspectionsMeta}
-              openRankingInspections={openRankingInspections}
-              formatDateTime={formatDateTime}
-              setRankingInspectionsMeta={setRankingInspectionsMeta}
-            />
-          )}
+              {activeTab === 3 && (
+                <QualityRankingTab
+                  teamRankingQuality={teamRankingQuality}
+                  rankingOrderBy={rankingOrderBy}
+                  rankingOrder={rankingOrder}
+                  setRankingOrderBy={setRankingOrderBy}
+                  setRankingOrder={setRankingOrder}
+                  sortedTeamRankingQuality={sortedTeamRankingQuality}
+                  rankingInspectionsOpen={rankingInspectionsOpen}
+                  setRankingInspectionsOpen={setRankingInspectionsOpen}
+                  rankingInspectionsLoading={rankingInspectionsLoading}
+                  rankingInspectionsError={rankingInspectionsError}
+                  rankingInspectionsItems={rankingInspectionsItems}
+                  rankingInspectionsMeta={rankingInspectionsMeta}
+                  openRankingInspections={openRankingInspections}
+                  formatDateTime={formatDateTime}
+                  setRankingInspectionsMeta={setRankingInspectionsMeta}
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
 
-          {activeTab === 4 && (
-            <QualityNonConformitiesTab
-              byChecklist={nonConformitiesByChecklist}
-              byTeam={nonConformitiesByTeam}
-              teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
-              selectedTeamId={nonConformitiesTeamId}
-              onSelectedTeamIdChange={setNonConformitiesTeamId}
-              byTeamLoading={nonConformitiesByTeamLoading}
-              byTeamError={nonConformitiesByTeamError}
-            />
+              {activeTab === 4 && (
+                <QualityNonConformitiesTab
+                  byChecklist={nonConformitiesByChecklist}
+                  byTeam={nonConformitiesByTeam}
+                  teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+                  selectedTeamId={nonConformitiesTeamId}
+                  onSelectedTeamIdChange={setNonConformitiesTeamId}
+                  byTeamLoading={nonConformitiesByTeamLoading}
+                  byTeamError={nonConformitiesByTeamError}
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
+            </>
+          ) : (
+            <AnalyticsTabSkeleton />
           )}
         </Box>
       )}

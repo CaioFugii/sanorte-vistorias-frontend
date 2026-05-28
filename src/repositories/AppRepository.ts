@@ -522,6 +522,16 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardQualitySummary(params);
   }
 
+  async getDashboardSafetyWorkSummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
+    return this.apiRepository.getDashboardSafetyWorkSummary(params);
+  }
+
   async getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;

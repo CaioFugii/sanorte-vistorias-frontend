@@ -1,4 +1,5 @@
 import { Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { ReactNode } from "react";
 import { CurrentMonthByServiceData, QualityByServiceData } from "./models";
 
 const CHART_HEADER_SX = {
@@ -12,12 +13,14 @@ type QualityServicesTabProps = {
   qualityByService: QualityByServiceData;
   currentMonthByService: CurrentMonthByServiceData;
   currentMonthLabel: string;
+  dateFilterHint: ReactNode;
 };
 
 export function QualityServicesTab({
   qualityByService,
   currentMonthByService,
   currentMonthLabel,
+  dateFilterHint,
 }: QualityServicesTabProps): JSX.Element {
   const currentMonthBarMax = Math.max(...(currentMonthByService.services.map((item) => item.qualityPercent) || [0]), 100);
 
@@ -25,12 +28,17 @@ export function QualityServicesTab({
     <Box sx={{ display: "grid", gap: 3 }}>
       <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
         <Box sx={CHART_HEADER_SX}>
-          <Typography variant="subtitle1" fontWeight={800}>
-            Desempenho Mensal por Serviço
-          </Typography>
-          <Typography variant="subtitle2" fontWeight={700}>
-            {currentMonthLabel}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={800}>
+                Desempenho Mensal por Serviço
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {currentMonthLabel}
+              </Typography>
+            </Box>
+            {dateFilterHint}
+          </Box>
         </Box>
 
         <Box sx={{ px: 1.5, py: 1.5, bgcolor: "#f7f8fa" }}>
@@ -120,12 +128,17 @@ export function QualityServicesTab({
 
       <Paper sx={{ p: 0, overflow: "hidden" }}>
         <Box sx={CHART_HEADER_SX}>
-          <Typography variant="h6" fontWeight={800}>
-            Serviços
-          </Typography>
-          <Typography variant="subtitle2" fontWeight={700}>
-            {currentMonthLabel}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>
+                Serviços
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {currentMonthLabel}
+              </Typography>
+            </Box>
+            {dateFilterHint}
+          </Box>
         </Box>
 
         <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>

@@ -9,6 +9,7 @@ import {
   Select,
   Typography,
 } from "@mui/material";
+import { ReactNode } from "react";
 import { TeamOption } from "./models";
 
 const CHART_HEADER_SX = {
@@ -48,6 +49,7 @@ type QualityNonConformitiesTabProps = {
   onSelectedTeamIdChange: (teamId: string) => void;
   byTeamLoading: boolean;
   byTeamError: string | null;
+  dateFilterHint: ReactNode;
 };
 
 export function QualityNonConformitiesTab({
@@ -58,6 +60,7 @@ export function QualityNonConformitiesTab({
   onSelectedTeamIdChange,
   byTeamLoading,
   byTeamError,
+  dateFilterHint,
 }: QualityNonConformitiesTabProps): JSX.Element {
   const selectedTeamName = teamOptions.find((team) => team.id === selectedTeamId)?.name ?? "";
 
@@ -66,9 +69,12 @@ export function QualityNonConformitiesTab({
       <Grid item xs={12}>
         <Paper sx={{ p: 0, overflow: "hidden" }}>
           <Box sx={CHART_HEADER_SX}>
-            <Typography variant="h6" fontWeight={800}>
-              Perguntas com mais não conformidades por checklist (Top 3)
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+              <Typography variant="h6" fontWeight={800}>
+                Perguntas com mais não conformidades por checklist (Top 3)
+              </Typography>
+              {dateFilterHint}
+            </Box>
           </Box>
           <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
             {!byChecklist || byChecklist.checklists.length === 0 ? (
@@ -117,9 +123,12 @@ export function QualityNonConformitiesTab({
       <Grid item xs={12}>
         <Paper sx={{ p: 0, overflow: "hidden" }}>
           <Box sx={CHART_HEADER_SX}>
-            <Typography variant="h6" fontWeight={800}>
-              Top não conformidades da equipe selecionada (Top 5)
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+              <Typography variant="h6" fontWeight={800}>
+                Top não conformidades da equipe selecionada (Top 5)
+              </Typography>
+              {dateFilterHint}
+            </Box>
           </Box>
           <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
             <Box sx={{ mb: 2, maxWidth: 380 }}>

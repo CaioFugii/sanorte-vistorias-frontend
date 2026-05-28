@@ -12,18 +12,21 @@ import {
   MenuItem,
   Paper,
   Select,
+  Skeleton,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
   TableSortLabel,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Clear, Close } from "@mui/icons-material";
 import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
@@ -33,6 +36,8 @@ import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { appRepository } from "@/repositories/AppRepository";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
+import { SafetyKpiStrip } from "@/pages/analytics/components/SafetyKpiStrip";
+import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 
 const CHART_HEADER_SX = {
   px: 2.5,
@@ -40,6 +45,56 @@ const CHART_HEADER_SX = {
   bgcolor: "transparent",
   borderBottom: "1px solid #e2e8f0",
 };
+
+function SafetyKpiStripSkeleton(): JSX.Element {
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Grid container spacing={2}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Grid key={`safety-kpi-skeleton-${index}`} item xs={12} sm={6} md={4}>
+            <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
+              <Skeleton variant="text" width="45%" height={18} />
+              <Skeleton variant="rounded" width={120} height={34} sx={{ mt: 1 }} />
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
+  );
+}
+
+function SafetyTabSkeleton(): JSX.Element {
+  return (
+    <Paper sx={{ p: 2.5 }}>
+      <Skeleton variant="text" width="35%" height={28} />
+      <Skeleton variant="rounded" width="100%" height={140} sx={{ mt: 2 }} />
+      <Skeleton variant="rounded" width="100%" height={140} sx={{ mt: 2 }} />
+    </Paper>
+  );
+}
+
+function getInitialSafetyPeriod(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to);
+  from.setMonth(from.getMonth() - 1);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
+function formatDateLabel(value: string): string {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function getInitialSafetyFilters(): { lowScoreThreshold: number; limit: number } {
+  return {
+    lowScoreThreshold: 70,
+    limit: 15,
+  };
+}
 
 type TeamRankingInspectionItem = {
   inspectionId: string;
@@ -61,19 +116,13 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState("");
-  const initialFilters = useMemo(() => {
-    const to = new Date();
-    const from = new Date(to.getFullYear(), to.getMonth(), 1);
-    return {
-      from: from.toISOString().slice(0, 10),
-      to: to.toISOString().slice(0, 10),
-      lowScoreThreshold: 70,
-      limit: 15,
-    };
-  }, []);
-  const [filters, setFilters] = useState(initialFilters);
+  const [globalPeriod, setGlobalPeriod] = useState(getInitialSafetyPeriod);
+  const [filters, setFilters] = useState(getInitialSafetyFilters);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<Awaited<
+    ReturnType<typeof appRepository.getDashboardSafetyWorkSummary>
+  > | null>(null);
   const [data, setData] = useState<Awaited<
     ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
   > | null>(null);
@@ -91,6 +140,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
+  const [activeTab, setActiveTab] = useState(0);
   const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
     teamId: "",
     teamName: "",
@@ -129,21 +179,33 @@ export function SafetyAnalyticsPage(): JSX.Element {
     }
   }, [contractsForFilters]);
 
-  const loadData = async (nextFilters: typeof filters) => {
+  const loadData = async (
+    nextFilters: typeof filters,
+    period: typeof globalPeriod = globalPeriod,
+    contractId: string = selectedContractId
+  ) => {
     setLoading(true);
     setError(null);
     try {
-      const [result, rankingResult] = await Promise.all([
+      const [summaryResult, result, rankingResult] = await Promise.all([
+        appRepository.getDashboardSafetyWorkSummary({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
         appRepository.getDashboardSafetyWorkLowScoreCollaborators({
           ...nextFilters,
-          contractId: selectedContractId || undefined,
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
         }),
         appRepository.getDashboardTeamRankingSafetyWork({
-          from: nextFilters.from,
-          to: nextFilters.to,
-          contractId: selectedContractId || undefined,
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
         }),
       ]);
+      setSummary(summaryResult);
       setData(result);
       setTeamRanking(
         rankingResult.map((item) => ({
@@ -168,8 +230,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    void loadData(filters);
-  }, [canAccessAnalytics, selectedContractId]);
+    void loadData(filters, globalPeriod, selectedContractId);
+  }, [canAccessAnalytics, globalPeriod, selectedContractId]);
 
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
@@ -203,8 +265,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setRankingInspectionsError(null);
     try {
       const response = await appRepository.getDashboardSafetyWorkTeamRankingInspections(teamId, {
-        from: filters.from,
-        to: filters.to,
+        from: globalPeriod.from,
+        to: globalPeriod.to,
         page,
         limit,
         contractId: selectedContractId || undefined,
@@ -229,12 +291,23 @@ export function SafetyAnalyticsPage(): JSX.Element {
     }
   };
 
+  const handleClearFilters = () => {
+    const nextPeriod = getInitialSafetyPeriod();
+    const nextFilters = getInitialSafetyFilters();
+    setSelectedContractId("");
+    setGlobalPeriod(nextPeriod);
+    setFilters(nextFilters);
+  };
+  const hasCoreSafetyData = Boolean(data);
+  const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
+  const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
+
   return (
     <Box>
       <PageHeader
         eyebrow="Análises avançadas"
         title="Gráficos - Segurança do Trabalho"
-        subtitle="Acompanhamento de colaboradores com nota baixa no módulo de Segurança do Trabalho."
+        subtitle="Leituras visuais para apoio gerencial de Segurança do Trabalho."
       />
 
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -258,249 +331,284 @@ export function SafetyAnalyticsPage(): JSX.Element {
               </Select>
             </FormControl>
           </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Período inicial"
+              value={globalPeriod.from}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ max: globalPeriod.to }}
+              onChange={(event) => {
+                const from = event.target.value;
+                setGlobalPeriod((prev) => ({
+                  from,
+                  to: from > prev.to ? from : prev.to,
+                }));
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Período final"
+              value={globalPeriod.to}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ min: globalPeriod.from }}
+              onChange={(event) => {
+                const to = event.target.value;
+                setGlobalPeriod((prev) => ({
+                  to,
+                  from: to < prev.from ? to : prev.from,
+                }));
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2} display="flex" alignItems="stretch">
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={handleClearFilters}
+            >
+              Limpar filtros
+            </Button>
+          </Grid>
         </Grid>
       </Paper>
 
-      <Paper sx={{ p: 0, overflow: "hidden" }}>
-        <Box sx={CHART_HEADER_SX}>
-          <Typography variant="h6" fontWeight={800}>
-            Segurança do Trabalho - Colaboradores com Nota Baixa
-          </Typography>
-        </Box>
+      {summary ? <SafetyKpiStrip summary={summary} /> : <SafetyKpiStripSkeleton />}
 
-        <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                required
-                type="date"
-                label="Data inicial"
-                value={filters.from}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ max: filters.to }}
-                onChange={(event) => {
-                  const from = event.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    from,
-                    to: from > prev.to ? from : prev.to,
-                  }));
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                required
-                type="date"
-                label="Data final"
-                value={filters.to}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ min: filters.from }}
-                onChange={(event) => {
-                  const to = event.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    to,
-                    from: to < prev.from ? to : prev.from,
-                  }));
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Limiar nota baixa"
-                value={filters.lowScoreThreshold}
-                inputProps={{ min: 0, max: 100, step: 1 }}
-                onChange={(event) => {
-                  const parsed = Number(event.target.value);
-                  if (!Number.isFinite(parsed)) return;
-                  setFilters((prev) => ({
-                    ...prev,
-                    lowScoreThreshold: Math.max(0, Math.min(100, parsed)),
-                  }));
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Limite"
-                value={filters.limit}
-                inputProps={{ min: 1, max: 100, step: 1 }}
-                onChange={(event) => {
-                  const parsed = Number(event.target.value);
-                  if (!Number.isFinite(parsed)) return;
-                  setFilters((prev) => ({
-                    ...prev,
-                    limit: Math.max(1, Math.min(100, parsed)),
-                  }));
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2} display="flex" alignItems="stretch">
-              <Button
-                variant="contained"
-                onClick={() => void loadData(filters)}
-                disabled={loading}
-                sx={{ width: "100%", fontWeight: 700 }}
-              >
-                Buscar
-              </Button>
-            </Grid>
-          </Grid>
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, nextTab) => setActiveTab(nextTab)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab label="Colaboradores" />
+          <Tab label="Ranking" />
+        </Tabs>
+      </Paper>
 
-          {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <CircularProgress size={28} />
+      {activeTab === 0 &&
+        (hasCoreSafetyData ? (
+          <Paper sx={{ p: 0, overflow: "hidden" }}>
+            <Box sx={CHART_HEADER_SX}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+              <Typography variant="h6" fontWeight={800}>
+                Segurança do Trabalho - Colaboradores com Nota Baixa
+              </Typography>
+              <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
             </Box>
-          )}
+            </Box>
 
-          {error && (
-            <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
-              <Typography variant="body2" color="error.contrastText">
-                {error}
-              </Typography>
-            </Paper>
-          )}
+            <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Limiar nota baixa"
+                    value={filters.lowScoreThreshold}
+                    inputProps={{ min: 0, max: 100, step: 1 }}
+                    onChange={(event) => {
+                      const parsed = Number(event.target.value);
+                      if (!Number.isFinite(parsed)) return;
+                      setFilters((prev) => ({
+                        ...prev,
+                        lowScoreThreshold: Math.max(0, Math.min(100, parsed)),
+                      }));
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Limite"
+                    value={filters.limit}
+                    inputProps={{ min: 1, max: 100, step: 1 }}
+                    onChange={(event) => {
+                      const parsed = Number(event.target.value);
+                      if (!Number.isFinite(parsed)) return;
+                      setFilters((prev) => ({
+                        ...prev,
+                        limit: Math.max(1, Math.min(100, parsed)),
+                      }));
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={2} display="flex" alignItems="stretch">
+                  <Button
+                    variant="contained"
+                    onClick={() => void loadData(filters, globalPeriod, selectedContractId)}
+                    disabled={loading}
+                    sx={{ width: "100%", fontWeight: 700 }}
+                  >
+                    Buscar
+                  </Button>
+                </Grid>
+              </Grid>
 
-          {!loading && !error && data && data.collaborators.length === 0 && (
-            <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-              <Typography color="text.secondary">
-                Nenhum colaborador encontrado abaixo do limiar selecionado no período.
-              </Typography>
-            </Paper>
-          )}
+              {loading && (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                  <CircularProgress size={28} />
+                </Box>
+              )}
 
-          {!loading && !error && data && data.collaborators.length > 0 && (
-            <Stack spacing={1.5}>
-              {data.collaborators.map((item) => (
-                <Paper key={item.collaboratorId} sx={{ p: 1.75, border: "1px solid #e2e8f0" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={800}>
-                        {item.collaboratorName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {item.badScoresCount} notas ruins em {item.inspectionsCount} inspeções
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" fontWeight={800} color="error.main">
-                      {formatPercent(item.badScoreRatePercent)}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ mt: 1.25, height: 10, borderRadius: 999, bgcolor: "#e2e8f0", overflow: "hidden" }}>
-                    <Box
-                      sx={{
-                        width: `${(item.badScoreRatePercent / lowScoreBarMax) * 100}%`,
-                        bgcolor: "#d32f2f",
-                        height: "100%",
-                      }}
-                    />
-                  </Box>
-
-                  <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                    <Grid item xs={4}>
-                      <Typography variant="caption" color="text.secondary">
-                        Média
-                      </Typography>
-                      <Typography variant="body2" fontWeight={700}>
-                        {formatPercent(item.averagePercent)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Typography variant="caption" color="text.secondary">
-                        Pior nota
-                      </Typography>
-                      <Typography variant="body2" fontWeight={700} color="error.main">
-                        {formatPercent(item.worstScorePercent, 0)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Typography variant="caption" color="text.secondary">
-                        Melhor nota
-                      </Typography>
-                      <Typography variant="body2" fontWeight={700} color="success.main">
-                        {formatPercent(item.bestScorePercent, 0)}
-                      </Typography>
-                    </Grid>
-                  </Grid>
+              {error && (
+                <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
+                  <Typography variant="body2" color="error.contrastText">
+                    {error}
+                  </Typography>
                 </Paper>
-              ))}
-            </Stack>
-          )}
-        </Box>
-      </Paper>
+              )}
 
-      <Paper sx={{ mt: 3, p: 0, overflow: "hidden" }}>
-        <Box sx={CHART_HEADER_SX}>
-          <Typography variant="h6" fontWeight={800}>
-            Ranking por Equipes
-          </Typography>
-          <Typography variant="subtitle2" fontWeight={700}>
-            Segurança do Trabalho
-          </Typography>
-        </Box>
-        <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-          {teamRanking.length === 0 ? (
-            <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-              <Typography color="text.secondary">
-                Nenhum dado de ranking encontrado para o período selecionado.
-              </Typography>
-            </Paper>
-          ) : (
-            <Paper sx={{ overflow: "hidden", border: "1px solid #e2e8f0" }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Equipe</TableCell>
-                    <TableCell align="center">Média</TableCell>
-                    <TableCell align="center">
-                      <TableSortLabel
-                        active
-                        direction={rankingOrder}
-                        onClick={() =>
-                          setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-                        }
-                      >
-                        Seg. Trabalho
-                      </TableSortLabel>
-                    </TableCell>
-                    <TableCell align="center">Qtd Vistorias</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortedTeamRanking.map((team) => (
-                    <TableRow key={team.teamId} hover>
-                      <TableCell>{team.teamName}</TableCell>
-                      <TableCell align="center">
-                        <PercentBadge percent={team.averagePercent} size="small" />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Ver vistorias da métrica">
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() => void openRankingInspections(team.teamId, team.teamName)}
-                          >
-                            <PercentBadge percent={team.safetyWorkPercent} size="small" />
-                          </Button>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="center">{team.inspectionsCount}</TableCell>
-                    </TableRow>
+              {!loading && !error && data && data.collaborators.length === 0 && (
+                <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+                  <Typography color="text.secondary">
+                    Nenhum colaborador encontrado abaixo do limiar selecionado no período.
+                  </Typography>
+                </Paper>
+              )}
+
+              {!loading && !error && data && data.collaborators.length > 0 && (
+                <Stack spacing={1.5}>
+                  {data.collaborators.map((item) => (
+                    <Paper key={item.collaboratorId} sx={{ p: 1.75, border: "1px solid #e2e8f0" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={800}>
+                            {item.collaboratorName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.badScoresCount} notas ruins em {item.inspectionsCount} inspeções
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" fontWeight={800} color="error.main">
+                          {formatPercent(item.badScoreRatePercent)}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ mt: 1.25, height: 10, borderRadius: 999, bgcolor: "#e2e8f0", overflow: "hidden" }}>
+                        <Box
+                          sx={{
+                            width: `${(item.badScoreRatePercent / lowScoreBarMax) * 100}%`,
+                            bgcolor: "#d32f2f",
+                            height: "100%",
+                          }}
+                        />
+                      </Box>
+
+                      <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary">
+                            Média
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700}>
+                            {formatPercent(item.averagePercent)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary">
+                            Pior nota
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} color="error.main">
+                            {formatPercent(item.worstScorePercent, 0)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary">
+                            Melhor nota
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} color="success.main">
+                            {formatPercent(item.bestScorePercent, 0)}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Paper>
                   ))}
-                </TableBody>
-              </Table>
-            </Paper>
-          )}
-        </Box>
-      </Paper>
+                </Stack>
+              )}
+            </Box>
+          </Paper>
+        ) : (
+          <SafetyTabSkeleton />
+        ))}
+
+      {activeTab === 1 && (
+        <Paper sx={{ p: 0, overflow: "hidden" }}>
+          <Box sx={CHART_HEADER_SX}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+              <Box>
+                <Typography variant="h6" fontWeight={800}>
+                  Ranking por Equipes
+                </Typography>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Segurança do Trabalho
+                </Typography>
+              </Box>
+              <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+            </Box>
+          </Box>
+          <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
+            {teamRanking.length === 0 ? (
+              <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
+                <Typography color="text.secondary">
+                  Nenhum dado de ranking encontrado para o período selecionado.
+                </Typography>
+              </Paper>
+            ) : (
+              <Paper sx={{ overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Equipe</TableCell>
+                      <TableCell align="center">Média</TableCell>
+                      <TableCell align="center">
+                        <TableSortLabel
+                          active
+                          direction={rankingOrder}
+                          onClick={() =>
+                            setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+                          }
+                        >
+                          Seg. Trabalho
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center">Qtd Vistorias</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {sortedTeamRanking.map((team) => (
+                      <TableRow key={team.teamId} hover>
+                        <TableCell>{team.teamName}</TableCell>
+                        <TableCell align="center">
+                          <PercentBadge percent={team.averagePercent} size="small" />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Ver vistorias da métrica">
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => void openRankingInspections(team.teamId, team.teamName)}
+                            >
+                              <PercentBadge percent={team.safetyWorkPercent} size="small" />
+                            </Button>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell align="center">{team.inspectionsCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Paper>
+            )}
+          </Box>
+        </Paper>
+      )}
 
       <Dialog
         open={rankingInspectionsOpen}

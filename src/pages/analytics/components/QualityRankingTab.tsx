@@ -20,7 +20,7 @@ import {
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { ListPagination } from "@/components/ListPagination";
 import { PercentBadge } from "@/components/PercentBadge";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   TeamRankingInspectionItem,
   TeamRankingInspectionsMeta,
@@ -57,6 +57,7 @@ type QualityRankingTabProps = {
   ) => Promise<void>;
   formatDateTime: (value: string | null) => string;
   setRankingInspectionsMeta: Dispatch<SetStateAction<TeamRankingInspectionsMeta>>;
+  dateFilterHint: ReactNode;
 };
 
 export function QualityRankingTab({
@@ -75,14 +76,18 @@ export function QualityRankingTab({
   openRankingInspections,
   formatDateTime,
   setRankingInspectionsMeta,
+  dateFilterHint,
 }: QualityRankingTabProps): JSX.Element {
   return (
     <>
       <Paper sx={{ p: 0, overflow: "hidden" }}>
         <Box sx={CHART_HEADER_SX}>
-          <Typography variant="h6" fontWeight={800}>
-            Ranking por Equipes - Qualidade
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+            <Typography variant="h6" fontWeight={800}>
+              Ranking por Equipes - Qualidade
+            </Typography>
+            {dateFilterHint}
+          </Box>
         </Box>
 
         <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>

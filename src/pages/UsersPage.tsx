@@ -167,7 +167,7 @@ export const UsersPage = (): JSX.Element => {
               setLimit(newLimit);
               setPage(1);
             }}
-            rowsPerPageOptions={[5, 10, 25, 50]}
+            rowsPerPageOptions={[10, 20, 50, 100]}
             disabled={loading}
           />
         )}

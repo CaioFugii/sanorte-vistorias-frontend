@@ -1,4 +1,5 @@
 import { Box, Grid, Paper, Stack, Typography } from "@mui/material";
+import { ReactNode } from "react";
 import { QualityByServiceData, QualityChartMonth } from "./models";
 
 const CHART_HEADER_SX = {
@@ -13,6 +14,7 @@ type QualityOverviewTabProps = {
   chartMonths: QualityChartMonth[];
   qualityChartMax: number;
   growthTitle: string;
+  dateFilterHint: ReactNode;
 };
 
 export function QualityOverviewTab({
@@ -20,15 +22,19 @@ export function QualityOverviewTab({
   chartMonths,
   qualityChartMax,
   growthTitle,
+  dateFilterHint,
 }: QualityOverviewTabProps): JSX.Element {
   return (
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Paper sx={{ p: 0, height: "100%", overflow: "hidden" }}>
           <Box sx={CHART_HEADER_SX}>
-            <Typography variant="h6" fontWeight={800}>
-              Desempenho Mensal de Qualidade
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+              <Typography variant="h6" fontWeight={800}>
+                Desempenho Mensal de Qualidade
+              </Typography>
+              {dateFilterHint}
+            </Box>
           </Box>
 
           <Box sx={{ px: 2.5, pt: 2, pb: 2 }}>

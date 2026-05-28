@@ -776,6 +776,20 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkSummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
+    const response = await apiClient.get<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>(
+      "/dashboards/safety-work/summary",
+      { params }
+    );
+    return response.data;
+  }
+
   async getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;

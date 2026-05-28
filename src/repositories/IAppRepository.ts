@@ -285,6 +285,13 @@ export interface IAppRepository {
       averagePercent: number;
     };
   }>;
+  getDashboardSafetyWorkSummary(params?: {
+    from?: string;
+    to?: string;
+    module?: ModuleType;
+    teamId?: string;
+    contractId?: string;
+  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>;
   getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;

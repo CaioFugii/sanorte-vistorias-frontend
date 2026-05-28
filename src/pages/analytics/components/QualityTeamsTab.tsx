@@ -8,7 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   TeamOption,
   TeamPerformanceData,
@@ -35,6 +35,7 @@ type QualityTeamsTabProps = {
   teamPerformanceRows: TeamPerformanceRow[];
   teamPerformanceBarMax: number;
   clearTeamSelection: () => void;
+  dateFilterHint: ReactNode;
 };
 
 export function QualityTeamsTab({
@@ -49,13 +50,17 @@ export function QualityTeamsTab({
   teamPerformanceRows,
   teamPerformanceBarMax,
   clearTeamSelection,
+  dateFilterHint,
 }: QualityTeamsTabProps): JSX.Element {
   return (
     <Paper sx={{ p: 0, overflow: "hidden" }}>
       <Box sx={CHART_HEADER_SX}>
-        <Typography variant="h6" fontWeight={800}>
-          Desempenho por Equipe (Multi-equipes)
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
+          <Typography variant="h6" fontWeight={800}>
+            Desempenho por Equipe (Multi-equipes)
+          </Typography>
+          {dateFilterHint}
+        </Box>
       </Box>
 
       <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
