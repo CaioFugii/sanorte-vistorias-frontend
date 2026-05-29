@@ -68,8 +68,9 @@ export const InvestmentWorksPage = (): JSX.Element => {
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasAnyRole } = useAuthStore();
-  const canAccess = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL]);
+  const canAccess = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL, UserRole.SUPERVISOR]);
   const canManage = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR]);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const isAdmin = user?.role === UserRole.ADMIN;
 
   const [loading, setLoading] = useState(true);
@@ -308,7 +309,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
                           }
                         }}
                       />
-                      {canManage && (
+                      {canManage && !isSupervisor && (
                         <>
                           <TableEditButton
                             onClick={() => {

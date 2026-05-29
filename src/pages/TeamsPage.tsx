@@ -21,7 +21,9 @@ import { Add } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
 import { Collaborator, Contract, PaginatedResponse, Team } from '@/domain';
+import { UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
+import { useAuthStore } from '@/stores/authStore';
 import { CollaboratorMultiSelect } from '@/components/CollaboratorMultiSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
@@ -38,6 +40,8 @@ import {
 const DEFAULT_LIMIT = 10;
 
 export const TeamsPage = (): JSX.Element => {
+  const user = useAuthStore((state) => state.user);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
   const loadCache = useReferenceStore((state) => state.loadCache);
   const [loading, setLoading] = useState(true);
@@ -117,7 +121,7 @@ export const TeamsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Equipes"
         subtitle="Configure equipes de campo e mantenha o catálogo técnico atualizado."
-        actions={
+        actions={!isSupervisor ? (
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
@@ -136,7 +140,7 @@ export const TeamsPage = (): JSX.Element => {
               Nova equipe
             </Button>
           </Box>
-        }
+        ) : undefined}
       />
 
       <SectionTable title="Lista de equipes">
@@ -174,7 +178,7 @@ export const TeamsPage = (): JSX.Element => {
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    <TableEditButton
+                    {!isSupervisor && <TableEditButton
                     onClick={() => {
                       setEditingTeam(team);
                       setName(team.name);
@@ -187,8 +191,8 @@ export const TeamsPage = (): JSX.Element => {
                       setFormError(null);
                       setDialogOpen(true);
                     }}
-                    />
-                    <TableDeleteButton onClick={() => setDeletingTeam(team)} />
+                    />}
+                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingTeam(team)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -210,7 +214,7 @@ export const TeamsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingTeam ? "Editar equipe" : "Nova equipe"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -328,7 +332,7 @@ export const TeamsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingTeam}
+        open={!!deletingTeam && !isSupervisor}
         title="Remover equipe"
         description={`Deseja remover a equipe "${deletingTeam?.name ?? ""}"?`}
         confirmLabel="Remover"

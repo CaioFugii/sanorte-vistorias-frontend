@@ -40,6 +40,8 @@ import { appRepository } from '@/repositories/AppRepository';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ListPagination } from '@/components/ListPagination';
 import { DataCard, PageHeader } from '@/components/ui';
+import { useAuthStore } from '@/stores/authStore';
+import { UserRole } from '@/domain/enums';
 import {
   prepareImageForUpload,
   PREPARE_IMAGE_MAX_BYTES_UPLOADS,
@@ -52,6 +54,8 @@ const MAX_REFERENCE_IMAGE_INPUT_SIZE = 32 * 1024 * 1024;
 const ALLOWED_REFERENCE_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 export const ChecklistsPage = (): JSX.Element => {
+  const user = useAuthStore((state) => state.user);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
@@ -226,7 +230,7 @@ export const ChecklistsPage = (): JSX.Element => {
         eyebrow="Administração técnica"
         title="Checklists"
         subtitle="Estruture checklists por setor e módulo para padronizar inspeções."
-        actions={
+        actions={!isSupervisor ? (
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
@@ -245,7 +249,7 @@ export const ChecklistsPage = (): JSX.Element => {
               Novo checklist
             </Button>
           </Box>
-        }
+        ) : undefined}
       />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -302,7 +306,7 @@ export const ChecklistsPage = (): JSX.Element => {
                     size="small"
                     color={checklist.active ? 'success' : 'default'}
                   />
-                  <IconButton
+                  {!isSupervisor && <IconButton
                     size="small"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -317,8 +321,8 @@ export const ChecklistsPage = (): JSX.Element => {
                     }}
                   >
                     <Edit />
-                  </IconButton>
-                  <IconButton
+                  </IconButton>}
+                  {!isSupervisor && <IconButton
                     size="small"
                     color="error"
                     onClick={(event) => {
@@ -327,12 +331,12 @@ export const ChecklistsPage = (): JSX.Element => {
                     }}
                   >
                     <Delete />
-                  </IconButton>
+                  </IconButton>}
                 </Box>
               </Box>
             </AccordionSummary>
             <AccordionDetails>
-              <Box display="flex" justifyContent="flex-end" mb={2}>
+              {!isSupervisor && <Box display="flex" justifyContent="flex-end" mb={2}>
                 <Button
                   startIcon={<Add />}
                   onClick={() => {
@@ -347,7 +351,7 @@ export const ChecklistsPage = (): JSX.Element => {
                 >
                   Nova seção
                 </Button>
-              </Box>
+              </Box>}
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {checklist.description}
               </Typography>
@@ -356,7 +360,7 @@ export const ChecklistsPage = (): JSX.Element => {
                   <Box display="flex" justifyContent="space-between" alignItems="center">
                     <Typography fontWeight={600}>{section.title ?? section.name}</Typography>
                     <Box>
-                      <IconButton
+                      {!isSupervisor && <IconButton
                         size="small"
                         onClick={() => {
                           setSelectedChecklist(checklist);
@@ -368,8 +372,8 @@ export const ChecklistsPage = (): JSX.Element => {
                         }}
                       >
                         <Edit />
-                      </IconButton>
-                      <IconButton
+                      </IconButton>}
+                      {!isSupervisor && <IconButton
                         size="small"
                         onClick={() => {
                           setSelectedChecklist(checklist);
@@ -387,7 +391,7 @@ export const ChecklistsPage = (): JSX.Element => {
                         }}
                       >
                         <Add />
-                      </IconButton>
+                      </IconButton>}
                     </Box>
                   </Box>
                   {section.items
@@ -398,7 +402,7 @@ export const ChecklistsPage = (): JSX.Element => {
                           - {item.order}. {item.title}
                         </Typography>
                         <Box>
-                          <IconButton
+                          {!isSupervisor && <IconButton
                             size="small"
                             onClick={() => {
                               setSelectedChecklist(checklist);
@@ -416,8 +420,8 @@ export const ChecklistsPage = (): JSX.Element => {
                             }}
                           >
                             <Edit />
-                          </IconButton>
-                          <IconButton
+                          </IconButton>}
+                          {!isSupervisor && <IconButton
                             size="small"
                             color="error"
                             onClick={async () => {
@@ -426,7 +430,7 @@ export const ChecklistsPage = (): JSX.Element => {
                             }}
                           >
                             <Delete />
-                          </IconButton>
+                          </IconButton>}
                         </Box>
                       </Box>
                     ))}
@@ -450,7 +454,7 @@ export const ChecklistsPage = (): JSX.Element => {
       </>
       )}
 
-      <Dialog open={checklistDialogOpen} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={checklistDialogOpen && !isSupervisor} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingChecklist ? "Editar checklist" : "Novo checklist"}</DialogTitle>
         <DialogContent>
           <Box mt={2}>
@@ -553,7 +557,7 @@ export const ChecklistsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={sectionDialogOpen && !isSupervisor} onClose={() => setSectionDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{selectedSectionId ? "Editar seção" : "Nova seção"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -607,7 +611,7 @@ export const ChecklistsPage = (): JSX.Element => {
       </Dialog>
 
       <Dialog
-        open={itemDialogOpen}
+        open={itemDialogOpen && !isSupervisor}
         onClose={() => {
           setItemDialogOpen(false);
           clearReferenceImageState();
@@ -762,7 +766,7 @@ export const ChecklistsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingChecklist}
+        open={!!deletingChecklist && !isSupervisor}
         title="Excluir checklist"
         description={`Deseja excluir o checklist "${deletingChecklist?.name ?? ""}"?`}
         confirmLabel="Excluir"

@@ -14,7 +14,10 @@ import { UserRole } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
 
 function getPostLoginPath(role: UserRole | undefined): string {
-  return role === UserRole.FISCAL ? "/inspections/mine" : "/dashboard";
+  if (role === UserRole.FISCAL) {
+    return "/inspections/mine";
+  }
+  return "/dashboard";
 }
 
 export const LoginPage = (): JSX.Element => {

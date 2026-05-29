@@ -221,7 +221,7 @@ function mergeQualityByServiceResponses(
 
 export function AnalyticsPage(): JSX.Element {
   const { hasAnyRole, user } = useAuthStore();
-  const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
+  const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);

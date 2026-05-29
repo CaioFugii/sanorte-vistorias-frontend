@@ -22,7 +22,9 @@ import {
 import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Collaborator, Contract, PaginatedResponse, Sector } from "@/domain";
+import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
+import { useAuthStore } from "@/stores/authStore";
 import { SectorSelect } from "@/components/SectorSelect";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
@@ -39,6 +41,8 @@ import {
 const DEFAULT_LIMIT = 10;
 
 export const CollaboratorsPage = (): JSX.Element => {
+  const user = useAuthStore((state) => state.user);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PaginatedResponse<Collaborator> | null>(null);
@@ -114,7 +118,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Colaboradores"
         subtitle="Gerencie colaboradores por setor para manter a operação organizada."
-        actions={
+        actions={!isSupervisor ? (
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -129,7 +133,7 @@ export const CollaboratorsPage = (): JSX.Element => {
           >
             Novo colaborador
           </Button>
-        }
+        ) : undefined}
       />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -187,7 +191,7 @@ export const CollaboratorsPage = (): JSX.Element => {
                 <TableCell>{collaborator.active ? "Ativo" : "Inativo"}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    <TableEditButton
+                    {!isSupervisor && <TableEditButton
                     onClick={() => {
                       setEditing(collaborator);
                       setName(collaborator.name);
@@ -196,8 +200,8 @@ export const CollaboratorsPage = (): JSX.Element => {
                       setActive(collaborator.active);
                       setDialogOpen(true);
                     }}
-                    />
-                    <TableDeleteButton onClick={() => setDeletingCollaborator(collaborator)} />
+                    />}
+                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingCollaborator(collaborator)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -219,7 +223,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar colaborador" : "Novo colaborador"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -274,7 +278,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingCollaborator}
+        open={!!deletingCollaborator && !isSupervisor}
         title="Excluir colaborador"
         description={`Deseja excluir o colaborador "${deletingCollaborator?.name ?? ""}"?`}
         confirmLabel="Excluir"

@@ -10,6 +10,7 @@ export enum ModuleType {
 export enum UserRole {
   ADMIN = "ADMIN",
   GESTOR = "GESTOR",
+  SUPERVISOR = "SUPERVISOR",
   FISCAL = "FISCAL",
 }
 

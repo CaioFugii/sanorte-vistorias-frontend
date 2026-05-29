@@ -69,7 +69,7 @@ export const DashboardPage = (): JSX.Element => {
   const teamFilterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teamFilterRequestRef = useRef(0);
 
-  const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN]);
+  const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
 
   useEffect(() => {
     if (!isAdmin) {

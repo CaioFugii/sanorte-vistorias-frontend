@@ -530,6 +530,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
   const [tab, setTab] = useState(0);
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const availableContracts = user?.contracts ?? [];
   const contractsForFilters = isAdmin ? allContracts : availableContracts;
@@ -577,14 +578,16 @@ export const ServiceOrdersPage = (): JSX.Element => {
       <DataCard>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
           <Tab label="Todos" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
-          {!isAdmin && <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />}
+          {!isAdmin && !isSupervisor && (
+            <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
+          )}
         </Tabs>
 
         <Box sx={{ p: 2 }}>
           <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
             {tab === 0 && <ListagemTab contracts={contractsForFilters} />}
           </div>
-          {!isAdmin && (
+          {!isAdmin && !isSupervisor && (
             <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
               {tab === 1 && <ImportacaoTab contracts={availableContracts} />}
             </div>

@@ -52,6 +52,7 @@ export const InspectionsPage = ({
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const availableModules = moduleOptions && moduleOptions.length > 0
     ? moduleOptions
     : [
@@ -330,7 +331,7 @@ export const InspectionsPage = ({
                         })
                       }
                       />
-                      {(isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
+                      {!isSupervisor && (isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
                         <TableEditButton
                         onClick={() =>
                           navigate(
@@ -341,7 +342,7 @@ export const InspectionsPage = ({
                         }
                         />
                       )}
-                      {canDeleteInspection(inspection) && (
+                      {!isSupervisor && canDeleteInspection(inspection) && (
                         <Tooltip title="Excluir vistoria em rascunho">
                           <IconButton
                             size="small"

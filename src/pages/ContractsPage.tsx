@@ -36,6 +36,7 @@ const DEFAULT_LIMIT = 10;
 export const ContractsPage = (): JSX.Element => {
   const { hasRole } = useAuthStore();
   const canAccess = hasRole(UserRole.ADMIN);
+  const canManage = hasRole(UserRole.ADMIN);
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResponse<Contract> | null>(null);
@@ -82,7 +83,7 @@ export const ContractsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Contratos"
         subtitle="Gerencie os contratos utilizados nas permissões e relacionamentos do sistema."
-        actions={
+        actions={canManage ? (
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -94,7 +95,7 @@ export const ContractsPage = (): JSX.Element => {
           >
             Novo contrato
           </Button>
-        }
+        ) : undefined}
       />
 
       <SectionTable title="Lista de contratos">
@@ -124,14 +125,14 @@ export const ContractsPage = (): JSX.Element => {
                   <TableCell>{contract.name}</TableCell>
                   <TableActionsCell>
                     <TableActionsGroup>
-                      <TableEditButton
+                      {canManage && <TableEditButton
                       onClick={() => {
                         setEditingContract(contract);
                         setName(contract.name);
                         setDialogOpen(true);
                       }}
-                      />
-                      <TableDeleteButton onClick={() => setDeletingContract(contract)} />
+                      />}
+                      {canManage && <TableDeleteButton onClick={() => setDeletingContract(contract)} />}
                     </TableActionsGroup>
                   </TableActionsCell>
                 </TableRow>
@@ -153,7 +154,7 @@ export const ContractsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && canManage} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingContract ? "Editar contrato" : "Novo contrato"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -190,7 +191,7 @@ export const ContractsPage = (): JSX.Element => {
       </Dialog>
 
       <ConfirmDialog
-        open={!!deletingContract}
+        open={!!deletingContract && canManage}
         title="Excluir contrato"
         description={`Deseja excluir o contrato "${deletingContract?.name ?? ""}"?`}
         confirmLabel="Excluir"

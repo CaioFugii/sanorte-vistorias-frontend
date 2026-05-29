@@ -128,6 +128,33 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
     },
   ],
+  SUPERVISOR: [
+    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    {
+      label: "Qualidade",
+      icon: <Checklist fontSize="small" />,
+      items: [
+        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
+        { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Segurança do Trabalho",
+      icon: <Warning fontSize="small" />,
+      items: [
+        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+      ],
+    },
+    {
+      label: "Engenharia",
+      icon: <Engineering fontSize="small" />,
+      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
+    },
+  ],
   FISCAL: [
     {
       label: "Minhas Vistorias",
@@ -424,11 +451,13 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
             </Typography>
             <Typography variant="h6">{user?.name ?? "Usuário"}</Typography>
           </Box>
-          <Chip
-            label={user?.role ?? "SEM PERFIL"}
-            size="small"
-            sx={{ mr: 1, bgcolor: "rgba(255,255,255,0.1)", color: "#fff" }}
-          />
+          {user?.role === UserRole.ADMIN && (
+            <Chip
+              label={user.role}
+              size="small"
+              sx={{ mr: 1, bgcolor: "rgba(255,255,255,0.1)", color: "#fff" }}
+            />
+          )}
           <Button color="inherit" onClick={handleLogout} startIcon={<Logout />}>
             Sair
           </Button>

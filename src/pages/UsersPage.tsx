@@ -22,6 +22,7 @@ import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { useAuthStore } from "@/stores/authStore";
 import {
   PageHeader,
   SectionTable,
@@ -35,6 +36,8 @@ import {
 const DEFAULT_LIMIT = 10;
 
 export const UsersPage = (): JSX.Element => {
+  const user = useAuthStore((state) => state.user);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResponse<User> | null>(null);
   const [page, setPage] = useState(1);
@@ -90,7 +93,7 @@ export const UsersPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Usuários"
         subtitle="Gerencie acessos e perfis do sistema corporativo."
-        actions={
+        actions={!isSupervisor ? (
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -106,7 +109,7 @@ export const UsersPage = (): JSX.Element => {
           >
             Novo usuário
           </Button>
-        }
+        ) : undefined}
       />
 
       <SectionTable title="Lista de usuários">
@@ -140,7 +143,7 @@ export const UsersPage = (): JSX.Element => {
                 <TableCell>{user.role}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    <TableEditButton
+                    {!isSupervisor && <TableEditButton
                     onClick={() => {
                       setEditing(user);
                       setName(user.name);
@@ -150,8 +153,8 @@ export const UsersPage = (): JSX.Element => {
                       setSelectedContractIds(user.contractIds ?? user.contracts?.map((contract) => contract.id) ?? []);
                       setDialogOpen(true);
                     }}
-                    />
-                    <TableDeleteButton onClick={() => setDeletingUser(user)} />
+                    />}
+                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingUser(user)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -173,7 +176,7 @@ export const UsersPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar usuário" : "Novo usuário"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -209,6 +212,7 @@ export const UsersPage = (): JSX.Element => {
           >
             {/* <MenuItem value={UserRole.ADMIN}>ADMIN</MenuItem> */}
             <MenuItem value={UserRole.GESTOR}>GESTOR</MenuItem>
+            <MenuItem value={UserRole.SUPERVISOR}>SUPERVISOR</MenuItem>
             <MenuItem value={UserRole.FISCAL}>FISCAL</MenuItem>
           </TextField>
           <Autocomplete
@@ -262,7 +266,7 @@ export const UsersPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingUser}
+        open={!!deletingUser && !isSupervisor}
         title="Excluir usuário"
         description={`Deseja excluir o usuário "${deletingUser?.name ?? ""}"?`}
         confirmLabel="Excluir"

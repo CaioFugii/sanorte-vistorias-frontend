@@ -19,7 +19,9 @@ import {
 import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { PaginatedResponse, Sector } from "@/domain";
+import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
+import { useAuthStore } from "@/stores/authStore";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
 import {
@@ -35,6 +37,8 @@ import {
 const DEFAULT_LIMIT = 10;
 
 export const SectorsPage = (): JSX.Element => {
+  const user = useAuthStore((state) => state.user);
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [result, setResult] = useState<PaginatedResponse<Sector> | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
@@ -86,7 +90,7 @@ export const SectorsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Setores"
         subtitle="Mantenha a estrutura setorial utilizada nas ordens de serviço e checklists."
-        actions={
+        actions={!isSupervisor ? (
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
@@ -101,7 +105,7 @@ export const SectorsPage = (): JSX.Element => {
               Novo setor
             </Button>
           </Box>
-        }
+        ) : undefined}
       />
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -138,15 +142,15 @@ export const SectorsPage = (): JSX.Element => {
                 <TableCell>{sector.active ? "Ativo" : "Inativo"}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    <TableEditButton
+                    {!isSupervisor && <TableEditButton
                     onClick={() => {
                       setEditingSector(sector);
                       setName(sector.name);
                       setActive(sector.active);
                       setDialogOpen(true);
                     }}
-                    />
-                    <TableDeleteButton onClick={() => setDeletingSector(sector)} />
+                    />}
+                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingSector(sector)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -168,7 +172,7 @@ export const SectorsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingSector ? "Editar setor" : "Novo setor"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -208,7 +212,7 @@ export const SectorsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingSector}
+        open={!!deletingSector && !isSupervisor}
         title="Remover setor"
         description={`Deseja remover o setor "${deletingSector?.name ?? ""}"?`}
         confirmLabel="Remover"

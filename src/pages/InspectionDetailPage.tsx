@@ -119,6 +119,7 @@ export const InspectionDetailPage = (): JSX.Element => {
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
     inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
   const canDeleteInspection = inspection?.status === InspectionStatus.RASCUNHO;
+  const isSupervisor = user?.role === UserRole.SUPERVISOR;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
@@ -290,7 +291,7 @@ export const InspectionDetailPage = (): JSX.Element => {
           >
             {pdfLoading ? 'Baixando...' : 'Gerar PDF'}
           </Button>
-          {canParalyzeInspection && (
+          {canParalyzeInspection && !isSupervisor && (
             <Button
               variant="outlined"
               color="warning"
@@ -301,7 +302,7 @@ export const InspectionDetailPage = (): JSX.Element => {
               Registrar paralisação
             </Button>
           )}
-          {canDeleteInspection && (
+          {canDeleteInspection && !isSupervisor && (
             <Tooltip title="Excluir vistoria em rascunho">
               <span>
                 <Button
@@ -316,7 +317,7 @@ export const InspectionDetailPage = (): JSX.Element => {
               </span>
             </Tooltip>
           )}
-          {canEditInspection && (
+          {canEditInspection && !isSupervisor && (
             <Button
               variant="contained"
               startIcon={<Edit />}
