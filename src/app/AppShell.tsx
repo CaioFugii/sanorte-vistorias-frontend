@@ -63,14 +63,13 @@ interface MenuGroup {
 
 const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
   ADMIN: [
-    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
     {
       label: "Qualidade",
       icon: <Checklist fontSize="small" />,
       items: [
-        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
         { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
         { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
         { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
       ],
@@ -79,14 +78,16 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       label: "Segurança do Trabalho",
       icon: <Warning fontSize="small" />,
       items: [
-        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
         { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
       ],
     },
     {
       label: "Engenharia",
       icon: <Engineering fontSize="small" />,
-      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
+      items: [
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
+        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> } ],
     },
     {
       label: "Administração",
@@ -102,14 +103,13 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
     },
   ],
   GESTOR: [
-    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
     {
       label: "Qualidade",
       icon: <Checklist fontSize="small" />,
       items: [
-        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
         { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
         { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
         { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
       ],
@@ -118,26 +118,27 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       label: "Segurança do Trabalho",
       icon: <Warning fontSize="small" />,
       items: [
-        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
         { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
       ],
     },
     {
       label: "Engenharia",
       icon: <Engineering fontSize="small" />,
-      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
+      items: [
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
+        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
+      
+      ],
     },
   ],
   SUPERVISOR: [
-    { label: "Dashboard", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
     {
       label: "Qualidade",
       icon: <Checklist fontSize="small" />,
       items: [
-        { path: "/quality/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
-        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
-        { path: "/quality/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
         { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
       ],
     },
@@ -145,8 +146,7 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       label: "Segurança do Trabalho",
       icon: <Warning fontSize="small" />,
       items: [
-        { path: "/safety/analytics", label: "Gráficos", icon: <BarChart fontSize="small" /> },
-        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
+        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
       ],
     },
     {
@@ -165,6 +165,11 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       label: "Nova Vistoria",
       icon: <Assignment fontSize="small" />,
       path: "/inspections/new",
+    },
+    {
+      label: "Ordens de Serviço",
+      icon: <Assignment fontSize="small" />,
+      path: "/service-orders",
     },
     {
       label: "Relatórios",

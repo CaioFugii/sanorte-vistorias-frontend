@@ -73,13 +73,19 @@ function SafetyTabSkeleton(): JSX.Element {
   );
 }
 
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getInitialSafetyPeriod(): { from: string; to: string } {
   const to = new Date();
-  const from = new Date(to);
-  from.setMonth(from.getMonth() - 1);
+  const from = new Date(to.getFullYear(), to.getMonth(), 1);
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: formatDateForInput(from),
+    to: formatDateForInput(to),
   };
 }
 
@@ -306,7 +312,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     <Box>
       <PageHeader
         eyebrow="Análises avançadas"
-        title="Gráficos - Segurança do Trabalho"
+        title="Dados - Segurança do Trabalho"
         subtitle="Leituras visuais para apoio gerencial de Segurança do Trabalho."
       />
 
@@ -387,12 +393,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label="Colaboradores" />
           <Tab label="Ranking" />
+          <Tab label="Colaboradores" />
+          <Tab label="Fiscais" />
+          <Tab label="Visão Geral" />
+          <Tab label="Não Conformidades" />
+
         </Tabs>
       </Paper>
 
-      {activeTab === 0 &&
+      {activeTab === 1 &&
         (hasCoreSafetyData ? (
           <Paper sx={{ p: 0, overflow: "hidden" }}>
             <Box sx={CHART_HEADER_SX}>
@@ -538,7 +548,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
           <SafetyTabSkeleton />
         ))}
 
-      {activeTab === 1 && (
+      {activeTab === 0 && (
         <Paper sx={{ p: 0, overflow: "hidden" }}>
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>

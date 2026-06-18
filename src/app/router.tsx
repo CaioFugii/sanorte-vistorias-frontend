@@ -47,6 +47,14 @@ function BlockFiscalRoute({ children }: { children: JSX.Element }): JSX.Element 
   return children;
 }
 
+function BlockSupervisorRoute({ children }: { children: JSX.Element }): JSX.Element {
+  const role = useAuthStore((state) => state.user?.role);
+  if (role === UserRole.SUPERVISOR) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 function RoleAwareHomeRedirect(): JSX.Element {
   const role = useAuthStore((state) => state.user?.role);
   if (role === UserRole.FISCAL) {
@@ -76,11 +84,39 @@ export const router = createBrowserRouter([
       { path: "/users", element: <UsersPage /> },
       { path: "/collaborators", element: <CollaboratorsPage /> },
       { path: "/checklists", element: <ChecklistsPage /> },
-      { path: "/service-orders", element: <ServiceOrdersPage /> },
-      { path: "/investment-works", element: <InvestmentWorksPage /> },
+      {
+        path: "/service-orders",
+        element: (
+          <BlockSupervisorRoute>
+            <ServiceOrdersPage />
+          </BlockSupervisorRoute>
+        ),
+      },
+      {
+        path: "/investment-works",
+        element: (
+          <BlockSupervisorRoute>
+            <InvestmentWorksPage />
+          </BlockSupervisorRoute>
+        ),
+      },
       { path: "/inspections", element: <InspectionsPage /> },
-      { path: "/quality/inspections", element: <QualityInspectionsPage /> },
-      { path: "/safety/inspections", element: <SafetyInspectionsPage /> },
+      {
+        path: "/quality/inspections",
+        element: (
+          <BlockSupervisorRoute>
+            <QualityInspectionsPage />
+          </BlockSupervisorRoute>
+        ),
+      },
+      {
+        path: "/safety/inspections",
+        element: (
+          <BlockSupervisorRoute>
+            <SafetyInspectionsPage />
+          </BlockSupervisorRoute>
+        ),
+      },
       { path: "/inspections/mine", element: <InspectionsPage /> },
       { path: "/inspections/new", element: <NewInspectionPage /> },
       { path: "/inspections/:externalId", element: <InspectionDetailPage /> },

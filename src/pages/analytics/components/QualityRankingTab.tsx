@@ -167,22 +167,6 @@ export function QualityRankingTab({
                         Pós-obra
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell align="center">
-                      <TableSortLabel
-                        active={rankingOrderBy === "investmentWorks"}
-                        direction={rankingOrderBy === "investmentWorks" ? rankingOrder : "desc"}
-                        onClick={() => {
-                          if (rankingOrderBy === "investmentWorks") {
-                            setRankingOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-                          } else {
-                            setRankingOrderBy("investmentWorks");
-                            setRankingOrder("desc");
-                          }
-                        }}
-                      >
-                        Obras de investimento
-                      </TableSortLabel>
-                    </TableCell>
                     <TableCell align="center">Pendentes</TableCell>
                     <TableCell align="center">Qtd Vistorias</TableCell>
                   </TableRow>
@@ -227,19 +211,6 @@ export function QualityRankingTab({
                           </Button>
                         </Tooltip>
                       </TableCell>
-                      <TableCell align="center">
-                        <Tooltip title="Ver vistorias da métrica">
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() =>
-                              void openRankingInspections(team.teamId, team.teamName, "investmentWorks")
-                            }
-                          >
-                            <PercentBadge percent={team.investmentWorksPercent} size="small" />
-                          </Button>
-                        </Tooltip>
-                      </TableCell>
                       <TableCell align="center">{team.pendingCount}</TableCell>
                       <TableCell align="center">{team.inspectionsCount}</TableCell>
                     </TableRow>
@@ -281,7 +252,7 @@ export function QualityRankingTab({
                     <TableCell>Módulo</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="center">Nota</TableCell>
-                    <TableCell>Finalizada em</TableCell>
+                    <TableCell>Data da Execução da Ordem de serviço</TableCell>
                     <TableCell>Criada em</TableCell>
                   </TableRow>
                 </TableHead>

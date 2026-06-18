@@ -71,7 +71,7 @@ export function QualityNonConformitiesTab({
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
               <Typography variant="h6" fontWeight={800}>
-                Perguntas com mais não conformidades por checklist (Top 3)
+                Perguntas com mais não conformidades por checklist (Top 5)
               </Typography>
               {dateFilterHint}
             </Box>
@@ -95,10 +95,10 @@ export function QualityNonConformitiesTab({
                         Total de NC: {checklist.totalNonConformities.toLocaleString("pt-BR")}
                       </Typography>
                       <Box sx={{ mt: 1.5 }}>
-                        {checklist.questions.slice(0, 3).map((question, index) => (
+                        {checklist.questions.slice(0, 5).map((question, index) => (
                           <Box
                             key={question.checklistItemId}
-                            sx={{ py: 1, borderBottom: index < 2 ? "1px solid #e2e8f0" : "none" }}
+                            sx={{ py: 1, borderBottom: index < 4 ? "1px solid #e2e8f0" : "none" }}
                           >
                             <Typography variant="body2" fontWeight={700}>
                               {index + 1}. {question.checklistItemTitle}

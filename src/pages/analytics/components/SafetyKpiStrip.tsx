@@ -25,7 +25,7 @@ export function SafetyKpiStrip({ summary }: SafetyKpiStripProps): JSX.Element {
       value: summary.inspectionsCount.toLocaleString("pt-BR"),
     },
     {
-      title: "Pendentes de ajuste",
+      title: "Canteiro",
       value: summary.pendingCount.toLocaleString("pt-BR"),
     },
   ];

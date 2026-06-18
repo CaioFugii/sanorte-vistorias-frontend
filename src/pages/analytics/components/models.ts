@@ -77,7 +77,7 @@ export type TeamRankingQualityRow = {
   investmentWorksPercent: number;
 };
 
-export type TeamRankingOrderBy = "average" | "field" | "remote" | "postWork" | "investmentWorks";
+export type TeamRankingOrderBy = "average" | "field" | "remote" | "postWork";
 
 export type TeamRankingInspectionItem = {
   inspectionId: string;

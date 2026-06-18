@@ -94,13 +94,19 @@ function getDefaultQualityRange(): { from: string; to: string } {
   };
 }
 
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getInitialGlobalPeriod(): { from: string; to: string } {
   const to = new Date();
-  const from = new Date(to);
-  from.setMonth(from.getMonth() - 1);
+  const from = new Date(to.getFullYear(), to.getMonth(), 1);
   return {
-    from: from.toISOString().slice(0, 10),
-    to: to.toISOString().slice(0, 10),
+    from: formatDateForInput(from),
+    to: formatDateForInput(to),
   };
 }
 
@@ -334,7 +340,7 @@ export function AnalyticsPage(): JSX.Element {
           from: period.from,
           to: period.to,
           contractId: contractId || undefined,
-          limitPerChecklist: 3,
+          limitPerChecklist: 5,
         }),
       ]);
       const teamRanking = await appRepository.getDashboardTeamRanking({
@@ -524,9 +530,7 @@ export function AnalyticsPage(): JSX.Element {
           ? a.fieldPercent
           : rankingOrderBy === "remote"
             ? a.remotePercent
-            : rankingOrderBy === "postWork"
-              ? a.postWorkPercent
-              : a.investmentWorksPercent;
+            : a.postWorkPercent;
       const bValue =
         rankingOrderBy === "average"
           ? b.averagePercent
@@ -534,9 +538,7 @@ export function AnalyticsPage(): JSX.Element {
           ? b.fieldPercent
           : rankingOrderBy === "remote"
             ? b.remotePercent
-            : rankingOrderBy === "postWork"
-              ? b.postWorkPercent
-              : b.investmentWorksPercent;
+            : b.postWorkPercent;
       return rankingOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
   }, [teamRankingQuality, rankingOrder, rankingOrderBy]);
@@ -608,7 +610,7 @@ export function AnalyticsPage(): JSX.Element {
     <Box>
       <PageHeader
         eyebrow="Análises avançadas"
-        title="Central de Gráficos"
+        title="Dados - Qualidade"
         subtitle="Leituras visuais para apoio gerencial. Layout focado em desktop para validação executiva."
       />
 
@@ -707,10 +709,10 @@ export function AnalyticsPage(): JSX.Element {
               variant="scrollable"
               scrollButtons="auto"
             >
+              <Tab label="Ranking" />
               <Tab label="Visão Geral" />
               <Tab label="Serviços" />
               <Tab label="Equipes" />
-              <Tab label="Ranking" />
               <Tab label="Não conformidades" />
             </Tabs>
           </Paper>
@@ -718,6 +720,29 @@ export function AnalyticsPage(): JSX.Element {
           {hasCoreAnalyticsData ? (
             <>
               {activeTab === 0 && (
+                <QualityRankingTab
+                  teamRankingQuality={teamRankingQuality}
+                  rankingOrderBy={rankingOrderBy}
+                  rankingOrder={rankingOrder}
+                  setRankingOrderBy={setRankingOrderBy}
+                  setRankingOrder={setRankingOrder}
+                  sortedTeamRankingQuality={sortedTeamRankingQuality}
+                  rankingInspectionsOpen={rankingInspectionsOpen}
+                  setRankingInspectionsOpen={setRankingInspectionsOpen}
+                  rankingInspectionsLoading={rankingInspectionsLoading}
+                  rankingInspectionsError={rankingInspectionsError}
+                  rankingInspectionsItems={rankingInspectionsItems}
+                  rankingInspectionsMeta={rankingInspectionsMeta}
+                  openRankingInspections={openRankingInspections}
+                  formatDateTime={formatDateTime}
+                  setRankingInspectionsMeta={setRankingInspectionsMeta}
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
+
+              {activeTab === 1 && (
                 <QualityOverviewTab
                   qualityByService={qualityByService!}
                   chartMonths={chartMonths}
@@ -733,7 +758,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 1 && (
+              {activeTab === 2 && (
                 <QualityServicesTab
                   qualityByService={qualityByService!}
                   currentMonthByService={currentMonthByService!}
@@ -752,7 +777,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 2 && (
+              {activeTab === 3 && (
                 <QualityTeamsTab
                   teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
                   teamPerformanceFilters={teamPerformanceFilters}
@@ -769,29 +794,6 @@ export function AnalyticsPage(): JSX.Element {
                     setTeamPerformanceByTeams(null);
                     setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
                   }}
-                  dateFilterHint={
-                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
-                  }
-                />
-              )}
-
-              {activeTab === 3 && (
-                <QualityRankingTab
-                  teamRankingQuality={teamRankingQuality}
-                  rankingOrderBy={rankingOrderBy}
-                  rankingOrder={rankingOrder}
-                  setRankingOrderBy={setRankingOrderBy}
-                  setRankingOrder={setRankingOrder}
-                  sortedTeamRankingQuality={sortedTeamRankingQuality}
-                  rankingInspectionsOpen={rankingInspectionsOpen}
-                  setRankingInspectionsOpen={setRankingInspectionsOpen}
-                  rankingInspectionsLoading={rankingInspectionsLoading}
-                  rankingInspectionsError={rankingInspectionsError}
-                  rankingInspectionsItems={rankingInspectionsItems}
-                  rankingInspectionsMeta={rankingInspectionsMeta}
-                  openRankingInspections={openRankingInspections}
-                  formatDateTime={formatDateTime}
-                  setRankingInspectionsMeta={setRankingInspectionsMeta}
                   dateFilterHint={
                     <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
                   }
