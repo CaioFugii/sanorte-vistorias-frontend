@@ -446,6 +446,10 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.importServiceOrders(file, contractId);
   }
 
+  async deleteServiceOrder(serviceOrderId: string): Promise<void> {
+    return this.apiRepository.deleteServiceOrder(serviceOrderId);
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;

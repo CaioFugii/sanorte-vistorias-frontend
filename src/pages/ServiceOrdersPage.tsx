@@ -25,7 +25,16 @@ import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { Contract, PaginatedResponse, ServiceOrder, UserRole } from "@/domain";
 import { ListPagination } from "@/components/ListPagination";
-import { DataCard, PageHeader, SectionTable } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  DataCard,
+  PageHeader,
+  SectionTable,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableDeleteButton,
+} from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_LIMIT = 10;
@@ -69,28 +78,34 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
 }
 
-const TABLE_HEAD = (
-  <TableRow>
-    <TableCell>Número da OS</TableCell>
-    <TableCell>Setor</TableCell>
-    <TableCell>Endereço</TableCell>
-    <TableCell>Campo</TableCell>
-    <TableCell>Remota</TableCell>
-    <TableCell>Pós-obra</TableCell>
-    <TableCell>Status</TableCell>
-    <TableCell>Equipe PDA</TableCell>
-    <TableCell>Fim execução</TableCell>
-    <TableCell>Tempo execução efetivo</TableCell>
-    <TableCell>Resultado</TableCell>
-    <TableCell>Atualizada/Inserida em</TableCell>
-  </TableRow>
-);
+const TABLE_COLUMN_COUNT = 12;
+
+function ServiceOrderTableHead({ showActions }: { showActions: boolean }): JSX.Element {
+  return (
+    <TableRow>
+      <TableCell>Número da OS</TableCell>
+      <TableCell>Setor</TableCell>
+      <TableCell>Endereço</TableCell>
+      <TableCell>Campo</TableCell>
+      <TableCell>Remota</TableCell>
+      <TableCell>Pós-obra</TableCell>
+      <TableCell>Status</TableCell>
+      <TableCell>Equipe PDA</TableCell>
+      <TableCell>Fim execução</TableCell>
+      <TableCell>Tempo execução efetivo</TableCell>
+      <TableCell>Resultado</TableCell>
+      <TableCell>Atualizada/Inserida em</TableCell>
+      {showActions && <TableActionsHeaderCell />}
+    </TableRow>
+  );
+}
 
 interface ListagemTabProps {
   contracts: Array<Pick<Contract, "id" | "name">>;
+  isAdmin: boolean;
 }
 
-function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
+function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
   const initialDateRange = getInitialDateRange(30);
   const maxSelectableDate = formatDateForInput(new Date());
   const minDate = new Date();
@@ -111,6 +126,11 @@ function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
   const [postWork, setPostWork] = useState<"" | "true" | "false">("");
   const [result, setResult] = useState<PaginatedResponse<ServiceOrder> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [deleting, setDeleting] = useState<ServiceOrder | null>(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const tableColumnCount = TABLE_COLUMN_COUNT + (isAdmin ? 1 : 0);
 
   useEffect(() => {
     loadCache();
@@ -150,7 +170,7 @@ function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, osNumber, sectorId, contractId, from, to, field, remote, postWork]);
+  }, [page, limit, osNumber, sectorId, contractId, from, to, field, remote, postWork, refreshKey]);
 
   const handleSearch = (value: string) => {
     setOsNumber(value);
@@ -337,17 +357,19 @@ function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
       <SectionTable title="Ordens de serviço cadastradas">
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table sx={{ minWidth: 1500 }}>
-            <TableHead>{TABLE_HEAD}</TableHead>
+            <TableHead>
+              <ServiceOrderTableHead showActions={isAdmin} />
+            </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={tableColumnCount} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={tableColumnCount} align="center" sx={{ py: 4 }}>
                     {osNumber.trim() || sectorId || contractId || from || to || field || remote || postWork
                       ? "Nenhuma ordem de serviço encontrada com esse filtro."
                       : "Nenhuma ordem de serviço cadastrada."}
@@ -382,6 +404,13 @@ function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
                     <TableCell>{so.tempoExecucaoEfetivo ?? "—"}</TableCell>
                     <TableCell>{so.resultado ?? "—"}</TableCell>
                     <TableCell>{formatDateTime(so.updatedAt)}</TableCell>
+                    {isAdmin && (
+                      <TableActionsCell>
+                        <TableActionsGroup>
+                          <TableDeleteButton onClick={() => setDeleting(so)} />
+                        </TableActionsGroup>
+                      </TableActionsCell>
+                    )}
                   </TableRow>
                 ))
               )}
@@ -401,6 +430,40 @@ function ListagemTab({ contracts }: ListagemTabProps): JSX.Element {
           />
         )}
       </SectionTable>
+
+      <ConfirmDialog
+        open={!!deleting}
+        title="Excluir ordem de serviço"
+        description={`Deseja excluir a OS "${deleting?.osNumber ?? ""}"? Esta ação não pode ser desfeita.`}
+        confirmLabel="Excluir"
+        loading={deletingLoading}
+        onClose={() => {
+          if (deletingLoading) return;
+          setDeleting(null);
+        }}
+        onConfirm={async () => {
+          if (!deleting || deletingLoading) return;
+          setDeletingLoading(true);
+          setDeleteError(null);
+          try {
+            await appRepository.deleteServiceOrder(deleting.id);
+            setDeleting(null);
+            setRefreshKey((current) => current + 1);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Não foi possível excluir a ordem de serviço.";
+            setDeleteError(message);
+          } finally {
+            setDeletingLoading(false);
+          }
+        }}
+      />
+
+      {deleteError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {deleteError}
+        </Alert>
+      )}
     </Box>
   );
 }
@@ -585,7 +648,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
 
         <Box sx={{ p: 2 }}>
           <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
-            {tab === 0 && <ListagemTab contracts={contractsForFilters} />}
+            {tab === 0 && <ListagemTab contracts={contractsForFilters} isAdmin={isAdmin} />}
           </div>
           {canImport && (
             <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">

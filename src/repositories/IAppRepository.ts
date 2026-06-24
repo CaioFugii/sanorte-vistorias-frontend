@@ -235,6 +235,7 @@ export interface IAppRepository {
     deleted: number;
     errors: string[];
   }>;
+  deleteServiceOrder(serviceOrderId: string): Promise<void>;
 
   getInspections(params?: {
     periodFrom?: string;

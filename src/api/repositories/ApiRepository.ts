@@ -536,6 +536,10 @@ export class ApiRepository {
     return response.data;
   }
 
+  async deleteServiceOrder(serviceOrderId: string): Promise<void> {
+    await apiClient.delete(`/service-orders/${serviceOrderId}`);
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;
