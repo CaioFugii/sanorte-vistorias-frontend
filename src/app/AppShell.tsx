@@ -269,7 +269,7 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
           {!desktopCollapsed && (
             <>
               <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-                Vistorias Operacionais
+                Gestão Operacional
               </Typography>
               <Chip
                 label="Ambiente corporativo"

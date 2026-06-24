@@ -67,7 +67,13 @@ export const ChecklistsPage = (): JSX.Element => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null);
   const [deletingChecklist, setDeletingChecklist] = useState<Checklist | null>(null);
+  const [deletingSection, setDeletingSection] = useState<{
+    checklist: Checklist;
+    sectionId: string;
+    sectionName: string;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletingSectionLoading, setDeletingSectionLoading] = useState(false);
   const [savingChecklist, setSavingChecklist] = useState(false);
   const [savingItem, setSavingItem] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState<Checklist | null>(null);
@@ -341,6 +347,7 @@ export const ChecklistsPage = (): JSX.Element => {
                   startIcon={<Add />}
                   onClick={() => {
                     setSelectedChecklist(checklist);
+                    setSelectedSectionId("");
                     setSectionName("");
                     setSectionOrder(
                       (checklist.sections.reduce((max, section) => Math.max(max, section.order), 0) || 0) + 1
@@ -372,6 +379,19 @@ export const ChecklistsPage = (): JSX.Element => {
                         }}
                       >
                         <Edit />
+                      </IconButton>}
+                      {!isSupervisor && <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          setDeletingSection({
+                            checklist,
+                            sectionId: section.id,
+                            sectionName: section.title ?? section.name,
+                          });
+                        }}
+                      >
+                        <Delete />
                       </IconButton>}
                       {!isSupervisor && <IconButton
                         size="small"
@@ -784,6 +804,34 @@ export const ChecklistsPage = (): JSX.Element => {
             await load();
           } finally {
             setDeleting(false);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={!!deletingSection && !isSupervisor}
+        title="Excluir seção"
+        description={`Deseja excluir a seção "${deletingSection?.sectionName ?? ""}"? Os itens desta seção também serão removidos.`}
+        confirmLabel="Excluir"
+        loading={deletingSectionLoading}
+        onClose={() => {
+          if (deletingSectionLoading) return;
+          setDeletingSection(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingSection || deletingSectionLoading) return;
+          setDeletingSectionLoading(true);
+          try {
+            await appRepository.deleteChecklistSection(
+              deletingSection.checklist.id,
+              deletingSection.sectionId
+            );
+            setDeletingSection(null);
+            await load();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Não foi possível excluir a seção.");
+            setDeletingSection(null);
+          } finally {
+            setDeletingSectionLoading(false);
           }
         }}
       />

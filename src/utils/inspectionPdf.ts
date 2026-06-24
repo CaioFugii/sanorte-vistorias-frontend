@@ -1,8 +1,9 @@
 import jsPDF from "jspdf";
 import { Inspection, ModuleType } from "@/domain";
+import sanorteLogoUrl from "@/assets/logos/sanorte-infraestrutura.svg";
 
-const SANORTE_LOGO_URL = "/assets/sanorte-logo.svg";
 const HEADER_BLUE = [8, 26, 102] as const;
+const SANORTE_LOGO_ASPECT_RATIO = 586 / 163;
 const REPORT_PHOTO_WIDTH_SCALE = 0.65;
 
 const moduleLabel: Record<ModuleType, string> = {
@@ -12,6 +13,10 @@ const moduleLabel: Record<ModuleType, string> = {
   [ModuleType.REMOTO]: "REMOTO",
   [ModuleType.POS_OBRA]: "POS OBRA",
 };
+
+function pdfText(value: string): string {
+  return value.toLocaleUpperCase("pt-BR");
+}
 
 function formatDate(value?: string | null): string {
   if (!value) return "-";
@@ -76,6 +81,43 @@ async function svgBlobToPngDataUrl(blob: Blob): Promise<string | null> {
   }
 }
 
+async function loadAssetAsPngDataUrl(assetUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(assetUrl);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth || image.width || 1;
+      canvas.height = image.naturalHeight || image.height || 1;
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/png");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  } catch {
+    return null;
+  }
+}
+
+let sanorteLogoPromise: Promise<string | null> | null = null;
+
+async function loadSanorteLogoAsPngDataUrl(): Promise<string | null> {
+  if (!sanorteLogoPromise) {
+    sanorteLogoPromise = loadAssetAsPngDataUrl(sanorteLogoUrl);
+  }
+  return sanorteLogoPromise;
+}
+
 async function loadImageAsDataUrl(url?: string | null): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith("data:image/svg")) return imageToPngDataUrl(url);
@@ -105,7 +147,7 @@ function drawSectionHeader(doc: jsPDF, title: string, y: number, margin: number,
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(title, pageWidth / 2, y + 5.5, { align: "center" });
+  doc.text(pdfText(title), pageWidth / 2, y + 5.5, { align: "center" });
   doc.setTextColor(0, 0, 0);
   return y + sectionHeight;
 }
@@ -131,12 +173,40 @@ function truncateWithEllipsis(doc: jsPDF, value: string, maxWidth: number): stri
   return best || ellipsis;
 }
 
+function measureTextCellWidth(doc: jsPDF, text: string, padding: number): number {
+  return doc.getTextWidth(pdfText(text)) + padding * 2;
+}
+
+function computeInfoTableLayout(
+  doc: jsPDF,
+  rows: Array<{ leftLabel: string; rightLabel: string; fullWidthValue?: boolean }>,
+  tableWidth: number,
+  cellPadding: number,
+): { leftLabelW: number; leftValueW: number; rightLabelW: number; rightValueW: number } {
+  const splitRows = rows.filter((row) => !row.fullWidthValue);
+
+  const leftLabelW = Math.min(
+    Math.max(...rows.map((row) => measureTextCellWidth(doc, row.leftLabel, cellPadding)), cellPadding * 2),
+    tableWidth * 0.42,
+  );
+  const rightLabelW = Math.min(
+    Math.max(
+      ...splitRows.map((row) => measureTextCellWidth(doc, row.rightLabel, cellPadding)),
+      cellPadding * 2,
+    ),
+    tableWidth * 0.24,
+  );
+
+  const valuesWidth = tableWidth - leftLabelW - rightLabelW;
+  const leftValueW = valuesWidth * 0.42;
+  const rightValueW = valuesWidth - leftValueW;
+
+  return { leftLabelW, leftValueW, rightLabelW, rightValueW };
+}
+
 function drawInfoTable(doc: jsPDF, inspection: Inspection, y: number, margin: number, pageWidth: number): number {
   const width = pageWidth - margin * 2;
-  const leftLabelW = 26;
-  const defaultLeftValueW = 72;
-  const rightLabelW = 27;
-  const defaultRightValueW = width - leftLabelW - defaultLeftValueW - rightLabelW;
+  const cellPadding = 2;
   const rowH = 9;
 
   const rows: Array<{
@@ -179,63 +249,70 @@ function drawInfoTable(doc: jsPDF, inspection: Inspection, y: number, margin: nu
       rightValue: formatDate(inspection.finalizedAt ?? inspection.updatedAt),
     },
     {
-      leftLabel: "Criada em:",
+      leftLabel: "Data de execução do serviço:",
       leftValue: formatDate(inspection.createdAt),
       rightLabel: "Percentual:",
       rightValue: `${inspection.scorePercent ?? 0}%`,
     },
   ];
 
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const { leftLabelW, leftValueW, rightLabelW, rightValueW } = computeInfoTableLayout(doc, rows, width, cellPadding);
+
   let cursorY = y;
   rows.forEach((row) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-
-    doc.setTextColor(190, 40, 40);
+    doc.setTextColor(0, 0, 0);
 
     if (row.fullWidthValue) {
       const fullValueW = width - leftLabelW;
-      const textValue = truncateWithEllipsis(doc, row.leftValue, fullValueW - 3);
+      const labelMaxW = leftLabelW - cellPadding * 2;
+      const valueMaxW = fullValueW - cellPadding * 2;
+      const labelText = truncateWithEllipsis(doc, pdfText(row.leftLabel), labelMaxW);
+      const textValue = truncateWithEllipsis(doc, pdfText(row.leftValue), valueMaxW);
 
       doc.rect(margin, cursorY, leftLabelW, rowH);
       doc.rect(margin + leftLabelW, cursorY, fullValueW, rowH);
 
-      doc.setTextColor(0, 0, 0);
-      doc.text(row.leftLabel, margin + 2, cursorY + 6);
-      doc.setTextColor(190, 40, 40);
-      doc.text(textValue, margin + leftLabelW + 2, cursorY + 6, {
-        maxWidth: fullValueW - 3,
-      });
-      doc.setTextColor(0, 0, 0);
+      doc.text(labelText, margin + cellPadding, cursorY + 6, { maxWidth: labelMaxW });
+      doc.text(textValue, margin + leftLabelW + cellPadding, cursorY + 6, { maxWidth: valueMaxW });
       cursorY += rowH;
       return;
     }
 
-    const leftValueW = defaultLeftValueW;
-    const rightValueW = defaultRightValueW;
+    const leftLabelMaxW = leftLabelW - cellPadding * 2;
+    const leftValueMaxW = leftValueW - cellPadding * 2;
+    const rightLabelMaxW = rightLabelW - cellPadding * 2;
+    const rightValueMaxW = rightValueW - cellPadding * 2;
 
     doc.rect(margin, cursorY, leftLabelW, rowH);
     doc.rect(margin + leftLabelW, cursorY, leftValueW, rowH);
     doc.rect(margin + leftLabelW + leftValueW, cursorY, rightLabelW, rowH);
     doc.rect(margin + leftLabelW + leftValueW + rightLabelW, cursorY, rightValueW, rowH);
 
-    doc.setTextColor(0, 0, 0);
-    doc.text(row.leftLabel, margin + 2, cursorY + 6);
-    doc.text(row.rightLabel, margin + leftLabelW + leftValueW + 2, cursorY + 6);
-
-    doc.setTextColor(190, 40, 40);
-    doc.text(truncateWithEllipsis(doc, row.leftValue, leftValueW - 3), margin + leftLabelW + 2, cursorY + 6, {
-      maxWidth: leftValueW - 3,
+    doc.text(truncateWithEllipsis(doc, pdfText(row.leftLabel), leftLabelMaxW), margin + cellPadding, cursorY + 6, {
+      maxWidth: leftLabelMaxW,
     });
     doc.text(
-      truncateWithEllipsis(doc, row.rightValue, rightValueW - 3),
-      margin + leftLabelW + leftValueW + rightLabelW + 2,
+      truncateWithEllipsis(doc, pdfText(row.rightLabel), rightLabelMaxW),
+      margin + leftLabelW + leftValueW + cellPadding,
       cursorY + 6,
-      {
-        maxWidth: rightValueW - 3,
-      }
+      { maxWidth: rightLabelMaxW },
     );
-    doc.setTextColor(0, 0, 0);
+    doc.text(
+      truncateWithEllipsis(doc, pdfText(row.leftValue), leftValueMaxW),
+      margin + leftLabelW + cellPadding,
+      cursorY + 6,
+      { maxWidth: leftValueMaxW },
+    );
+    doc.text(
+      truncateWithEllipsis(doc, pdfText(row.rightValue), rightValueMaxW),
+      margin + leftLabelW + leftValueW + rightLabelW + cellPadding,
+      cursorY + 6,
+      { maxWidth: rightValueMaxW },
+    );
 
     cursorY += rowH;
   });
@@ -243,48 +320,62 @@ function drawInfoTable(doc: jsPDF, inspection: Inspection, y: number, margin: nu
   return cursorY;
 }
 
+function drawSanorteLogo(
+  doc: jsPDF,
+  logoDataUrl: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  maxHeight: number,
+): void {
+  const format = getImageFormat(logoDataUrl);
+  if (!format) return;
+
+  let drawW = maxWidth;
+  let drawH = drawW / SANORTE_LOGO_ASPECT_RATIO;
+  if (drawH > maxHeight) {
+    drawH = maxHeight;
+    drawW = drawH * SANORTE_LOGO_ASPECT_RATIO;
+  }
+
+  doc.addImage(logoDataUrl, format, x, y + (maxHeight - drawH) / 2, drawW, drawH);
+}
+
 function drawHeader(doc: jsPDF, inspection: Inspection, logoDataUrl: string | null): number {
   const margin = 12;
   const pageWidth = doc.internal.pageSize.getWidth();
   const headerHeight = 34;
-  const logoAreaW = 54;
-  const logoInset = 1.2;
+  const logoAreaW = 58;
+  const logoPadX = 3;
+  const logoPadY = 4;
 
-  // Header inteiro azul (mesmo padrao visual das faixas de secao).
   doc.setFillColor(...HEADER_BLUE);
   doc.rect(margin, margin, pageWidth - margin * 2, headerHeight, "F");
   doc.setDrawColor(...HEADER_BLUE);
   doc.rect(margin, margin, pageWidth - margin * 2, headerHeight);
 
-  // Janela branca para acomodar o logo.
-  doc.setFillColor(255, 255, 255);
-  doc.rect(
-    margin + logoInset,
-    margin + logoInset,
-    logoAreaW - logoInset * 2,
-    headerHeight - logoInset * 2,
-    "F"
-  );
-
   if (logoDataUrl) {
-    const logoFormat = getImageFormat(logoDataUrl);
-    if (logoFormat) {
-      doc.addImage(logoDataUrl, logoFormat, margin + 4, margin + 3, 44, 20);
-    }
+    drawSanorteLogo(
+      doc,
+      logoDataUrl,
+      margin + logoPadX,
+      margin + logoPadY,
+      logoAreaW - logoPadX * 2,
+      headerHeight - logoPadY * 2,
+    );
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.setTextColor(...HEADER_BLUE);
-    doc.text("Sanorte", margin + 7, margin + 15);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(255, 255, 255);
+    doc.text(pdfText("Sanorte"), margin + 7, margin + 15);
   }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("RELATORIO DE VISTORIA", pageWidth / 2 + 26, margin + 11, { align: "center" });
+  doc.text(pdfText("Relatorio de Vistoria"), pageWidth / 2 + 26, margin + 11, { align: "center" });
   doc.setFontSize(12);
-  doc.text((inspection.checklist?.name || "QUALIDADE").toUpperCase(), pageWidth / 2 + 26, margin + 21, {
+  doc.text(pdfText(inspection.checklist?.name || "Qualidade"), pageWidth / 2 + 26, margin + 21, {
     align: "center",
   });
   doc.setTextColor(0, 0, 0);
@@ -317,7 +408,7 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
 
-  const logoDataUrl = await loadImageAsDataUrl(SANORTE_LOGO_URL);
+  const logoDataUrl = await loadSanorteLogoAsPngDataUrl();
   const drawStaticContent = (): number => {
     let y = drawHeader(doc, inspection, logoDataUrl);
     y = drawSectionHeader(doc, "INFORMACOES GERAIS", y, margin, pageWidth);
@@ -336,7 +427,7 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
   if (evidences.length === 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("Sem fotos anexadas.", margin, cursorY + 6);
+    doc.text(pdfText("Sem fotos anexadas."), margin, cursorY + 6);
   } else {
     for (let index = 0; index < evidences.length; index += 1) {
       const column = index % 2;
@@ -359,12 +450,12 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
         doc.addImage(dataUrl, imageFormat, x, cursorY, photoWidth, photoHeight);
       } else {
         doc.setFontSize(9);
-        doc.text("Imagem indisponivel", x + 5, cursorY + photoHeight / 2);
+        doc.text(pdfText("Imagem indisponivel"), x + 5, cursorY + photoHeight / 2);
       }
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(entry.label, x, cursorY + photoHeight + 4, { maxWidth: photoWidth });
+      doc.text(pdfText(entry.label), x, cursorY + photoHeight + 4, { maxWidth: photoWidth });
     }
   }
 

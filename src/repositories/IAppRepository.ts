@@ -143,6 +143,7 @@ export interface IAppRepository {
     sectionId: string,
     input: Partial<{ name: string; order: number; active: boolean }>
   ): Promise<void>;
+  deleteChecklistSection(checklistId: string, sectionId: string): Promise<void>;
   createChecklistItem(
     checklistId: string,
     input: {

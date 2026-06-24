@@ -320,6 +320,11 @@ export class AppRepository implements IAppRepository {
     await this.loadChecklists(true);
   }
 
+  async deleteChecklistSection(checklistId: string, sectionId: string): Promise<void> {
+    await this.apiRepository.deleteChecklistSection(checklistId, sectionId);
+    await this.loadChecklists(true);
+  }
+
   async createChecklistItem(
     checklistId: string,
     input: {

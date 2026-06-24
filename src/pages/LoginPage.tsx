@@ -111,7 +111,7 @@ export const LoginPage = (): JSX.Element => {
             />
           </Box>
           <Typography variant="h5" component="h1" gutterBottom sx={{ color: "#1A2750" }}>
-            Vistorias Operacionais
+            Gestão Operacional
           </Typography>
           <Typography sx={{ mb: 3, color: "#33456F" }}>
             Acesse o sistema corporativo para acompanhamento técnico das inspeções.

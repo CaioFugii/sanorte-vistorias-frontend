@@ -386,6 +386,10 @@ export class ApiRepository {
     await apiClient.put(`/checklists/${checklistId}/sections/${sectionId}`, input);
   }
 
+  async deleteChecklistSection(checklistId: string, sectionId: string): Promise<void> {
+    await apiClient.delete(`/checklists/${checklistId}/sections/${sectionId}`);
+  }
+
   async createChecklistItem(
     checklistId: string,
     input: {
