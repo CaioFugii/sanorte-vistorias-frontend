@@ -24,6 +24,7 @@ type QualityNonConformitiesTabProps = {
     checklists: Array<{
       checklistId: string;
       checklistName: string;
+      sectorName?: string;
       totalNonConformities: number;
       questions: Array<{
         checklistItemId: string;
@@ -90,6 +91,17 @@ export function QualityNonConformitiesTab({
                     <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
                       <Typography variant="subtitle2" fontWeight={800}>
                         {checklist.checklistName}
+                        {checklist.sectorName ? (
+                          <Typography
+                            component="span"
+                            variant="subtitle2"
+                            fontWeight={700}
+                            color="text.secondary"
+                            sx={{ ml: 0.75 }}
+                          >
+                            · {checklist.sectorName}
+                          </Typography>
+                        ) : null}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Total de NC: {checklist.totalNonConformities.toLocaleString("pt-BR")}

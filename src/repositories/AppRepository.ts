@@ -728,6 +728,7 @@ export class AppRepository implements IAppRepository {
     checklists: Array<{
       checklistId: string;
       checklistName: string;
+      sectorName?: string;
       totalNonConformities: number;
       questions: Array<{
         checklistItemId: string;
