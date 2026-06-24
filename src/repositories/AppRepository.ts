@@ -598,6 +598,7 @@ export class AppRepository implements IAppRepository {
     hasPrev: boolean;
     inspections: Array<{
       inspectionId: string;
+      externalId: string | null;
       serviceOrderId: string;
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
@@ -634,6 +635,7 @@ export class AppRepository implements IAppRepository {
     hasPrev: boolean;
     inspections: Array<{
       inspectionId: string;
+      externalId: string | null;
       serviceOrderId: string;
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;

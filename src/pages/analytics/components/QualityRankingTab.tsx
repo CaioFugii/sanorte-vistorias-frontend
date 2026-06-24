@@ -20,6 +20,12 @@ import {
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { ListPagination } from "@/components/ListPagination";
 import { PercentBadge } from "@/components/PercentBadge";
+import {
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableViewButton,
+} from "@/components/ui";
 import { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   TeamRankingInspectionItem,
@@ -254,12 +260,13 @@ export function QualityRankingTab({
                     <TableCell align="center">Nota</TableCell>
                     <TableCell>Data da Execução da Ordem de serviço</TableCell>
                     <TableCell>Criada em</TableCell>
+                    <TableActionsHeaderCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {rankingInspectionsItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         <Typography color="text.secondary" sx={{ py: 2 }}>
                           Nenhuma vistoria encontrada para os filtros selecionados.
                         </Typography>
@@ -277,6 +284,17 @@ export function QualityRankingTab({
                         </TableCell>
                         <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
                         <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                        <TableActionsCell>
+                          <TableActionsGroup>
+                            <TableViewButton
+                              disabled={!inspection.externalId && !inspection.inspectionId}
+                              onClick={() => {
+                                const inspectionRouteId = inspection.externalId ?? inspection.inspectionId;
+                                window.open(`/inspections/${inspectionRouteId}`, "_blank", "noopener,noreferrer");
+                              }}
+                            />
+                          </TableActionsGroup>
+                        </TableActionsCell>
                       </TableRow>
                     ))
                   )}

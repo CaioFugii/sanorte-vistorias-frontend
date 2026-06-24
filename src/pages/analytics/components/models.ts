@@ -81,6 +81,7 @@ export type TeamRankingOrderBy = "average" | "field" | "remote" | "postWork";
 
 export type TeamRankingInspectionItem = {
   inspectionId: string;
+  externalId: string | null;
   serviceOrderId: string;
   serviceOrderNumber: string;
   serviceOrderAddress: string | null;
