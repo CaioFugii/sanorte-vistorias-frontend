@@ -3,6 +3,7 @@ import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import {
   Checklist,
   ChecklistItem,
+  ChecklistSection,
   Collaborator,
   Contract,
   Evidence,
@@ -259,6 +260,10 @@ export class AppRepository implements IAppRepository {
     await this.loadTeams(true);
   }
 
+  async getChecklist(checklistId: string): Promise<Checklist> {
+    return this.apiRepository.getChecklist(checklistId);
+  }
+
   async getChecklists(params?: {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
@@ -306,23 +311,20 @@ export class AppRepository implements IAppRepository {
   async createChecklistSection(
     checklistId: string,
     input: { name: string; order: number; active: boolean }
-  ): Promise<void> {
-    await this.apiRepository.createChecklistSection(checklistId, input);
-    await this.loadChecklists(true);
+  ): Promise<ChecklistSection> {
+    return this.apiRepository.createChecklistSection(checklistId, input);
   }
 
   async updateChecklistSection(
     checklistId: string,
     sectionId: string,
     input: Partial<{ name: string; order: number; active: boolean }>
-  ): Promise<void> {
-    await this.apiRepository.updateChecklistSection(checklistId, sectionId, input);
-    await this.loadChecklists(true);
+  ): Promise<ChecklistSection> {
+    return this.apiRepository.updateChecklistSection(checklistId, sectionId, input);
   }
 
   async deleteChecklistSection(checklistId: string, sectionId: string): Promise<void> {
     await this.apiRepository.deleteChecklistSection(checklistId, sectionId);
-    await this.loadChecklists(true);
   }
 
   async createChecklistItem(
@@ -336,9 +338,7 @@ export class AppRepository implements IAppRepository {
       active: boolean;
     }
   ): Promise<ChecklistItem> {
-    const item = await this.apiRepository.createChecklistItem(checklistId, input);
-    await this.loadChecklists(true);
-    return item;
+    return this.apiRepository.createChecklistItem(checklistId, input);
   }
 
   async updateChecklistItem(
@@ -352,14 +352,11 @@ export class AppRepository implements IAppRepository {
       active: boolean;
     }>
   ): Promise<ChecklistItem> {
-    const item = await this.apiRepository.updateChecklistItem(checklistId, itemId, input);
-    await this.loadChecklists(true);
-    return item;
+    return this.apiRepository.updateChecklistItem(checklistId, itemId, input);
   }
 
   async deleteChecklistItem(checklistId: string, itemId: string): Promise<void> {
     await this.apiRepository.deleteChecklistItem(checklistId, itemId);
-    await this.loadChecklists(true);
   }
 
   async uploadChecklistItemReferenceImage(
@@ -367,9 +364,7 @@ export class AppRepository implements IAppRepository {
     itemId: string,
     file: File
   ): Promise<ChecklistItem> {
-    const item = await this.apiRepository.uploadChecklistItemReferenceImage(checklistId, itemId, file);
-    await this.loadChecklists(true);
-    return item;
+    return this.apiRepository.uploadChecklistItemReferenceImage(checklistId, itemId, file);
   }
 
   async getServiceOrders(params?: {

@@ -2,6 +2,7 @@ import { Navigate, Outlet, createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import {
   ChecklistsPage,
+  ChecklistEditorPage,
   CollaboratorsPage,
   ContractsPage,
   DashboardPage,
@@ -84,6 +85,7 @@ export const router = createBrowserRouter([
       { path: "/users", element: <UsersPage /> },
       { path: "/collaborators", element: <CollaboratorsPage /> },
       { path: "/checklists", element: <ChecklistsPage /> },
+      { path: "/checklists/:id/edit", element: <ChecklistEditorPage /> },
       {
         path: "/service-orders",
         element: (

@@ -1,6 +1,7 @@
 import {
   Checklist,
   ChecklistItem,
+  ChecklistSection,
   Collaborator,
   Contract,
   Evidence,
@@ -106,6 +107,7 @@ export interface IAppRepository {
   ): Promise<Team>;
   deleteTeam(teamId: string): Promise<void>;
 
+  getChecklist(checklistId: string): Promise<Checklist>;
   getChecklists(params?: {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
@@ -137,12 +139,12 @@ export interface IAppRepository {
   createChecklistSection(
     checklistId: string,
     input: { name: string; order: number; active: boolean }
-  ): Promise<void>;
+  ): Promise<ChecklistSection>;
   updateChecklistSection(
     checklistId: string,
     sectionId: string,
     input: Partial<{ name: string; order: number; active: boolean }>
-  ): Promise<void>;
+  ): Promise<ChecklistSection>;
   deleteChecklistSection(checklistId: string, sectionId: string): Promise<void>;
   createChecklistItem(
     checklistId: string,

@@ -8,6 +8,7 @@ export { SectorsPage } from './SectorsPage';
 export { CollaboratorsPage } from './CollaboratorsPage';
 export { UsersPage } from './UsersPage';
 export { ChecklistsPage } from './ChecklistsPage';
+export { ChecklistEditorPage } from './ChecklistEditorPage';
 export { ServiceOrdersPage } from './ServiceOrdersPage';
 export { InvestmentWorksPage } from './InvestmentWorksPage';
 export { InspectionsPage } from './InspectionsPage';

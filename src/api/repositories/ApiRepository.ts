@@ -2,6 +2,7 @@ import {
   AuthLoginResponse,
   Checklist,
   ChecklistItem,
+  ChecklistSection,
   Collaborator,
   Contract,
   InvestmentWork,
@@ -309,6 +310,11 @@ export class ApiRepository {
     await apiClient.delete(`/collaborators/${collaboratorId}`);
   }
 
+  async getChecklist(checklistId: string): Promise<Checklist> {
+    const response = await apiClient.get<Checklist>(`/checklists/${checklistId}`);
+    return normalizeChecklistSections(response.data);
+  }
+
   async getChecklists(params?: {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
@@ -374,16 +380,21 @@ export class ApiRepository {
   async createChecklistSection(
     checklistId: string,
     input: { name: string; order: number; active: boolean }
-  ): Promise<void> {
-    await apiClient.post(`/checklists/${checklistId}/sections`, input);
+  ): Promise<ChecklistSection> {
+    const response = await apiClient.post<ChecklistSection>(`/checklists/${checklistId}/sections`, input);
+    return response.data;
   }
 
   async updateChecklistSection(
     checklistId: string,
     sectionId: string,
     input: Partial<{ name: string; order: number; active: boolean }>
-  ): Promise<void> {
-    await apiClient.put(`/checklists/${checklistId}/sections/${sectionId}`, input);
+  ): Promise<ChecklistSection> {
+    const response = await apiClient.put<ChecklistSection>(
+      `/checklists/${checklistId}/sections/${sectionId}`,
+      input
+    );
+    return response.data;
   }
 
   async deleteChecklistSection(checklistId: string, sectionId: string): Promise<void> {
