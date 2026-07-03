@@ -20,7 +20,7 @@ function App(): JSX.Element {
       if (navigator.onLine) {
         await refreshFromApi();
       }
-      if (localStorage.getItem("auth_token")) {
+      if (sessionStorage.getItem("auth_token")) {
         try {
           await loadMe();
         } catch {

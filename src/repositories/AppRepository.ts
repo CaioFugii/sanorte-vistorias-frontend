@@ -80,18 +80,17 @@ export class AppRepository implements IAppRepository {
 
   async login(email: string, password: string): Promise<{ token: string; user: User }> {
     const data = await this.apiRepository.login(email, password);
-    localStorage.setItem("auth_token", data.accessToken);
-    localStorage.setItem("auth_user", JSON.stringify(data.user));
+    sessionStorage.setItem("auth_token", data.accessToken);
+    localStorage.removeItem("auth_user");
     return { token: data.accessToken, user: data.user };
   }
 
   async me(): Promise<User> {
-    const user = await this.apiRepository.me();
-    localStorage.setItem("auth_user", JSON.stringify(user));
-    return user;
+    return this.apiRepository.me();
   }
 
   logout(): void {
+    sessionStorage.removeItem("auth_token");
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
   }
@@ -821,6 +820,30 @@ export class AppRepository implements IAppRepository {
     }>;
   }> {
     return this.apiRepository.getDashboardTeamPerformanceByTeams(params);
+  }
+
+  async getDashboardPendingLifecycleSummary(
+    params: Parameters<IAppRepository['getDashboardPendingLifecycleSummary']>[0]
+  ) {
+    return this.apiRepository.getDashboardPendingLifecycleSummary(params);
+  }
+
+  async getDashboardPendingLifecycleTimeline(
+    params: Parameters<IAppRepository['getDashboardPendingLifecycleTimeline']>[0]
+  ) {
+    return this.apiRepository.getDashboardPendingLifecycleTimeline(params);
+  }
+
+  async getDashboardPendingLifecycleByDimension(
+    params: Parameters<IAppRepository['getDashboardPendingLifecycleByDimension']>[0]
+  ) {
+    return this.apiRepository.getDashboardPendingLifecycleByDimension(params);
+  }
+
+  async getDashboardPendingLifecycleRecurrences(
+    params: Parameters<IAppRepository['getDashboardPendingLifecycleRecurrences']>[0]
+  ) {
+    return this.apiRepository.getDashboardPendingLifecycleRecurrences(params);
   }
 
   async createInspection(input: {

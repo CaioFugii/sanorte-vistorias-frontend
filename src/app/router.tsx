@@ -15,6 +15,7 @@ import {
   NewInspectionPage,
   PendingsPage,
   QualityAnalyticsPage,
+  QualityAdvancedAnalyticsPage,
   QualityInspectionsPage,
   ReportFormPage,
   ReportTypesPage,
@@ -40,18 +41,27 @@ function ProtectedLayout(): JSX.Element {
   );
 }
 
-function BlockFiscalRoute({ children }: { children: JSX.Element }): JSX.Element {
-  const role = useAuthStore((state) => state.user?.role);
+function getDefaultRouteForRole(role?: UserRole): string {
   if (role === UserRole.FISCAL) {
-    return <Navigate to="/inspections/mine" replace />;
+    return "/inspections/mine";
   }
-  return children;
+  return "/dashboard";
 }
 
-function BlockSupervisorRoute({ children }: { children: JSX.Element }): JSX.Element {
+function RequireRoles({
+  children,
+  allowedRoles,
+}: {
+  children: JSX.Element;
+  allowedRoles: UserRole[];
+}): JSX.Element {
   const role = useAuthStore((state) => state.user?.role);
-  if (role === UserRole.SUPERVISOR) {
-    return <Navigate to="/dashboard" replace />;
+  // During bootstrap, allow rendering until /auth/me resolves role.
+  if (!role) {
+    return children;
+  }
+  if (!allowedRoles.includes(role)) {
+    return <Navigate to={getDefaultRouteForRole(role)} replace />;
   }
   return children;
 }
@@ -76,57 +86,205 @@ export const router = createBrowserRouter([
           <RoleAwareHomeRedirect />
         ),
       },
-      { path: "/dashboard", element: <BlockFiscalRoute><DashboardPage /></BlockFiscalRoute> },
-      { path: "/quality/analytics", element: <BlockFiscalRoute><QualityAnalyticsPage /></BlockFiscalRoute> },
-      { path: "/safety/analytics", element: <BlockFiscalRoute><SafetyAnalyticsPage /></BlockFiscalRoute> },
-      { path: "/teams", element: <TeamsPage /> },
-      { path: "/contracts", element: <ContractsPage /> },
-      { path: "/sectors", element: <SectorsPage /> },
-      { path: "/users", element: <UsersPage /> },
-      { path: "/collaborators", element: <CollaboratorsPage /> },
-      { path: "/checklists", element: <ChecklistsPage /> },
-      { path: "/checklists/:id/edit", element: <ChecklistEditorPage /> },
+      {
+        path: "/dashboard",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <DashboardPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/quality/analytics",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <QualityAnalyticsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/quality/analytics/advanced",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <QualityAdvancedAnalyticsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/safety/analytics",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <SafetyAnalyticsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/teams",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <TeamsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/contracts",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <ContractsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/sectors",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <SectorsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/users",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <UsersPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/collaborators",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <CollaboratorsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/checklists",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <ChecklistsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/checklists/:id/edit",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <ChecklistEditorPage />
+          </RequireRoles>
+        ),
+      },
       {
         path: "/service-orders",
         element: (
-          <BlockSupervisorRoute>
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL]}
+          >
             <ServiceOrdersPage />
-          </BlockSupervisorRoute>
+          </RequireRoles>
         ),
       },
       {
         path: "/investment-works",
         element: (
-          <BlockSupervisorRoute>
+          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
             <InvestmentWorksPage />
-          </BlockSupervisorRoute>
+          </RequireRoles>
         ),
       },
-      { path: "/inspections", element: <InspectionsPage /> },
+      {
+        path: "/inspections",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <InspectionsPage />
+          </RequireRoles>
+        ),
+      },
       {
         path: "/quality/inspections",
         element: (
-          <BlockSupervisorRoute>
+          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
             <QualityInspectionsPage />
-          </BlockSupervisorRoute>
+          </RequireRoles>
         ),
       },
       {
         path: "/safety/inspections",
         element: (
-          <BlockSupervisorRoute>
+          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
             <SafetyInspectionsPage />
-          </BlockSupervisorRoute>
+          </RequireRoles>
         ),
       },
-      { path: "/inspections/mine", element: <InspectionsPage /> },
-      { path: "/inspections/new", element: <NewInspectionPage /> },
+      {
+        path: "/inspections/mine",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.FISCAL]}>
+            <InspectionsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/inspections/new",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.FISCAL]}>
+            <NewInspectionPage />
+          </RequireRoles>
+        ),
+      },
       { path: "/inspections/:externalId", element: <InspectionDetailPage /> },
       { path: "/inspections/:externalId/fill", element: <FillInspectionPage /> },
       { path: "/inspections/:externalId/manage", element: <ManageInspectionPage /> },
-      { path: "/pendings", element: <PendingsPage /> },
-      { path: "/reports/new", element: <ReportTypesPage /> },
-      { path: "/reports/new/:code", element: <ReportFormPage /> },
+      {
+        path: "/pendings",
+        element: (
+          <RequireRoles
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
+          >
+            <PendingsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/reports/new",
+        element: (
+          <RequireRoles
+            allowedRoles={[
+              UserRole.ADMIN,
+              UserRole.GESTOR,
+              UserRole.SUPERVISOR,
+              UserRole.FISCAL,
+            ]}
+          >
+            <ReportTypesPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/reports/new/:code",
+        element: (
+          <RequireRoles
+            allowedRoles={[
+              UserRole.ADMIN,
+              UserRole.GESTOR,
+              UserRole.SUPERVISOR,
+              UserRole.FISCAL,
+            ]}
+          >
+            <ReportFormPage />
+          </RequireRoles>
+        ),
+      },
     ],
   },
 ]);

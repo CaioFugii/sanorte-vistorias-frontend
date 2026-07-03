@@ -13,25 +13,12 @@ interface AuthState {
   hasAnyRole: (roles: UserRole[]) => boolean;
 }
 
-function getStoredUser(): User | null {
-  const raw = localStorage.getItem("auth_user");
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as User;
-  } catch {
-    return null;
-}
-}
-
-const initialToken = localStorage.getItem("auth_token");
-const initialUser = getStoredUser();
+const initialToken = sessionStorage.getItem("auth_token");
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: initialUser,
+  user: null,
   token: initialToken,
-  isAuthenticated: Boolean(initialToken && initialUser),
+  isAuthenticated: Boolean(initialToken),
 
   login: async (email: string, password: string) => {
     const result = await appRepository.login(email, password);

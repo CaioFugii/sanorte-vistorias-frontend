@@ -63,7 +63,8 @@ function dispatchApiError(message: string): void {
 }
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
+  const token =
+    sessionStorage.getItem("auth_token") || localStorage.getItem("auth_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -74,6 +75,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      sessionStorage.removeItem("auth_token");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
       window.dispatchEvent(new CustomEvent("auth:unauthorized"));
