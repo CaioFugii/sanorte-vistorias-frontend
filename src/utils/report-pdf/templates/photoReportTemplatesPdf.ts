@@ -267,6 +267,23 @@ function drawLigacaoPasseioMetaStrip(
   return y + row2H;
 }
 
+function fitSingleLineText(doc: jsPDF, text: string, maxWidth: number, fontSize: number, minFontSize = 5): string {
+  const raw = text || "-";
+  let size = fontSize;
+  doc.setFontSize(size);
+  while (size > minFontSize && doc.getTextWidth(raw) > maxWidth) {
+    size -= 0.2;
+    doc.setFontSize(size);
+  }
+  if (doc.getTextWidth(raw) <= maxWidth) return raw;
+
+  let clipped = raw;
+  while (clipped.length > 1 && doc.getTextWidth(`${clipped}…`) > maxWidth) {
+    clipped = clipped.slice(0, -1);
+  }
+  return `${clipped}…`;
+}
+
 function drawLigacoesMetaStrip(
   doc: jsPDF,
   startY: number,
@@ -295,18 +312,35 @@ function drawLigacoesMetaStrip(
     let x = x0;
     for (const entry of entries) {
       doc.rect(x, y, entry.width, rowH);
+
+      // Clip every cell so labels/values never spill into neighbors (was causing
+      // leftover digits over "EXTENSAO DO RAMAL" and corrupted diameter display).
+      doc.saveGraphicsState();
+      doc.rect(x, y, entry.width, rowH);
+      doc.clip();
+      doc.discardPath();
+
+      const padX = 1.2;
+      const textMaxWidth = Math.max(entry.width - padX * 2, 2);
+
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.8);
-      doc.text(entry.label, x + 1.2, y + 2.9);
+      doc.setFontSize(6.4);
+      const labelText = fitSingleLineText(doc, entry.label, textMaxWidth, 6.4, 4.8);
+      doc.text(labelText, x + padX, y + 2.9);
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.8);
-      doc.text(entry.value || "-", x + entry.width / 2, y + 6.2, { align: "center", maxWidth: entry.width - 2 });
+      const valueText = fitSingleLineText(doc, entry.value || "-", textMaxWidth, 8.8, 5.5);
+      doc.text(valueText, x + entry.width / 2, y + (rowH > 9 ? 7.4 : 6.2), { align: "center" });
+
+      doc.restoreGraphicsState();
       x += entry.width;
     }
     y += rowH;
   };
 
-  const row1Ratios = [0.34, 0.09, 0.15, 0.15];
+  // PDE column widened so 8-digit codes stay on one line and do not wrap onto row 2.
+  const row1Ratios = [0.32, 0.12, 0.14, 0.14];
   const row1Used = row1Ratios.reduce((sum, ratio) => sum + ratio, 0);
   const row1Entries = [
     { label: "END.:", value: data.endereco, width: contentWidth * row1Ratios[0] },
@@ -316,7 +350,7 @@ function drawLigacoesMetaStrip(
     { label: "SUB-BACIA:", value: data.subBacia, width: contentWidth * (1 - row1Used) },
   ];
 
-  const row2Ratios = [0.165, 0.165, 0.165, 0.165, 0.17];
+  const row2Ratios = [0.155, 0.155, 0.155, 0.155, 0.19];
   const row2Used = row2Ratios.reduce((sum, ratio) => sum + ratio, 0);
   const row2Entries = [
     { label: "DIAMETRO DA REDE:", value: data.diametroRede, width: contentWidth * row2Ratios[0] },
@@ -1037,22 +1071,23 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
   const montante = findFieldValue(orderedFields, formData, ["montante"]);
   const bacia = findFieldValue(orderedFields, formData, ["sub bacia", "sub-bacia", "bacia"]);
   const extensaoRamal = findFieldValue(orderedFields, formData, [
-    "extensao",
-    "extensão",
     "extensao_ramal",
     "extensão_ramal",
+    "extensao",
+    "extensão",
   ]);
   const diametroRede = findFieldValue(orderedFields, formData, [
     "diametro_rede",
     "diâmetro_rede",
     "diametro da rede",
   ]);
+  // Exact fieldKey first — avoids fuzzy matches stealing the typed diameter value.
   const diametroRamal = findFieldValue(orderedFields, formData, [
     "diametro_ramal",
     "diâmetro_ramal",
     "diametro do ramal",
   ]);
-  const materialRede = findFieldValue(orderedFields, formData, ["material", "material_rede", "material da rede"]);
+  const materialRede = findFieldValue(orderedFields, formData, ["material_rede", "material da rede", "material"]);
   const profundidadeRede = findFieldValue(orderedFields, formData, [
     "profundidade_rede",
     "profundidade da rede",

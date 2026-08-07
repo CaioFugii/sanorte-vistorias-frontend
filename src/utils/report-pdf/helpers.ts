@@ -55,12 +55,30 @@ export function findFieldValue(
   keywords: string[]
 ): string {
   const normalizedKeywords = keywords.map(normalizeText);
-  const found = fields.find((field) => {
+
+  // Prefer exact fieldKey match so fuzzy label matching cannot steal values
+  // (e.g. "diametro_ramal" must not lose to another field that merely mentions "diametro").
+  for (const keyword of normalizedKeywords) {
+    const exact = fields.find((field) => normalizeText(field.fieldKey) === keyword);
+    if (exact) return toDisplayText(formData[exact.fieldKey]);
+  }
+
+  // Fall back to the most specific (longest) keyword that appears in key/label.
+  const rankedKeywords = [...normalizedKeywords].sort((a, b) => b.length - a.length);
+  let best: { field: ReportTypeField; score: number } | null = null;
+  for (const field of fields) {
     const target = normalizeText(`${field.fieldKey} ${field.label}`);
-    return normalizedKeywords.some((keyword) => target.includes(keyword));
-  });
-  if (!found) return "-";
-  return toDisplayText(formData[found.fieldKey]);
+    for (const keyword of rankedKeywords) {
+      if (!target.includes(keyword)) continue;
+      const score = keyword.length;
+      if (!best || score > best.score) {
+        best = { field, score };
+      }
+      break;
+    }
+  }
+  if (!best) return "-";
+  return toDisplayText(formData[best.field.fieldKey]);
 }
 
 export type AceitePhoto = LocalMediaFile & { label: string };
