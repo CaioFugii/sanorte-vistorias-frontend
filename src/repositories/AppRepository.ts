@@ -822,30 +822,6 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardTeamPerformanceByTeams(params);
   }
 
-  async getDashboardPendingLifecycleSummary(
-    params: Parameters<IAppRepository['getDashboardPendingLifecycleSummary']>[0]
-  ) {
-    return this.apiRepository.getDashboardPendingLifecycleSummary(params);
-  }
-
-  async getDashboardPendingLifecycleTimeline(
-    params: Parameters<IAppRepository['getDashboardPendingLifecycleTimeline']>[0]
-  ) {
-    return this.apiRepository.getDashboardPendingLifecycleTimeline(params);
-  }
-
-  async getDashboardPendingLifecycleByDimension(
-    params: Parameters<IAppRepository['getDashboardPendingLifecycleByDimension']>[0]
-  ) {
-    return this.apiRepository.getDashboardPendingLifecycleByDimension(params);
-  }
-
-  async getDashboardPendingLifecycleRecurrences(
-    params: Parameters<IAppRepository['getDashboardPendingLifecycleRecurrences']>[0]
-  ) {
-    return this.apiRepository.getDashboardPendingLifecycleRecurrences(params);
-  }
-
   async createInspection(input: {
     module: ModuleType;
     inspectionScope?: InspectionScope;

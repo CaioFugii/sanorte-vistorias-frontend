@@ -15,7 +15,6 @@ import {
   NewInspectionPage,
   PendingsPage,
   QualityAnalyticsPage,
-  QualityAdvancedAnalyticsPage,
   QualityInspectionsPage,
   ReportFormPage,
   ReportTypesPage,
@@ -103,16 +102,6 @@ export const router = createBrowserRouter([
             allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
           >
             <QualityAnalyticsPage />
-          </RequireRoles>
-        ),
-      },
-      {
-        path: "/quality/analytics/advanced",
-        element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
-          >
-            <QualityAdvancedAnalyticsPage />
           </RequireRoles>
         ),
       },
