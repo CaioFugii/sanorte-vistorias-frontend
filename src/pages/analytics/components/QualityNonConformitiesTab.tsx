@@ -1,12 +1,10 @@
 import {
+  Autocomplete,
   Box,
   CircularProgress,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
+  TextField,
   Typography,
 } from "@mui/material";
 import { ReactNode } from "react";
@@ -63,7 +61,11 @@ export function QualityNonConformitiesTab({
   byTeamError,
   dateFilterHint,
 }: QualityNonConformitiesTabProps): JSX.Element {
-  const selectedTeamName = teamOptions.find((team) => team.id === selectedTeamId)?.name ?? "";
+  const sortedTeamOptions = [...teamOptions].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
+  );
+  const selectedTeam = sortedTeamOptions.find((team) => team.id === selectedTeamId) ?? null;
+  const selectedTeamName = selectedTeam?.name ?? "";
 
   return (
     <Grid container spacing={3}>
@@ -144,20 +146,21 @@ export function QualityNonConformitiesTab({
           </Box>
           <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
             <Box sx={{ mb: 2, maxWidth: 380 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Equipe</InputLabel>
-                <Select
-                  value={selectedTeamId}
-                  label="Equipe"
-                  onChange={(event) => onSelectedTeamIdChange(event.target.value)}
-                >
-                  {teamOptions.map((team) => (
-                    <MenuItem key={team.id} value={team.id}>
-                      {team.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={sortedTeamOptions}
+                value={selectedTeam}
+                onChange={(_, team) => onSelectedTeamIdChange(team?.id ?? "")}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Equipe"
+                    placeholder="Buscar equipe"
+                    size="small"
+                  />
+                )}
+              />
             </Box>
 
             {byTeamLoading && (
