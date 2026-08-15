@@ -383,13 +383,29 @@ export function AnalyticsPage(): JSX.Element {
 
   const loadTeamsOptions = async (): Promise<Team[]> => {
     try {
-      const result = await appRepository.getTeams({
-        page: 1,
-        limit: 100,
-      });
-      const activeTeams = result.data.filter(
-        (team) => team.active && teamMatchesContract(team, selectedContractId || undefined)
-      );
+      const contractId = selectedContractId || undefined;
+      const pageSize = 100;
+      const collected: Team[] = [];
+      let page = 1;
+      let hasNext = true;
+
+      while (hasNext) {
+        const result = await appRepository.getTeams({
+          page,
+          limit: pageSize,
+          contractId,
+        });
+        collected.push(...result.data);
+        hasNext = Boolean(result.meta?.hasNext);
+        page += 1;
+        if (page > 50) {
+          break;
+        }
+      }
+
+      const activeTeams = collected
+        .filter((team) => team.active && teamMatchesContract(team, contractId))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
       setTeamOptions(activeTeams);
       return activeTeams;
     } catch {
@@ -510,7 +526,9 @@ export function AnalyticsPage(): JSX.Element {
 
   const teamPerformanceRows = useMemo(() => {
     if (!teamPerformanceByTeams) return [];
-    return [...teamPerformanceByTeams.teams].sort((a, b) => b.averagePercent - a.averagePercent);
+    return [...teamPerformanceByTeams.teams].sort((a, b) =>
+      a.teamName.localeCompare(b.teamName, "pt-BR", { sensitivity: "base" })
+    );
   }, [teamPerformanceByTeams]);
 
   const teamPerformanceBarMax = useMemo(

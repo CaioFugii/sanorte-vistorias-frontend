@@ -52,6 +52,10 @@ export function QualityTeamsTab({
   clearTeamSelection,
   dateFilterHint,
 }: QualityTeamsTabProps): JSX.Element {
+  const sortedTeamOptions = [...teamOptions].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" })
+  );
+
   return (
     <Paper sx={{ p: 0, overflow: "hidden" }}>
       <Box sx={CHART_HEADER_SX}>
@@ -72,8 +76,8 @@ export function QualityTeamsTab({
           <Autocomplete
             multiple
             disableCloseOnSelect
-            options={teamOptions}
-            value={teamOptions.filter((team) => teamPerformanceFilters.teamIds.includes(team.id))}
+            options={sortedTeamOptions}
+            value={sortedTeamOptions.filter((team) => teamPerformanceFilters.teamIds.includes(team.id))}
             onChange={(_, selectedTeams) => {
               setTeamPerformanceFilters((prev) => ({
                 ...prev,
@@ -86,7 +90,7 @@ export function QualityTeamsTab({
               <TextField
                 {...params}
                 label="Equipes"
-                placeholder={teamOptions.length === 0 ? "Sem equipes ativas" : "Selecione as equipes"}
+                placeholder={sortedTeamOptions.length === 0 ? "Sem equipes ativas" : "Selecione as equipes"}
               />
             )}
           />
@@ -102,6 +106,19 @@ export function QualityTeamsTab({
         </Box>
 
         <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() =>
+              setTeamPerformanceFilters((prev) => ({
+                ...prev,
+                teamIds: sortedTeamOptions.map((team) => team.id),
+              }))
+            }
+            disabled={sortedTeamOptions.length === 0 || teamPerformanceLoading}
+          >
+            Selecionar todas
+          </Button>
           <Button
             variant="outlined"
             size="small"
