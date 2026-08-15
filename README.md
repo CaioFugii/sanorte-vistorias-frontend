@@ -52,11 +52,13 @@ npm install
 cp .env.example .env
 ```
 
-3. Configurar URL da API:
+3. Configurar URL da API **local**:
 
 ```env
 VITE_API_URL=http://localhost:3000
 ```
+
+A API precisa estar no ar (monorepo: `./scripts/setup-local.sh` e `npm run start:dev` no backend). Não use host de produção. Abra o app em `http://localhost:5173`.
 
 4. Executar em desenvolvimento:
 

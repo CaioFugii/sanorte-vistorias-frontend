@@ -146,10 +146,12 @@ Guards de rota em `router.tsx` **complementam** o menu em `AppShell.tsx` — amb
 
 ## Setup e comandos
 
+A API local precisa estar no ar (`http://localhost:3000`). Ver `AGENTS.md` da raiz do monorepo e skill `sanorte-local-dev`.
+
 ```bash
 npm install
 cp .env.example .env   # VITE_API_URL=http://localhost:3000
-npm run dev
+npm run dev            # http://localhost:5173  (não use 127.0.0.1)
 ```
 
 | Script | Uso |
@@ -165,7 +167,7 @@ Não há suite de testes automatizados — validação via lint e teste manual.
 
 ## Quando a tarefa exige backend
 
-Alterações que impactam API, schema ou regras persistidas exigem mudanças em `sanorte-vistorias-backend`:
+Alterações que impactam API, schema ou regras persistidas exigem mudanças em `sanorte-vistorias-backend` (ambiente **local** — skill `sanorte-local-dev`):
 
 - Novo endpoint ou campo na resposta
 - Nova regra de permissão server-side
