@@ -74,6 +74,106 @@ function getItemDescription(item: InspectionItem): string | null {
   return item.checklistItem?.description?.trim() || null;
 }
 
+function getItemNotes(item: InspectionItem): string | null {
+  return item.notes?.trim() || null;
+}
+
+type EvidenceThumb = { key: string; src: string; label: string };
+
+function EvidenceThumbList({ entries }: { entries: EvidenceThumb[] }): JSX.Element | null {
+  if (entries.length === 0) return null;
+  const thumbSize = 56;
+  return (
+    <Box
+      component="ul"
+      sx={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 1.5,
+        listStyle: "none",
+        m: 0,
+        p: 0,
+      }}
+    >
+      {entries.map((entry) => (
+        <Box
+          component="li"
+          key={entry.key}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            minWidth: 0,
+            flex: "1 1 auto",
+            maxWidth: 220,
+          }}
+        >
+          {entry.src ? (
+            <Box
+              component="a"
+              href={entry.src}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                flexShrink: 0,
+                width: thumbSize,
+                height: thumbSize,
+                borderRadius: 1,
+                overflow: "hidden",
+                bgcolor: "action.hover",
+                display: "block",
+              }}
+            >
+              <img
+                src={entry.src}
+                alt=""
+                loading="lazy"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                width: thumbSize,
+                height: thumbSize,
+                borderRadius: 1,
+                bgcolor: "action.hover",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <PhotoLibrary fontSize="small" color="action" />
+            </Box>
+          )}
+          <Typography variant="body2" noWrap sx={{ minWidth: 0, flex: 1 }} title={entry.label}>
+            {entry.label}
+          </Typography>
+          {entry.src && (
+            <Button size="small" href={entry.src} target="_blank" rel="noopener noreferrer" sx={{ flexShrink: 0 }}>
+              Ver
+            </Button>
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function toEvidenceThumb(ev: { id: string; url?: string; dataUrl?: string; fileName: string }): EvidenceThumb {
+  return {
+    key: ev.id,
+    src: ev.url ?? ev.dataUrl ?? "",
+    label: ev.fileName,
+  };
+}
+
 export const InspectionDetailPage = (): JSX.Element => {
   const { externalId } = useParams();
   const navigate = useNavigate();
@@ -516,30 +616,45 @@ export const InspectionDetailPage = (): JSX.Element => {
                     {currentPanel.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell sx={{ verticalAlign: 'top' }}>
-                          <Typography variant="body2">{getItemTitle(item)}</Typography>
-                          {getItemDescription(item) && (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                              {getItemDescription(item)}
-                            </Typography>
-                          )}
-                          {item.notes && (
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                              {item.notes}
-                            </Typography>
-                          )}
-                          {checklistTab === 1 && item.resolvedAt != null && (
-                            <Box sx={{ mt: 1 }}>
-                              {item.resolutionNotes && (
-                                <Typography variant="caption" color="success.dark" display="block" sx={{ mt: 0.5 }}>
-                                  <strong>Resolução:</strong> {item.resolutionNotes}
+                          <Box display="flex" alignItems="flex-start" gap={1}>
+                            <Box
+                              component="span"
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: 'text.primary',
+                                mt: '6px',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Box>
+                              <Typography variant="body2">{getItemTitle(item)}</Typography>
+                              {getItemDescription(item) && (
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                  {getItemDescription(item)}
                                 </Typography>
                               )}
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
-                                Resolvido em {new Date(item.resolvedAt).toLocaleString('pt-BR')}
-                                {item.resolvedBy?.name && ` por ${item.resolvedBy.name}`}
-                              </Typography>
+                              {getItemNotes(item) && (
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.75 }}>
+                                  <strong>Observações:</strong> {getItemNotes(item)}
+                                </Typography>
+                              )}
+                              {checklistTab === 1 && item.resolvedAt != null && (
+                                <Box sx={{ mt: 1 }}>
+                                  {item.resolutionNotes && (
+                                    <Typography variant="caption" color="success.dark" display="block" sx={{ mt: 0.5 }}>
+                                      <strong>Resolução:</strong> {item.resolutionNotes}
+                                    </Typography>
+                                  )}
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                                    Resolvido em {new Date(item.resolvedAt).toLocaleString('pt-BR')}
+                                    {item.resolvedBy?.name && ` por ${item.resolvedBy.name}`}
+                                  </Typography>
+                                </Box>
+                              )}
                             </Box>
-                          )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -553,122 +668,90 @@ export const InspectionDetailPage = (): JSX.Element => {
       })()}
 
       {(() => {
-        const creationEvidences =
-          inspection.evidences?.map((ev) => ({
-            key: ev.id,
-            src: ev.url ?? ev.dataUrl ?? '',
-            label: ev.fileName,
-          })) ?? [];
-        const resolutionEvidences =
-          inspection.items
-            ?.filter((item) => item.resolutionEvidencePath)
+        const evidences = inspection.evidences ?? [];
+        const generalEntries = evidences.filter((ev) => !ev.inspectionItemId).map(toEvidenceThumb);
+        const itemEvidences = evidences.filter((ev) => ev.inspectionItemId);
+        const items = inspection.items ?? [];
+        const itemIds = new Set(items.map((item) => item.id));
+        const checklistGroups = items
+          .map((item) => ({
+            id: item.id,
+            title: getItemTitle(item),
+            entries: itemEvidences
+              .filter((ev) => ev.inspectionItemId === item.id)
+              .map(toEvidenceThumb),
+          }))
+          .filter((group) => group.entries.length > 0);
+        const orphanItemEntries = itemEvidences
+          .filter((ev) => ev.inspectionItemId && !itemIds.has(ev.inspectionItemId))
+          .map(toEvidenceThumb);
+        const resolutionEntries =
+          items
+            .filter((item) => item.resolutionEvidencePath)
             .map((item) => ({
               key: `${item.id}-resolution`,
               src: item.resolutionEvidencePath!,
               label: `Resolução: ${getItemTitle(item)}`,
-            })) ?? [];
-        const allEvidences = [...creationEvidences, ...resolutionEvidences];
-        if (allEvidences.length === 0) return null;
+            }));
+        const hasAnyEvidence =
+          generalEntries.length > 0 ||
+          checklistGroups.length > 0 ||
+          orphanItemEntries.length > 0 ||
+          resolutionEntries.length > 0;
+        if (!hasAnyEvidence) return null;
         return (
-          <Paper sx={{ p: 3, mt: 3, width: '100%' }}>
+          <Paper sx={{ p: 3, mt: 3, width: "100%" }}>
             <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
               <PhotoLibrary /> Evidências
             </Typography>
-            <Box
-              component="ul"
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 1.5,
-                listStyle: 'none',
-                m: 0,
-                p: 0,
-                maxHeight: 320,
-                overflowY: 'auto',
-              }}
-            >
-              {allEvidences.map((entry) => {
-                const thumbSize = 56;
-                return (
-                  <Box
-                    component="li"
-                    key={entry.key}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      minWidth: 0,
-                      flex: '1 1 auto',
-                      maxWidth: 220,
-                    }}
-                  >
-                    {entry.src ? (
-                      <Box
-                        component="a"
-                        href={entry.src}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{
-                          flexShrink: 0,
-                          width: thumbSize,
-                          height: thumbSize,
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          bgcolor: 'action.hover',
-                          display: 'block',
-                        }}
-                      >
-                        <img
-                          src={entry.src}
-                          alt=""
-                          loading="lazy"
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                      </Box>
-                    ) : (
-                      <Box
-                        sx={{
-                          width: thumbSize,
-                          height: thumbSize,
-                          borderRadius: 1,
-                          bgcolor: 'action.hover',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <PhotoLibrary fontSize="small" color="action" />
-                      </Box>
-                    )}
-                    <Typography
-                      variant="body2"
-                      noWrap
-                      sx={{ minWidth: 0, flex: 1 }}
-                      title={entry.label}
-                    >
-                      {entry.label}
+            {generalEntries.length > 0 && (
+              <Box
+                sx={{
+                  mb:
+                    checklistGroups.length > 0 ||
+                    orphanItemEntries.length > 0 ||
+                    resolutionEntries.length > 0
+                      ? 2.5
+                      : 0,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Fotos gerais
+                </Typography>
+                <EvidenceThumbList entries={generalEntries} />
+              </Box>
+            )}
+            {(checklistGroups.length > 0 || orphanItemEntries.length > 0) && (
+              <Box sx={{ mb: resolutionEntries.length > 0 ? 2.5 : 0 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Fotos do checklist
+                </Typography>
+                {checklistGroups.map((group) => (
+                  <Box key={group.id} sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+                      {group.title}
                     </Typography>
-                    {entry.src && (
-                      <Button
-                        size="small"
-                        href={entry.src}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ flexShrink: 0 }}
-                      >
-                        Ver
-                      </Button>
-                    )}
+                    <EvidenceThumbList entries={group.entries} />
                   </Box>
-                );
-              })}
-            </Box>
+                ))}
+                {orphanItemEntries.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
+                      Item do checklist
+                    </Typography>
+                    <EvidenceThumbList entries={orphanItemEntries} />
+                  </Box>
+                )}
+              </Box>
+            )}
+            {resolutionEntries.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Resolução de pendências
+                </Typography>
+                <EvidenceThumbList entries={resolutionEntries} />
+              </Box>
+            )}
           </Paper>
         );
       })()}

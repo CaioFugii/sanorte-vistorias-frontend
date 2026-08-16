@@ -9,8 +9,17 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Added
 
 - Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
+- Filtros por equipe PDA e resultado na tela de ordens de serviço
+- Observações do fiscal no resumo do checklist da tela de detalhes da vistoria
+- Distinção entre fotos gerais, fotos do checklist e resolução na tela de detalhes da vistoria
+- Relatório PDF da vistoria com a mesma distinção de evidências (gerais, checklist e resolução)
+- Observações do fiscal no PDF da vistoria
 - Persistência de filtros e paginação na URL das listagens (`useListQueryState`); Voltar restaura o estado
 - Filtro por contrato nas telas de usuários e equipes
+
+### Changed
+
+- Ranking de Qualidade: média, quantidade e pendências consideram apenas Campo, Remoto e Pós-obra
 
 ## [1.0.0] — 2026-06-18
 

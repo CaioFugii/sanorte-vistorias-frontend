@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { Inspection, ModuleType } from "@/domain";
+import { Inspection, InspectionItem, ModuleType } from "@/domain";
 import sanorteLogoUrl from "@/assets/logos/sanorte-infraestrutura.svg";
 
 const HEADER_BLUE = [8, 26, 102] as const;
@@ -383,23 +383,82 @@ function drawHeader(doc: jsPDF, inspection: Inspection, logoDataUrl: string | nu
   return margin + 37;
 }
 
-function extractEvidenceSources(inspection: Inspection): Array<{ src: string; label: string }> {
-  const creation = (inspection.evidences ?? [])
-    .map((evidence, index) => ({
-      src: evidence.url ?? evidence.dataUrl ?? "",
-      label: evidence.fileName || `Foto ${index + 1}`,
-    }))
-    .filter((entry) => !!entry.src);
+type PdfPhotoEntry = { src: string; label: string };
 
-  const resolution = (inspection.items ?? [])
-    .filter((item) => !!item.resolutionEvidencePath)
-    .map((item, index) => ({
-      src: item.resolutionEvidencePath ?? "",
-      label: `Resolucao ${index + 1}`,
-    }))
-    .filter((entry) => !!entry.src);
+type PdfPhotoSection = {
+  heading: string;
+  groups: Array<{ caption?: string; entries: PdfPhotoEntry[] }>;
+};
 
-  return [...creation, ...resolution];
+function getChecklistItemTitle(item: InspectionItem): string {
+  return item.checklistItem?.title ?? item.checklistItemId ?? "Item";
+}
+
+function getChecklistItemDescription(item: InspectionItem): string | null {
+  return item.checklistItem?.description?.trim() || null;
+}
+
+function getChecklistItemNotes(item: InspectionItem): string | null {
+  return item.notes?.trim() || null;
+}
+
+function toPhotoEntry(src: string | undefined | null, label: string): PdfPhotoEntry | null {
+  const trimmed = src?.trim() ?? "";
+  if (!trimmed) return null;
+  return { src: trimmed, label };
+}
+
+function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
+  const evidences = inspection.evidences ?? [];
+  const items = inspection.items ?? [];
+  const sections: PdfPhotoSection[] = [];
+
+  const generalEntries = evidences
+    .filter((evidence) => !evidence.inspectionItemId)
+    .map((evidence, index) =>
+      toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+    )
+    .filter((entry): entry is PdfPhotoEntry => entry !== null);
+  if (generalEntries.length > 0) {
+    sections.push({ heading: "Fotos gerais", groups: [{ entries: generalEntries }] });
+  }
+
+  const itemEvidences = evidences.filter((evidence) => evidence.inspectionItemId);
+  const itemIds = new Set(items.map((item) => item.id));
+  const checklistGroups = items
+    .map((item) => ({
+      caption: getChecklistItemTitle(item),
+      entries: itemEvidences
+        .filter((evidence) => evidence.inspectionItemId === item.id)
+        .map((evidence, index) =>
+          toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+        )
+        .filter((entry): entry is PdfPhotoEntry => entry !== null),
+    }))
+    .filter((group) => group.entries.length > 0);
+  const orphanEntries = itemEvidences
+    .filter((evidence) => evidence.inspectionItemId && !itemIds.has(evidence.inspectionItemId))
+    .map((evidence, index) =>
+      toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+    )
+    .filter((entry): entry is PdfPhotoEntry => entry !== null);
+  if (orphanEntries.length > 0) {
+    checklistGroups.push({ caption: "Item do checklist", entries: orphanEntries });
+  }
+  if (checklistGroups.length > 0) {
+    sections.push({ heading: "Fotos do checklist", groups: checklistGroups });
+  }
+
+  const resolutionEntries = items
+    .map((item) =>
+      toPhotoEntry(item.resolutionEvidencePath, `Resolucao: ${getChecklistItemTitle(item)}`),
+    )
+    .filter((entry): entry is PdfPhotoEntry => entry !== null);
+  if (resolutionEntries.length > 0) {
+    sections.push({ heading: "Resolucao de pendencias", groups: [{ entries: resolutionEntries }] });
+  }
+
+  return sections;
 }
 
 export async function generateInspectionPdf(inspection: Inspection): Promise<void> {
@@ -407,40 +466,124 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
+  const contentWidth = pageWidth - margin * 2;
 
   const logoDataUrl = await loadSanorteLogoAsPngDataUrl();
-  const drawStaticContent = (): number => {
-    let y = drawHeader(doc, inspection, logoDataUrl);
-    y = drawSectionHeader(doc, "INFORMACOES GERAIS", y, margin, pageWidth);
-    y = drawInfoTable(doc, inspection, y, margin, pageWidth);
-    y += 10;
-    y = drawSectionHeader(doc, "RELATORIO FOTOGRAFICO", y, margin, pageWidth);
-    return y + 6;
-  };
-  let cursorY = drawStaticContent();
+  type PdfFlow = "observations" | "photos";
+  let currentFlow: PdfFlow = "photos";
 
-  const evidences = extractEvidenceSources(inspection);
+  const startContinuationPage = (flow: PdfFlow): number => {
+    doc.addPage();
+    let y = drawHeader(doc, inspection, logoDataUrl);
+    y = drawSectionHeader(
+      doc,
+      flow === "observations" ? "OBSERVACOES DO FISCAL" : "RELATORIO FOTOGRAFICO",
+      y,
+      margin,
+      pageWidth,
+    );
+    return y + (flow === "observations" ? 4 : 6);
+  };
+
+  let cursorY = drawHeader(doc, inspection, logoDataUrl);
+  cursorY = drawSectionHeader(doc, "INFORMACOES GERAIS", cursorY, margin, pageWidth);
+  cursorY = drawInfoTable(doc, inspection, cursorY, margin, pageWidth);
+  cursorY += 10;
+
+  const observationItems = (inspection.items ?? []).filter((item) => getChecklistItemNotes(item));
+  const sections = extractEvidenceSections(inspection);
   const photoColumnWidth = (pageWidth - margin * 2 - 6) / 2;
   const photoWidth = photoColumnWidth * REPORT_PHOTO_WIDTH_SCALE;
   const photoHeight = 62;
+  const rowAdvance = photoHeight + 14;
 
-  if (evidences.length === 0) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(pdfText("Sem fotos anexadas."), margin, cursorY + 6);
-  } else {
-    for (let index = 0; index < evidences.length; index += 1) {
-      const column = index % 2;
-      if (column === 0 && index > 0) {
-        cursorY += photoHeight + 14;
+  const ensureSpace = (needed: number): boolean => {
+    if (cursorY + needed > pageHeight - margin) {
+      cursorY = startContinuationPage(currentFlow);
+      return true;
+    }
+    return false;
+  };
+
+  if (observationItems.length > 0) {
+    currentFlow = "observations";
+    cursorY = drawSectionHeader(doc, "OBSERVACOES DO FISCAL", cursorY, margin, pageWidth);
+    cursorY += 4;
+
+    for (const item of observationItems) {
+      const title = pdfText(getChecklistItemTitle(item));
+      const description = getChecklistItemDescription(item);
+      const notes = getChecklistItemNotes(item) ?? "";
+      const titleX = margin + 5;
+      const titleMaxW = contentWidth - 5;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      const titleLines = doc.splitTextToSize(title, titleMaxW) as string[];
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const descLines = description
+        ? (doc.splitTextToSize(pdfText(description), titleMaxW) as string[])
+        : [];
+      doc.setFontSize(9);
+      const notesLines = doc.splitTextToSize(pdfText(`Observacoes: ${notes}`), titleMaxW) as string[];
+      const blockHeight = titleLines.length * 5 + descLines.length * 4 + notesLines.length * 4.5 + 6;
+      ensureSpace(Math.min(blockHeight, 28));
+
+      doc.setFillColor(0, 0, 0);
+      doc.circle(margin + 1.5, cursorY + 2.2, 0.9, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      for (const line of titleLines) {
+        ensureSpace(6);
+        doc.text(line, titleX, cursorY + 4);
+        cursorY += 5;
       }
-      if (cursorY + photoHeight + 12 > pageHeight - margin) {
-        doc.addPage();
-        cursorY = drawStaticContent();
+
+      if (descLines.length > 0) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(90, 90, 90);
+        for (const line of descLines) {
+          ensureSpace(5);
+          doc.text(line, titleX, cursorY + 3.5);
+          cursorY += 4;
+        }
+        doc.setTextColor(0, 0, 0);
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      for (const line of notesLines) {
+        ensureSpace(6);
+        doc.text(line, titleX, cursorY + 4);
+        cursorY += 4.5;
+      }
+      cursorY += 3;
+    }
+    cursorY += 6;
+  }
+
+  currentFlow = "photos";
+  if (cursorY + 20 > pageHeight - margin) {
+    cursorY = startContinuationPage("photos");
+  } else {
+    cursorY = drawSectionHeader(doc, "RELATORIO FOTOGRAFICO", cursorY, margin, pageWidth) + 6;
+  }
+
+  const drawPhotoEntries = async (entries: PdfPhotoEntry[]): Promise<void> => {
+    let column = 0;
+    for (let index = 0; index < entries.length; index += 1) {
+      if (column === 0 && index > 0) {
+        cursorY += rowAdvance;
+      }
+      if (ensureSpace(photoHeight + 12)) {
+        column = 0;
       }
 
       const x = margin + column * (photoColumnWidth + 6) + (photoColumnWidth - photoWidth) / 2;
-      const entry = evidences[index];
+      const entry = entries[index];
       const dataUrl = await loadImageAsDataUrl(entry.src);
       const imageFormat = dataUrl ? getImageFormat(dataUrl) : null;
 
@@ -455,7 +598,40 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
       doc.text(pdfText(entry.label), x, cursorY + photoHeight + 4, { maxWidth: photoWidth });
+
+      column = column === 0 ? 1 : 0;
+    }
+    if (entries.length > 0) {
+      cursorY += rowAdvance;
+    }
+  };
+
+  if (sections.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(pdfText("Sem fotos anexadas."), margin, cursorY + 6);
+  } else {
+    for (const section of sections) {
+      ensureSpace(rowAdvance + 10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...HEADER_BLUE);
+      doc.text(pdfText(section.heading), margin, cursorY + 4);
+      doc.setTextColor(0, 0, 0);
+      cursorY += 8;
+
+      for (const group of section.groups) {
+        if (group.caption) {
+          ensureSpace(rowAdvance + 8);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text(pdfText(group.caption), margin, cursorY + 3);
+          cursorY += 6;
+        }
+        await drawPhotoEntries(group.entries);
+      }
     }
   }
 
