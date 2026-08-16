@@ -38,6 +38,22 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_LIMIT = 10;
+const MIN_SEARCH_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 400;
+
+function toSearchParam(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : undefined;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 function formatDateForInput(date: Date): string {
   const year = date.getFullYear();
@@ -124,6 +140,8 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
   const [field, setField] = useState<"" | "true" | "false">("");
   const [remote, setRemote] = useState<"" | "true" | "false">("");
   const [postWork, setPostWork] = useState<"" | "true" | "false">("");
+  const [equipe, setEquipe] = useState("");
+  const [resultado, setResultado] = useState("");
   const [result, setResult] = useState<PaginatedResponse<ServiceOrder> | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -131,6 +149,12 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
   const [deletingLoading, setDeletingLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const tableColumnCount = TABLE_COLUMN_COUNT + (isAdmin ? 1 : 0);
+  const debouncedOsNumber = useDebouncedValue(osNumber, SEARCH_DEBOUNCE_MS);
+  const debouncedEquipe = useDebouncedValue(equipe, SEARCH_DEBOUNCE_MS);
+  const debouncedResultado = useDebouncedValue(resultado, SEARCH_DEBOUNCE_MS);
+  const osNumberFilter = toSearchParam(debouncedOsNumber);
+  const equipeFilter = toSearchParam(debouncedEquipe);
+  const resultadoFilter = toSearchParam(debouncedResultado);
 
   useEffect(() => {
     loadCache();
@@ -149,7 +173,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
       .getServiceOrders({
         page,
         limit,
-        osNumber: osNumber.trim() || undefined,
+        osNumber: osNumberFilter,
         sectorId: sectorId.trim() || undefined,
         contractId: contractId.trim() || undefined,
         from: from || undefined,
@@ -157,6 +181,8 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
         field: field === "" ? undefined : field === "true",
         remote: remote === "" ? undefined : remote === "true",
         postWork: postWork === "" ? undefined : postWork === "true",
+        equipe: equipeFilter,
+        resultado: resultadoFilter,
       })
       .then((res) => {
         if (!cancelled) setResult(res);
@@ -170,7 +196,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, osNumber, sectorId, contractId, from, to, field, remote, postWork, refreshKey]);
+  }, [page, limit, osNumberFilter, sectorId, contractId, from, to, field, remote, postWork, equipeFilter, resultadoFilter, refreshKey]);
 
   const handleSearch = (value: string) => {
     setOsNumber(value);
@@ -216,6 +242,8 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     setField("");
     setRemote("");
     setPostWork("");
+    setEquipe("");
+    setResultado("");
     setPage(1);
   };
 
@@ -337,6 +365,36 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
             <MenuItem value="false">Não</MenuItem>
           </Select>
         </FormControl>
+        <TextField
+          size="small"
+          label="Equipe PDA"
+          placeholder="Buscar equipe"
+          value={equipe}
+          onChange={(e) => {
+            setEquipe(e.target.value);
+            setPage(1);
+          }}
+          InputLabelProps={{ shrink: true }}
+          InputProps={{
+            startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
+          }}
+          sx={{ minWidth: 200 }}
+        />
+        <TextField
+          size="small"
+          label="Resultado"
+          placeholder="Buscar resultado"
+          value={resultado}
+          onChange={(e) => {
+            setResultado(e.target.value);
+            setPage(1);
+          }}
+          InputLabelProps={{ shrink: true }}
+          InputProps={{
+            startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
+          }}
+          sx={{ minWidth: 200 }}
+        />
         <Button
           variant="outlined"
           startIcon={<FilterAltOff />}
@@ -370,7 +428,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={tableColumnCount} align="center" sx={{ py: 4 }}>
-                    {osNumber.trim() || sectorId || contractId || from || to || field || remote || postWork
+                    {osNumberFilter || sectorId || contractId || from || to || field || remote || postWork || equipeFilter || resultadoFilter
                       ? "Nenhuma ordem de serviço encontrada com esse filtro."
                       : "Nenhuma ordem de serviço cadastrada."}
                   </TableCell>

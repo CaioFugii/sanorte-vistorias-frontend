@@ -28,6 +28,8 @@ export interface ServiceOrdersParams {
   osNumber?: string;
   sectorId?: string;
   contractId?: string;
+  from?: string;
+  to?: string;
   periodFrom?: string;
   periodTo?: string;
   /** Filtra OS já usadas em vistoria CAMPO */
@@ -36,6 +38,10 @@ export interface ServiceOrdersParams {
   remote?: boolean;
   /** Filtra OS já usadas em vistoria POS_OBRA */
   postWork?: boolean;
+  /** Busca parcial na equipe PDA */
+  equipe?: string;
+  /** Busca parcial no resultado da OS */
+  resultado?: string;
 }
 
 export interface InvestmentWorksParams {

@@ -190,6 +190,10 @@ export interface IAppRepository {
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;
+    from?: string;
+    to?: string;
+    equipe?: string;
+    resultado?: string;
   }): Promise<PaginatedResponse<ServiceOrder>>;
   getInvestmentWorks(params?: {
     page?: number;
