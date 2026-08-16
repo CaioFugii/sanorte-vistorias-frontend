@@ -55,11 +55,11 @@ export function QualityOverviewTab({
               ))}
             </Stack>
 
-            <Box sx={{ height: 290, display: "flex", alignItems: "flex-end", gap: 2, pb: 1 }}>
+            <Box sx={{ height: 310, display: "flex", alignItems: "flex-end", gap: 2, pb: 1 }}>
               {qualityByService.services.map((item) => (
                 <Box key={item.serviceKey} sx={{ minWidth: 92, flex: 1 }}>
-                  <Box sx={{ height: 240, display: "flex", alignItems: "flex-end", gap: 0.6, mb: 1 }}>
-                    {chartMonths.map((month, index) => {
+                  <Box sx={{ height: 260, display: "flex", alignItems: "flex-end", gap: 0.6, mb: 1, pt: 2.5, boxSizing: "border-box" }}>
+                    {chartMonths.map((month) => {
                       const point = item.series.find((seriesItem) => seriesItem.month === month.key);
                       const value = point?.qualityPercent ?? 0;
                       const inspectionsCount = point?.inspectionsCount ?? 0;
@@ -80,17 +80,19 @@ export function QualityOverviewTab({
                             opacity: inspectionsCount > 0 ? 1 : 0.35,
                           }}
                         >
-                          {index === chartMonths.length - 1 && (
+                          {inspectionsCount > 0 && (
                             <Typography
                               variant="caption"
                               fontWeight={700}
                               sx={{
                                 position: "absolute",
-                                top: -20,
+                                top: -18,
                                 left: "50%",
                                 transform: "translateX(-50%)",
-                                color: "#2e7d32",
+                                color: "#0f172a",
                                 whiteSpace: "nowrap",
+                                fontSize: 10,
+                                lineHeight: 1,
                               }}
                             >
                               {value.toFixed(2).replace(".", ",")}%
