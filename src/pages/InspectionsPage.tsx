@@ -22,6 +22,7 @@ import { InspectionListItem } from "@/domain";
 import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
+import { useListQueryState } from "@/hooks/useListQueryState";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { getModuleLabel } from "@/utils/moduleLabel";
@@ -53,27 +54,38 @@ export const InspectionsPage = ({
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
-  const availableModules = moduleOptions && moduleOptions.length > 0
-    ? moduleOptions
-    : [
-        ModuleType.CAMPO,
-        ModuleType.REMOTO,
-        ModuleType.POS_OBRA,
-        ModuleType.OBRAS_INVESTIMENTO,
-        ModuleType.SEGURANCA_TRABALHO,
-      ];
+  const availableModules = useMemo(
+    () =>
+      moduleOptions && moduleOptions.length > 0
+        ? moduleOptions
+        : [
+            ModuleType.CAMPO,
+            ModuleType.REMOTO,
+            ModuleType.POS_OBRA,
+            ModuleType.OBRAS_INVESTIMENTO,
+            ModuleType.SEGURANCA_TRABALHO,
+          ],
+    [moduleOptions]
+  );
   const initialSelectedModule: ModuleType | "" =
     defaultModule && availableModules.includes(defaultModule)
       ? defaultModule
       : moduleOptions && moduleOptions.length > 0
         ? moduleOptions[0]
         : "";
-  const [selectedModule, setSelectedModule] = useState<ModuleType | "">(
-    initialSelectedModule
+  const listQueryDefaults = useMemo(
+    () => ({
+      page: "1",
+      limit: String(DEFAULT_LIMIT),
+      osNumber: "",
+      module: initialSelectedModule,
+    }),
+    [initialSelectedModule]
   );
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
-  const [osNumber, setOsNumber] = useState("");
+  const { values, setFilter, setValues, page, limit, setPage, setLimit } =
+    useListQueryState(listQueryDefaults);
+  const selectedModule = (values.module as ModuleType | "") || "";
+  const osNumber = values.osNumber;
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
   const [allForFiscal, setAllForFiscal] = useState<InspectionListItem[] | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -104,19 +116,18 @@ export const InspectionsPage = ({
 
   useEffect(() => {
     if (defaultModule && availableModules.includes(defaultModule)) {
-      setSelectedModule(defaultModule);
+      if (selectedModule !== defaultModule) {
+        setValues({ module: defaultModule });
+      }
       return;
     }
-    if (moduleOptions && moduleOptions.length > 0) {
-      setSelectedModule((current) => {
-        if (current === "") return current;
-        if (!availableModules.includes(current)) return moduleOptions[0];
-        return current;
+    if (selectedModule && !availableModules.includes(selectedModule as ModuleType)) {
+      setValues({
+        module: moduleOptions && moduleOptions.length > 0 ? moduleOptions[0] : "",
+        page: "1",
       });
-      return;
     }
-    setSelectedModule((current) => (current && !availableModules.includes(current) ? "" : current));
-  }, [defaultModule, availableModules, moduleOptions]);
+  }, [defaultModule, availableModules, moduleOptions, selectedModule, setValues]);
 
   useEffect(() => {
     if (!isFiscal || !user) return;
@@ -206,11 +217,10 @@ export const InspectionsPage = ({
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
         <TextField
           size="small"
-          placeholder="Pesquisar por número da OS"
+          placeholder="Número da OS"
           value={osNumber}
           onChange={(e) => {
-            setOsNumber(e.target.value);
-            setPage(1);
+            setFilter("osNumber", e.target.value);
           }}
           InputProps={{
             startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
@@ -224,8 +234,7 @@ export const InspectionsPage = ({
               value={selectedModule}
               label="Módulo"
               onChange={(event) => {
-                setSelectedModule(event.target.value as ModuleType | "");
-                setPage(1);
+                setFilter("module", event.target.value as ModuleType | "");
               }}
             >
               <MenuItem value="">
@@ -337,7 +346,8 @@ export const InspectionsPage = ({
                           navigate(
                             isAdminOrManager
                               ? `/inspections/${inspection.externalId}/manage`
-                              : `/inspections/${inspection.externalId}/fill`
+                              : `/inspections/${inspection.externalId}/fill`,
+                            { state: { from: detailFrom } }
                           )
                         }
                         />
@@ -364,10 +374,7 @@ export const InspectionsPage = ({
           <ListPagination
             meta={meta}
             onPageChange={setPage}
-            onRowsPerPageChange={(newLimit) => {
-              setLimit(newLimit);
-              setPage(1);
-            }}
+            onRowsPerPageChange={setLimit}
             rowsPerPageOptions={[10, 20, 50, 100]}
             disabled={loading}
           />

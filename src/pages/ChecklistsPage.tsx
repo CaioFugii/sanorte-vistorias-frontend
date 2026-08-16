@@ -26,7 +26,7 @@ import {
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Checklist, InspectionScope, PaginatedResponse, Sector } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
 import { SectorSelect } from "@/components/SectorSelect";
@@ -34,6 +34,7 @@ import { ModuleType, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { useListQueryState } from "@/hooks/useListQueryState";
 import {
   DataCard,
   PageHeader,
@@ -51,17 +52,27 @@ import { getModuleLabel } from "@/utils/moduleLabel";
 const DEFAULT_LIMIT = 10;
 const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
 
+const CHECKLISTS_LIST_QUERY = {
+  page: "1",
+  limit: String(DEFAULT_LIMIT),
+  sectorTab: "all",
+};
+
 function countItems(checklist: Checklist): number {
   return checklist.sections.reduce((sum, section) => sum + section.items.length, 0);
 }
 
 export const ChecklistsPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
   const user = useAuthStore((state) => state.user);
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const { values, setFilter, page, limit, setPage, setLimit } = useListQueryState(
+    CHECKLISTS_LIST_QUERY
+  );
+  const sectorTab = values.sectorTab || "all";
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +80,6 @@ export const ChecklistsPage = (): JSX.Element => {
   const [deletingChecklist, setDeletingChecklist] = useState<Checklist | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [savingChecklist, setSavingChecklist] = useState(false);
-  const [sectorTab, setSectorTab] = useState("all");
   const [checklistModule, setChecklistModule] = useState<ModuleType | "">(ModuleType.CAMPO);
   const [checklistInspectionScope, setChecklistInspectionScope] = useState<InspectionScope>(InspectionScope.TEAM);
   const [checklistName, setChecklistName] = useState("");
@@ -140,9 +150,9 @@ export const ChecklistsPage = (): JSX.Element => {
     if (sectorTab === "all") return;
     const exists = sectors.some((sector) => sector.id === sectorTab);
     if (!exists) {
-      setSectorTab("all");
+      setFilter("sectorTab", "all");
     }
-  }, [sectors, sectorTab]);
+  }, [sectors, sectorTab, setFilter]);
 
   useEffect(() => {
     if (!isWorkSafetyChecklistModule || !workSafetySectorId) return;
@@ -202,8 +212,7 @@ export const ChecklistsPage = (): JSX.Element => {
         <Tabs
           value={sectorTab}
           onChange={(_, value: string) => {
-            setSectorTab(value);
-            setPage(1);
+            setFilter("sectorTab", value);
           }}
           variant="scrollable"
           scrollButtons="auto"
@@ -265,11 +274,21 @@ export const ChecklistsPage = (): JSX.Element => {
                         {isSupervisor ? (
                           <TableViewButton
                             label="Ver"
-                            onClick={() => navigate(`/checklists/${checklist.id}/edit`)}
+                            onClick={() =>
+                              navigate(`/checklists/${checklist.id}/edit`, {
+                                state: { from: detailFrom },
+                              })
+                            }
                           />
                         ) : (
                           <>
-                            <TableEditButton onClick={() => navigate(`/checklists/${checklist.id}/edit`)} />
+                            <TableEditButton
+                              onClick={() =>
+                                navigate(`/checklists/${checklist.id}/edit`, {
+                                  state: { from: detailFrom },
+                                })
+                              }
+                            />
                             <TableDeleteButton onClick={() => setDeletingChecklist(checklist)} />
                           </>
                         )}
@@ -283,10 +302,7 @@ export const ChecklistsPage = (): JSX.Element => {
               <ListPagination
                 meta={meta}
                 onPageChange={setPage}
-                onRowsPerPageChange={(newLimit) => {
-                  setLimit(newLimit);
-                  setPage(1);
-                }}
+            onRowsPerPageChange={setLimit}
                 rowsPerPageOptions={[10, 20, 50, 100]}
                 disabled={loading}
               />
@@ -375,7 +391,9 @@ export const ChecklistsPage = (): JSX.Element => {
                   active: checklistActive,
                 });
                 setChecklistDialogOpen(false);
-                navigate(`/checklists/${created.id}/edit`);
+                navigate(`/checklists/${created.id}/edit`, {
+                  state: { from: detailFrom },
+                });
               } finally {
                 setSavingChecklist(false);
               }

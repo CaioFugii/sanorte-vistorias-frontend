@@ -41,6 +41,7 @@ src/
 ├── repositories/  IAppRepository (contrato), AppRepository (facade)
 ├── stores/        authStore, referenceStore, inspectionStore
 ├── pages/         Telas por rota
+├── hooks/         Hooks de UI (ex.: useListQueryState)
 ├── components/    UI reutilizável
 └── utils/         PDF, upload de imagens, helpers
 ```
@@ -82,6 +83,7 @@ Novas operações: `IAppRepository` → `ApiRepository` → `AppRepository` (se 
 - Componentes funcionais com TypeScript
 - Lógica complexa fora de JSX; validações espelham o backend
 - Enums alinhados com `sanorte-vistorias-backend/src/common/enums/`
+- Listagens com detalhe: persistir filtros/página na query string (`useListQueryState`) para o Voltar restaurar o estado
 
 ---
 

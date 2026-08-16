@@ -1,5 +1,7 @@
 import {
+  Autocomplete,
   Box,
+  Button,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -15,12 +17,14 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { Search } from "@mui/icons-material";
-import { MouseEvent, useEffect, useState } from "react";
+import { FilterAltOff, Search } from "@mui/icons-material";
+import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { InspectionListItem } from "@/domain";
-import { InspectionStatus, ModuleType } from "@/domain/enums";
+import { Contract, InspectionListItem, Team } from "@/domain";
+import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
+import { useAuthStore } from "@/stores/authStore";
+import { useListQueryState } from "@/hooks/useListQueryState";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
@@ -43,14 +47,47 @@ const MODULE_OPTIONS: ModuleType[] = [
   ModuleType.SEGURANCA_TRABALHO,
 ];
 
+const PENDINGS_LIST_QUERY = {
+  page: "1",
+  limit: String(DEFAULT_LIMIT),
+  module: "",
+  contractId: "",
+  teamId: "",
+  osNumber: "",
+  service: "",
+  executionFrom: "",
+  executionTo: "",
+  inspectionFrom: "",
+  inspectionTo: "",
+};
+
+function teamMatchesContract(team: Team, contractId?: string): boolean {
+  if (!contractId) return true;
+  if (team.contractIds?.includes(contractId)) return true;
+  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
+}
+
 export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
-  const [selectedModule, setSelectedModule] = useState<ModuleType | "">("");
-  const [osNumber, setOsNumber] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === UserRole.ADMIN;
+  const availableContracts = user?.contracts ?? [];
+  const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
+  const contractsForFilters = isAdmin ? adminContracts : availableContracts;
+  const { values, setFilter, setValues, reset, page, limit, setPage, setLimit } =
+    useListQueryState(PENDINGS_LIST_QUERY);
+  const selectedModule = (values.module as ModuleType | "") || "";
+  const selectedContractId = values.contractId;
+  const selectedTeamId = values.teamId;
+  const osNumber = values.osNumber;
+  const service = values.service;
+  const executionFrom = values.executionFrom;
+  const executionTo = values.executionTo;
+  const inspectionFrom = values.inspectionFrom;
+  const inspectionTo = values.inspectionTo;
+  const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
   const [meta, setMeta] = useState<{
     page: number;
@@ -63,13 +100,39 @@ export const PendingsPage = (): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [adjustmentsAnchorEl, setAdjustmentsAnchorEl] = useState<HTMLElement | null>(null);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
+  const selectedTeamIdRef = useRef(selectedTeamId);
+  selectedTeamIdRef.current = selectedTeamId;
+
+  const selectedTeam = useMemo(
+    () => teamOptions.find((team) => team.id === selectedTeamId) ?? null,
+    [teamOptions, selectedTeamId]
+  );
+
+  const hasActiveFilters = Boolean(
+    selectedModule ||
+      selectedContractId ||
+      selectedTeamId ||
+      osNumber.trim() ||
+      service.trim() ||
+      executionFrom ||
+      executionTo ||
+      inspectionFrom ||
+      inspectionTo
+  );
 
   const loadPendings = async () => {
     setLoading(true);
     const res = await appRepository.getInspections({
       status: InspectionStatus.PENDENTE_AJUSTE,
       module: selectedModule || undefined,
+      contractId: selectedContractId || undefined,
+      teamId: selectedTeamId || undefined,
       osNumber: osNumber.trim() || undefined,
+      service: service.trim() || undefined,
+      executionFrom: executionFrom || undefined,
+      executionTo: executionTo || undefined,
+      inspectionFrom: inspectionFrom || undefined,
+      inspectionTo: inspectionTo || undefined,
       page,
       limit,
     });
@@ -109,8 +172,85 @@ export const PendingsPage = (): JSX.Element => {
   const isAdjustmentsPopoverOpen = Boolean(adjustmentsAnchorEl);
 
   useEffect(() => {
+    if (!isAdmin) {
+      setAdminContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const loadContracts = async () => {
+      try {
+        const result = await appRepository.getContracts({ page: 1, limit: 100 });
+        if (!cancelled) setAdminContracts(result.data);
+      } catch {
+        if (!cancelled) setAdminContracts([]);
+      }
+    };
+    void loadContracts();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTeams = async () => {
+      const contractId = selectedContractId || undefined;
+      const pageSize = 100;
+      const collected: Team[] = [];
+      let teamPage = 1;
+      let hasNext = true;
+      try {
+        while (hasNext) {
+          const result = await appRepository.getTeams({
+            page: teamPage,
+            limit: pageSize,
+            contractId,
+          });
+          collected.push(...result.data);
+          hasNext = Boolean(result.meta?.hasNext);
+          teamPage += 1;
+          if (teamPage > 50) break;
+        }
+        if (cancelled) return;
+        const activeTeams = collected
+          .filter((team) => team.active && teamMatchesContract(team, contractId))
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+        setTeamOptions(activeTeams);
+        if (selectedTeamIdRef.current && !activeTeams.some((team) => team.id === selectedTeamIdRef.current)) {
+          setValues({ teamId: "" });
+        }
+      } catch {
+        if (!cancelled) {
+          setTeamOptions([]);
+          if (selectedTeamIdRef.current) setValues({ teamId: "" });
+        }
+      }
+    };
+    void loadTeams();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedContractId, setValues]);
+
+  useEffect(() => {
     loadPendings();
-  }, [page, limit, selectedModule, osNumber]);
+  }, [
+    page,
+    limit,
+    selectedModule,
+    selectedContractId,
+    selectedTeamId,
+    osNumber,
+    service,
+    executionFrom,
+    executionTo,
+    inspectionFrom,
+    inspectionTo,
+  ]);
+
+  const handleClearFilters = () => {
+    reset();
+  };
 
   if (loading && !meta) {
     return (
@@ -131,25 +271,69 @@ export const PendingsPage = (): JSX.Element => {
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
         <TextField
           size="small"
-          placeholder="Pesquisar por número da OS"
+          placeholder="Número da OS"
           value={osNumber}
           onChange={(e) => {
-            setOsNumber(e.target.value);
-            setPage(1);
+            setFilter("osNumber", e.target.value);
           }}
           InputProps={{
             startAdornment: <Search sx={{ mr: 1, color: "action.disabled" }} />,
           }}
-          sx={{ minWidth: 280 }}
+          sx={{ minWidth: 240 }}
         />
-        <FormControl size="small" sx={{ minWidth: 240 }}>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Contrato</InputLabel>
+          <Select
+            value={selectedContractId}
+            label="Contrato"
+            onChange={(event) => {
+              setValues({
+                contractId: event.target.value,
+                teamId: "",
+                page: "1",
+              });
+            }}
+          >
+            <MenuItem value="">
+              <em>Todos os contratos</em>
+            </MenuItem>
+            {contractsForFilters.map((contract) => (
+              <MenuItem key={contract.id} value={contract.id}>
+                {contract.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 240 }}
+          options={teamOptions}
+          getOptionLabel={(team) => team.name}
+          value={selectedTeam}
+          onChange={(_, team) => {
+            setFilter("teamId", team?.id ?? "");
+          }}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          noOptionsText="Nenhuma equipe"
+          renderInput={(params) => <TextField {...params} label="Equipe" />}
+        />
+        <TextField
+          size="small"
+          label="Serviço"
+          placeholder="Filtrar por serviço"
+          value={service}
+          onChange={(e) => {
+            setFilter("service", e.target.value);
+          }}
+          sx={{ minWidth: 220 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Módulo</InputLabel>
           <Select
             value={selectedModule}
             label="Módulo"
             onChange={(event) => {
-              setSelectedModule(event.target.value as ModuleType | "");
-              setPage(1);
+              setFilter("module", event.target.value as ModuleType | "");
             }}
           >
             <MenuItem value="">
@@ -162,6 +346,78 @@ export const PendingsPage = (): JSX.Element => {
             ))}
           </Select>
         </FormControl>
+        <TextField
+          size="small"
+          label="Execução de"
+          type="date"
+          value={executionFrom}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value && executionTo && value > executionTo) {
+              setValues({ executionFrom: value, executionTo: value, page: "1" });
+              return;
+            }
+            setFilter("executionFrom", value);
+          }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ max: executionTo || undefined }}
+        />
+        <TextField
+          size="small"
+          label="Execução até"
+          type="date"
+          value={executionTo}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value && executionFrom && value < executionFrom) {
+              setValues({ executionFrom: value, executionTo: value, page: "1" });
+              return;
+            }
+            setFilter("executionTo", value);
+          }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ min: executionFrom || undefined }}
+        />
+        <TextField
+          size="small"
+          label="Vistoria de"
+          type="date"
+          value={inspectionFrom}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value && inspectionTo && value > inspectionTo) {
+              setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
+              return;
+            }
+            setFilter("inspectionFrom", value);
+          }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ max: inspectionTo || undefined }}
+        />
+        <TextField
+          size="small"
+          label="Vistoria até"
+          type="date"
+          value={inspectionTo}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value && inspectionFrom && value < inspectionFrom) {
+              setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
+              return;
+            }
+            setFilter("inspectionTo", value);
+          }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ min: inspectionFrom || undefined }}
+        />
+        <Button
+          variant="outlined"
+          startIcon={<FilterAltOff />}
+          onClick={handleClearFilters}
+          disabled={!hasActiveFilters}
+        >
+          Limpar filtros
+        </Button>
       </Box>
 
       <SectionTable title="Pendências ativas">
@@ -191,8 +447,8 @@ export const PendingsPage = (): JSX.Element => {
             ) : inspections.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
-                  {osNumber.trim()
-                    ? "Nenhuma pendência encontrada para o número da OS informado."
+                  {hasActiveFilters
+                    ? "Nenhuma pendência encontrada para os filtros informados."
                     : "Nenhuma pendência de ajuste."}
                 </TableCell>
               </TableRow>
@@ -287,10 +543,7 @@ export const PendingsPage = (): JSX.Element => {
           <ListPagination
             meta={meta}
             onPageChange={setPage}
-            onRowsPerPageChange={(newLimit) => {
-              setLimit(newLimit);
-              setPage(1);
-            }}
+            onRowsPerPageChange={setLimit}
             rowsPerPageOptions={[10, 20, 50, 100]}
             disabled={loading}
           />

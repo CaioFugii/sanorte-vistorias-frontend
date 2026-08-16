@@ -455,8 +455,14 @@ export class AppRepository implements IAppRepository {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
     teamId?: string;
+    contractId?: string;
     status?: InspectionStatus;
     osNumber?: string;
+    service?: string;
+    executionFrom?: string;
+    executionTo?: string;
+    inspectionFrom?: string;
+    inspectionTo?: string;
     investmentWorkId?: string;
     page?: number;
     limit?: number;

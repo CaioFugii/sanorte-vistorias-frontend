@@ -45,6 +45,7 @@ src/
 ├── repositories/     IAppRepository (contrato), AppRepository (facade)
 ├── stores/           authStore, referenceStore, inspectionStore
 ├── pages/            Uma tela por rota; subpastas por feature (ex.: analytics/)
+├── hooks/            Hooks de UI (ex.: useListQueryState para filtros na URL)
 ├── components/       UI compartilhada (ChecklistRenderer, SignaturePad, etc.)
 └── utils/            PDF, labels, prepareImageForUpload, snackbar
 ```
@@ -102,6 +103,14 @@ O router (`src/app/router.tsx`) define:
 4. **`RoleAwareHomeRedirect`** — fiscal vai para `/inspections/mine`; demais para `/dashboard`
 
 Permissões de menu lateral ficam em `AppShell.tsx` (`menuGroupsByRole`). **Guards de rota no frontend complementam, mas não substituem, a autorização no backend.**
+
+### Filtros e paginação na URL
+
+Listagens que navegam para detalhe (pendências, vistorias, obras de investimento, checklists) persistem filtros e página na query string via `hooks/useListQueryState`.
+
+- Voltar do detalhe usa `location.state.from` (`pathname + search`), então a listagem reabre no mesmo estado
+- Clique no menu (rota sem query) começa a listagem do zero
+- A URL é atualizada com `replace: true` para não empilhar histórico a cada filtro
 
 ### Rotas principais
 

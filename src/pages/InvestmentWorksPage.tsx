@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
+import { useListQueryState } from "@/hooks/useListQueryState";
 import {
   PageHeader,
   SectionTable,
@@ -39,6 +40,15 @@ import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_LIMIT = 10;
+
+const INVESTMENT_WORKS_LIST_QUERY = {
+  page: "1",
+  limit: String(DEFAULT_LIMIT),
+  search: "",
+  contractId: "",
+  status: "",
+  active: "true",
+};
 
 function formatDateForInput(date: Date): string {
   const year = date.getFullYear();
@@ -75,12 +85,13 @@ export const InvestmentWorksPage = (): JSX.Element => {
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResponse<InvestmentWork> | null>(null);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_LIMIT);
-  const [search, setSearch] = useState("");
-  const [contractId, setContractId] = useState("");
-  const [status, setStatus] = useState<"" | InvestmentWorkStatus>("");
-  const [active, setActive] = useState<"" | "true" | "false">("true");
+  const { values, setFilter, page, limit, setPage, setLimit } = useListQueryState(
+    INVESTMENT_WORKS_LIST_QUERY
+  );
+  const search = values.search;
+  const contractId = values.contractId;
+  const status = (values.status as "" | InvestmentWorkStatus) || "";
+  const active = (values.active as "" | "true" | "false") || "";
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -212,14 +223,13 @@ export const InvestmentWorksPage = (): JSX.Element => {
           placeholder="Nome, endereço, bairro ou serviço"
           value={search}
           onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
+            setFilter("search", event.target.value);
           }}
           sx={{ minWidth: 280 }}
         />
         <FormControl size="small" sx={{ minWidth: 220 }}>
           <InputLabel>Contrato</InputLabel>
-          <Select value={contractId} label="Contrato" onChange={(event) => setContractId(event.target.value)}>
+          <Select value={contractId} label="Contrato" onChange={(event) => setFilter("contractId", event.target.value)}>
             <MenuItem value="">Todos</MenuItem>
             {contracts.map((contract) => (
               <MenuItem key={contract.id} value={contract.id}>
@@ -230,7 +240,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Status</InputLabel>
-          <Select value={status} label="Status" onChange={(event) => setStatus(event.target.value as InvestmentWorkStatus | "")}>
+          <Select value={status} label="Status" onChange={(event) => setFilter("status", event.target.value)}>
             <MenuItem value="">Todos</MenuItem>
             {Object.values(InvestmentWorkStatus).map((item) => (
               <MenuItem key={item} value={item}>
@@ -241,7 +251,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Ativa</InputLabel>
-          <Select value={active} label="Ativa" onChange={(event) => setActive(event.target.value as "" | "true" | "false")}>
+          <Select value={active} label="Ativa" onChange={(event) => setFilter("active", event.target.value)}>
             <MenuItem value="">Todas</MenuItem>
             <MenuItem value="true">Sim</MenuItem>
             <MenuItem value="false">Não</MenuItem>
@@ -344,10 +354,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
           <ListPagination
             meta={meta}
             onPageChange={setPage}
-            onRowsPerPageChange={(newLimit) => {
-              setLimit(newLimit);
-              setPage(1);
-            }}
+            onRowsPerPageChange={setLimit}
             rowsPerPageOptions={[10, 20, 50, 100]}
             disabled={loading}
           />

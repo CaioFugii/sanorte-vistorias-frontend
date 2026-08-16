@@ -8,9 +8,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
-- `ARCHITECTURE.md` — documentação de arquitetura do frontend
-- `DOMAIN.md` — enums, tipos e regras de negócio do client
-- `CHANGELOG.md` — histórico de alterações
+- Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
+- Persistência de filtros e paginação na URL das listagens (`useListQueryState`); Voltar restaura o estado
 
 ## [1.0.0] — 2026-06-18
 

@@ -27,7 +27,7 @@ import {
   Edit,
 } from "@mui/icons-material";
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Checklist, ChecklistItem, ChecklistSection, InspectionScope, Sector } from "@/domain";
 import { ModuleType, UserRole } from "@/domain/enums";
 import { ModuleSelect } from "@/components/ModuleSelect";
@@ -60,6 +60,9 @@ function sortSections(sections: ChecklistSection[]): ChecklistSection[] {
 export const ChecklistEditorPage = (): JSX.Element => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const backTarget = fromState?.startsWith("/") ? fromState : "/checklists";
   const user = useAuthStore((state) => state.user);
   const readOnly = user?.role === UserRole.SUPERVISOR;
 
@@ -331,7 +334,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
 
   const handleBack = (): void => {
     void refreshReferenceChecklists();
-    navigate("/checklists");
+    navigate(backTarget);
   };
 
   const openMetadataDialog = (): void => {
