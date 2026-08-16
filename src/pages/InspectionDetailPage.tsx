@@ -39,12 +39,21 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-function formatDateTime(iso: string | undefined): string {
+const MISSING_VALUE = 'Não informado';
+
+function formatDateTime(iso: string | undefined | null): string {
   if (!iso) return '–';
-  return new Date(iso).toLocaleString('pt-BR', {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return MISSING_VALUE;
+  return parsed.toLocaleString('pt-BR', {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+}
+
+function formatOptionalText(value?: string | null): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : MISSING_VALUE;
 }
 
 /** Itens não conformes que ainda precisam ser resolvidos. */
@@ -346,6 +355,10 @@ export const InspectionDetailPage = (): JSX.Element => {
               <strong>Serviço:</strong> {inspection.serviceDescription}
             </Typography>
             <Typography variant="body2" gutterBottom>
+              <strong>Número da OS:</strong>{' '}
+              {formatOptionalText(inspection.serviceOrder?.osNumber)}
+            </Typography>
+            <Typography variant="body2" gutterBottom>
               <strong>Localização:</strong> {inspection.locationDescription || '–'}
             </Typography>
             <Typography variant="body2" gutterBottom>
@@ -403,6 +416,12 @@ export const InspectionDetailPage = (): JSX.Element => {
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
               <Event /> Datas e responsáveis
+            </Typography>
+            <Typography variant="body2" gutterBottom>
+              <strong>Data de execução:</strong>{' '}
+              {inspection.serviceOrder?.fimExecucao
+                ? formatDateTime(inspection.serviceOrder.fimExecucao)
+                : MISSING_VALUE}
             </Typography>
             <Typography variant="body2" gutterBottom>
               <strong>Criada em:</strong> {formatDateTime(inspection.createdAt)}
