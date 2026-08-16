@@ -138,7 +138,11 @@ export class AppRepository implements IAppRepository {
     return this.loadChecklists();
   }
 
-  async getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>> {
+  async getUsers(params?: {
+    page?: number;
+    limit?: number;
+    contractId?: string;
+  }): Promise<PaginatedResponse<User>> {
     return this.apiRepository.getUsers(params);
   }
 

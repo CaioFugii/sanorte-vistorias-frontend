@@ -10,6 +10,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 - Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
 - Persistência de filtros e paginação na URL das listagens (`useListQueryState`); Voltar restaura o estado
+- Filtro por contrato nas telas de usuários e equipes
 
 ## [1.0.0] — 2026-06-18
 

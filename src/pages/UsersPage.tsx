@@ -7,7 +7,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  InputLabel,
   MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -52,17 +55,22 @@ export const UsersPage = (): JSX.Element => {
   const [role, setRole] = useState<UserRole>(UserRole.FISCAL);
   const [contractOptions, setContractOptions] = useState<Contract[]>([]);
   const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
+  const [filterContractId, setFilterContractId] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const res = await appRepository.getUsers({ page, limit });
+    const res = await appRepository.getUsers({
+      page,
+      limit,
+      contractId: filterContractId || undefined,
+    });
     setResult(res);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, [page, limit]);
+  }, [page, limit, filterContractId]);
 
   useEffect(() => {
     const loadContracts = async () => {
@@ -112,6 +120,27 @@ export const UsersPage = (): JSX.Element => {
         ) : undefined}
       />
 
+      <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 240 }}>
+          <InputLabel>Contrato</InputLabel>
+          <Select
+            value={filterContractId}
+            label="Contrato"
+            onChange={(event) => {
+              setFilterContractId(event.target.value);
+              setPage(1);
+            }}
+          >
+            <MenuItem value="">Todos os contratos</MenuItem>
+            {contractOptions.map((contract) => (
+              <MenuItem key={contract.id} value={contract.id}>
+                {contract.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <SectionTable title="Lista de usuários">
         <Table>
           <TableHead>
@@ -132,7 +161,7 @@ export const UsersPage = (): JSX.Element => {
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                  Nenhum usuário cadastrado.
+                  Nenhum usuário encontrado.
                 </TableCell>
               </TableRow>
             ) : (

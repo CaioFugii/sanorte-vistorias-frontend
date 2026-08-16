@@ -8,6 +8,10 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Switch,
   Table,
   TableBody,
@@ -60,6 +64,7 @@ export const TeamsPage = (): JSX.Element => {
   const [isContractor, setIsContractor] = useState(false);
   const [contractOptions, setContractOptions] = useState<Contract[]>([]);
   const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
+  const [filterContractId, setFilterContractId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const getTeamFormFriendlyError = (error: unknown): string | null => {
@@ -79,14 +84,18 @@ export const TeamsPage = (): JSX.Element => {
 
   const loadTeams = async () => {
     setLoading(true);
-    const res = await appRepository.getTeams({ page, limit });
+    const res = await appRepository.getTeams({
+      page,
+      limit,
+      contractId: filterContractId || undefined,
+    });
     setResult(res);
     setLoading(false);
   };
 
   useEffect(() => {
     loadTeams();
-  }, [page, limit]);
+  }, [page, limit, filterContractId]);
 
   useEffect(() => {
     const run = async () => {
@@ -143,6 +152,27 @@ export const TeamsPage = (): JSX.Element => {
         ) : undefined}
       />
 
+      <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
+        <FormControl size="small" sx={{ minWidth: 240 }}>
+          <InputLabel>Contrato</InputLabel>
+          <Select
+            value={filterContractId}
+            label="Contrato"
+            onChange={(event) => {
+              setFilterContractId(event.target.value);
+              setPage(1);
+            }}
+          >
+            <MenuItem value="">Todos os contratos</MenuItem>
+            {contractOptions.map((contract) => (
+              <MenuItem key={contract.id} value={contract.id}>
+                {contract.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+
       <SectionTable title="Lista de equipes">
         <Table>
           <TableHead>
@@ -164,7 +194,7 @@ export const TeamsPage = (): JSX.Element => {
             ) : teams.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  Nenhuma equipe cadastrada.
+                  Nenhuma equipe encontrada.
                 </TableCell>
               </TableRow>
             ) : (

@@ -43,7 +43,11 @@ export interface IAppRepository {
   getCachedTeams(): Promise<Team[]>;
   getCachedSectors(): Promise<Sector[]>;
   getCachedChecklists(): Promise<Checklist[]>;
-  getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>>;
+  getUsers(params?: {
+    page?: number;
+    limit?: number;
+    contractId?: string;
+  }): Promise<PaginatedResponse<User>>;
   createUser(input: {
     name: string;
     email: string;

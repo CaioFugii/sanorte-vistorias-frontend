@@ -110,7 +110,11 @@ export class ApiRepository {
     return Array.isArray(data) ? data : data.data;
   }
 
-  async getUsers(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>> {
+  async getUsers(params?: {
+    page?: number;
+    limit?: number;
+    contractId?: string;
+  }): Promise<PaginatedResponse<User>> {
     const response = await apiClient.get<PaginatedResponse<User>>("/users", { params });
     return response.data;
   }
