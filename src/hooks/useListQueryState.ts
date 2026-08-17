@@ -58,6 +58,8 @@ export function useListQueryState<T extends Record<string, string>>(defaults: T)
   const defaultsRef = useRef(defaults);
   defaultsRef.current = defaults;
   const [searchParams, setSearchParams] = useSearchParams();
+  const pendingPatchRef = useRef<Record<string, string> | null>(null);
+  const flushScheduledRef = useRef(false);
 
   const values = useMemo(
     () => readListQuery(searchParams, defaultsRef.current),
@@ -66,16 +68,25 @@ export function useListQueryState<T extends Record<string, string>>(defaults: T)
 
   const applyPatch = useCallback(
     (patch: Record<string, string>) => {
-      setSearchParams(
-        (current) => {
-          const merged = {
-            ...readListQuery(current, defaultsRef.current),
-            ...patch,
-          };
-          return writeListQuery(current, merged, defaultsRef.current);
-        },
-        { replace: true }
-      );
+      pendingPatchRef.current = { ...(pendingPatchRef.current ?? {}), ...patch };
+      if (flushScheduledRef.current) return;
+      flushScheduledRef.current = true;
+      queueMicrotask(() => {
+        flushScheduledRef.current = false;
+        const queued = pendingPatchRef.current;
+        pendingPatchRef.current = null;
+        if (!queued) return;
+        setSearchParams(
+          (current) => {
+            const merged = {
+              ...readListQuery(current, defaultsRef.current),
+              ...queued,
+            };
+            return writeListQuery(current, merged, defaultsRef.current);
+          },
+          { replace: true }
+        );
+      });
     },
     [setSearchParams]
   );

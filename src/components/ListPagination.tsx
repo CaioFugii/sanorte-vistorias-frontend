@@ -6,7 +6,7 @@ export interface ListPaginationProps {
   meta: PaginationMeta;
   /** Callback quando a página muda (recebe nova página 1-based). */
   onPageChange: (page: number) => void;
-  /** Callback opcional quando o número de linhas por página muda (reseta para página 1 nas telas). */
+  /** Callback opcional quando o número de linhas por página muda. Quem trata deve resetar para a página 1. */
   onRowsPerPageChange?: (limit: number) => void;
   /** Opções de itens por página. Se não informado, não exibe o seletor. */
   rowsPerPageOptions?: number[];
@@ -42,7 +42,6 @@ export function ListPagination({
           ? (e) => {
               const limit = parseInt(e.target.value, 10);
               onRowsPerPageChange?.(limit);
-              onPageChange(1);
             }
           : undefined
       }
