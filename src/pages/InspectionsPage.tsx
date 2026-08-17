@@ -39,6 +39,22 @@ import {
 } from "@/components/ui";
 
 const DEFAULT_LIMIT = 10;
+const MIN_SEARCH_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 400;
+
+function toSearchParam(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : undefined;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 interface InspectionsPageProps {
   moduleOptions?: ModuleType[];
@@ -86,8 +102,9 @@ export const InspectionsPage = ({
     useListQueryState(listQueryDefaults);
   const selectedModule = (values.module as ModuleType | "") || "";
   const osNumber = values.osNumber;
+  const debouncedOsNumber = useDebouncedValue(osNumber, SEARCH_DEBOUNCE_MS);
+  const osNumberFilter = toSearchParam(debouncedOsNumber);
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
-  const [allForFiscal, setAllForFiscal] = useState<InspectionListItem[] | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [meta, setMeta] = useState<{
     page: number;
@@ -130,56 +147,33 @@ export const InspectionsPage = ({
   }, [defaultModule, availableModules, moduleOptions, selectedModule, setValues]);
 
   useEffect(() => {
-    if (!isFiscal || !user) return;
+    let cancelled = false;
     setLoading(true);
-    appRepository
-      .listInspectionsForFiscal(user.id)
-      .then((all) => setAllForFiscal(all))
-      .finally(() => setLoading(false));
-  }, [isFiscal, user?.id, refreshNonce]);
-
-  useEffect(() => {
-    if (isFiscal) return;
-    setAllForFiscal(null);
-    setLoading(true);
-    appRepository
-      .getInspections({
-        page,
-        limit,
-        osNumber: osNumber.trim() || undefined,
-        module: selectedModule || undefined,
-      })
+    const request = isFiscal
+      ? appRepository.getMyInspections({
+          page,
+          limit,
+          osNumber: osNumberFilter,
+        })
+      : appRepository.getInspections({
+          page,
+          limit,
+          osNumber: osNumberFilter,
+          module: selectedModule || undefined,
+        });
+    request
       .then((res) => {
+        if (cancelled) return;
         setInspections(res.data);
         setMeta(res.meta);
       })
-      .finally(() => setLoading(false));
-  }, [isFiscal, page, limit, osNumber, refreshNonce, selectedModule]);
-
-  useEffect(() => {
-    if (allForFiscal === null) return;
-    const normalizedSearch = osNumber.trim().toLowerCase();
-    const filtered = normalizedSearch
-      ? allForFiscal.filter((inspection) =>
-          (inspection.serviceOrder?.osNumber ?? "").toLowerCase().includes(normalizedSearch)
-        )
-      : allForFiscal;
-    const moduleFiltered = selectedModule
-      ? filtered.filter((inspection) => inspection.module === selectedModule)
-      : filtered;
-    const total = moduleFiltered.length;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-    const start = (page - 1) * limit;
-    setInspections(moduleFiltered.slice(start, start + limit));
-    setMeta({
-      page,
-      limit,
-      total,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-    });
-  }, [allForFiscal, page, limit, osNumber, selectedModule]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isFiscal, page, limit, osNumberFilter, refreshNonce, selectedModule]);
 
   if (loading && !meta) {
     return (
@@ -277,7 +271,7 @@ export const InspectionsPage = ({
             ) : inspections.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
-                  {osNumber.trim()
+                  {osNumberFilter
                     ? "Nenhuma vistoria encontrada para o número da OS informado."
                     : "Nenhuma vistoria encontrada."}
                 </TableCell>

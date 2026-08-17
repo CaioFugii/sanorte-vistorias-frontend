@@ -20,6 +20,11 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Changed
 
 - Ranking de Qualidade: média, quantidade e pendências consideram apenas Campo, Remoto e Pós-obra
+- Listagem Minhas Vistorias do fiscal pagina na API, sem teto de 100 registros
+
+### Fixed
+
+- Seletor de linhas por página nas listagens com filtros persistidos na URL
 
 ## [1.0.0] — 2026-06-18
 
