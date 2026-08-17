@@ -60,6 +60,7 @@ export interface IAppRepository {
     input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
   ): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }>;
   getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>>;
   getContract(contractId: string): Promise<Contract>;
   createContract(input: { name: string }): Promise<Contract>;
@@ -251,6 +252,7 @@ export interface IAppRepository {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
     teamId?: string;
+    createdByUserId?: string;
     contractId?: string;
     status?: InspectionStatus;
     osNumber?: string;

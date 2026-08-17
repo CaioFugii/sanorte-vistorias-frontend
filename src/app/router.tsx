@@ -15,7 +15,6 @@ import {
   NewInspectionPage,
   PendingsPage,
   QualityAnalyticsPage,
-  QualityInspectionsPage,
   ReportFormPage,
   ReportTypesPage,
   SafetyAnalyticsPage,
@@ -203,7 +202,7 @@ export const router = createBrowserRouter([
         path: "/quality/inspections",
         element: (
           <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
-            <QualityInspectionsPage />
+            <Navigate to="/quality/analytics?tab=vistorias" replace />
           </RequireRoles>
         ),
       },

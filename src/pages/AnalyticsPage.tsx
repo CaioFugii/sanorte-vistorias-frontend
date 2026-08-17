@@ -15,7 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Clear } from "@mui/icons-material";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
@@ -28,6 +28,7 @@ import { QualityRankingTab } from "@/pages/analytics/components/QualityRankingTa
 import { QualityServicesTab } from "@/pages/analytics/components/QualityServicesTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import { TeamRankingInspectionItem, TeamRankingOrderBy } from "@/pages/analytics/components/models";
 
@@ -84,6 +85,26 @@ function AnalyticsTabSkeleton(): JSX.Element {
     </Paper>
   );
 }
+
+const QUALITY_TAB_KEYS = [
+  "ranking",
+  "overview",
+  "services",
+  "teams",
+  "nonconformities",
+  "vistorias",
+] as const;
+
+type QualityTabKey = (typeof QUALITY_TAB_KEYS)[number];
+
+const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
+  ranking: "Ranking",
+  overview: "Visão Geral",
+  services: "Serviços",
+  teams: "Equipes",
+  nonconformities: "Não conformidades",
+  vistorias: "Vistorias",
+};
 
 function getDefaultQualityRange(): { from: string; to: string } {
   const to = new Date();
@@ -285,7 +306,18 @@ export function AnalyticsPage(): JSX.Element {
     hasNext: false,
     hasPrev: false,
   });
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const visibleTabs = useMemo(
+    () => QUALITY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
+    [canSeeInspectionsTab]
+  );
+  const activeTab = useMemo(() => {
+    const tabParam = searchParams.get("tab");
+    const index = visibleTabs.indexOf(tabParam as QualityTabKey);
+    return index >= 0 ? index : 0;
+  }, [searchParams, visibleTabs]);
+  const activeTabKey = visibleTabs[activeTab] ?? "ranking";
 
   useEffect(() => {
     if (!isAdmin) {
@@ -613,6 +645,21 @@ export function AnalyticsPage(): JSX.Element {
     setSelectedContractId("");
     setGlobalPeriod(getInitialGlobalPeriod());
   };
+  const handleTabChange = (_: unknown, nextTab: number) => {
+    const key = visibleTabs[nextTab];
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (!key || key === "ranking") {
+          next.delete("tab");
+        } else {
+          next.set("tab", key);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const hasCoreAnalyticsData = Boolean(qualityByService && currentMonthByService);
   const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
   const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
@@ -723,21 +770,26 @@ export function AnalyticsPage(): JSX.Element {
           <Paper sx={{ mb: 3 }}>
             <Tabs
               value={activeTab}
-              onChange={(_, nextTab) => setActiveTab(nextTab)}
+              onChange={handleTabChange}
               variant="scrollable"
               scrollButtons="auto"
             >
-              <Tab label="Ranking" />
-              <Tab label="Visão Geral" />
-              <Tab label="Serviços" />
-              <Tab label="Equipes" />
-              <Tab label="Não conformidades" />
+              {visibleTabs.map((key) => (
+                <Tab key={key} label={QUALITY_TAB_LABELS[key]} />
+              ))}
             </Tabs>
           </Paper>
 
-          {hasCoreAnalyticsData ? (
+          {activeTabKey === "vistorias" ? (
+            <QualityInspectionsTab
+              contractId={selectedContractId || undefined}
+              dateFilterHint={
+                <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+              }
+            />
+          ) : hasCoreAnalyticsData ? (
             <>
-              {activeTab === 0 && (
+              {activeTabKey === "ranking" && (
                 <QualityRankingTab
                   teamRankingQuality={teamRankingQuality}
                   rankingOrderBy={rankingOrderBy}
@@ -760,7 +812,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 1 && (
+              {activeTabKey === "overview" && (
                 <QualityOverviewTab
                   qualityByService={qualityByService!}
                   chartMonths={chartMonths}
@@ -776,7 +828,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 2 && (
+              {activeTabKey === "services" && (
                 <QualityServicesTab
                   qualityByService={qualityByService!}
                   currentMonthByService={currentMonthByService!}
@@ -795,7 +847,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 3 && (
+              {activeTabKey === "teams" && (
                 <QualityTeamsTab
                   teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
                   teamPerformanceFilters={teamPerformanceFilters}
@@ -818,7 +870,7 @@ export function AnalyticsPage(): JSX.Element {
                 />
               )}
 
-              {activeTab === 4 && (
+              {activeTabKey === "nonconformities" && (
                 <QualityNonConformitiesTab
                   byChecklist={nonConformitiesByChecklist}
                   byTeam={nonConformitiesByTeam}

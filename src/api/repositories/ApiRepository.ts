@@ -148,6 +148,11 @@ export class ApiRepository {
     await apiClient.delete(`/users/${userId}`);
   }
 
+  async getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }> {
+    const response = await apiClient.get<{ data: Array<Pick<User, "id" | "name">> }>("/users/fiscals", { params });
+    return response.data;
+  }
+
   async getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>> {
     const response = await apiClient.get<PaginatedResponse<Contract> | Contract[]>("/contracts", { params });
     const data = this.unwrapPaginated(response.data);
@@ -556,6 +561,7 @@ export class ApiRepository {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
     teamId?: string;
+    createdByUserId?: string;
     contractId?: string;
     status?: InspectionStatus;
     osNumber?: string;

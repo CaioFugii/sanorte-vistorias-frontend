@@ -12,7 +12,6 @@ export { ChecklistEditorPage } from './ChecklistEditorPage';
 export { ServiceOrdersPage } from './ServiceOrdersPage';
 export { InvestmentWorksPage } from './InvestmentWorksPage';
 export { InspectionsPage } from './InspectionsPage';
-export { QualityInspectionsPage } from './QualityInspectionsPage';
 export { SafetyInspectionsPage } from './SafetyInspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';
 export { InspectionDetailPage } from './InspectionDetailPage';

@@ -20,7 +20,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Changed
 
 - Ranking de Qualidade: média, quantidade e pendências consideram apenas Campo, Remoto e Pós-obra
-- Listagem Minhas Vistorias do fiscal pagina na API, sem teto de 100 registros
+- Listagem de vistorias de Qualidade movida para a aba **Vistorias** em Dados (`/quality/analytics?tab=vistorias`); o item **Vistorias** saiu do menu de Qualidade
+- Aba Vistorias de Qualidade com filtros por fiscal, equipe, serviço, status e períodos de execução e vistoria
 
 ### Fixed
 

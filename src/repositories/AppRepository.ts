@@ -167,6 +167,10 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.deleteUser(userId);
   }
 
+  async getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }> {
+    return this.apiRepository.getFiscals(params);
+  }
+
   async getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>> {
     return this.apiRepository.getContracts(params);
   }
@@ -461,6 +465,7 @@ export class AppRepository implements IAppRepository {
     module?: ModuleType;
     inspectionScope?: InspectionScope;
     teamId?: string;
+    createdByUserId?: string;
     contractId?: string;
     status?: InspectionStatus;
     osNumber?: string;
