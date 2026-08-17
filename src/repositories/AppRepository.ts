@@ -951,7 +951,25 @@ export class AppRepository implements IAppRepository {
     file: File,
     inspectionItemId?: string
   ): Promise<Evidence> {
-    const created = await this.apiRepository.addInspectionEvidence(inspectionId, file, inspectionItemId);
+    const presign = await this.apiRepository.presignInspectionEvidence(inspectionId, {
+      contentType: file.type || "image/jpeg",
+      contentLength: file.size,
+    });
+
+    const created =
+      presign.mode === "direct"
+        ? await this.uploadEvidenceDirectToStorage(
+            inspectionId,
+            file,
+            presign,
+            inspectionItemId
+          )
+        : await this.apiRepository.addInspectionEvidence(
+            inspectionId,
+            file,
+            inspectionItemId
+          );
+
     return {
       id: created.id,
       inspectionExternalId,
@@ -967,6 +985,34 @@ export class AppRepository implements IAppRepository {
       height: created.height,
       createdAt: created.createdAt,
     };
+  }
+
+  private async uploadEvidenceDirectToStorage(
+    inspectionId: string,
+    file: File,
+    presign: Extract<
+      Awaited<ReturnType<ApiRepository["presignInspectionEvidence"]>>,
+      { mode: "direct" }
+    >,
+    inspectionItemId?: string
+  ) {
+    const response = await fetch(presign.uploadUrl, {
+      method: presign.method,
+      headers: presign.headers,
+      body: file,
+    });
+    if (!response.ok) {
+      throw new Error("Falha ao enviar a imagem para o storage");
+    }
+
+    return this.apiRepository.confirmInspectionEvidenceFromStorage(inspectionId, {
+      storageKey: presign.storageKey,
+      url: presign.publicUrl,
+      inspectionItemId,
+      fileName: file.name,
+      mimeType: file.type || "image/jpeg",
+      bytes: file.size,
+    });
   }
 
   async resolvePendingInspection(

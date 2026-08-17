@@ -9,6 +9,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Added
 
 - Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
+- Upload de evidência da vistoria nova direto ao S3 (URL pré-assinada; fallback multipart no ambiente local)
 - Filtros por equipe PDA e resultado na tela de ordens de serviço
 - Observações do fiscal no resumo do checklist da tela de detalhes da vistoria
 - Distinção entre fotos gerais, fotos do checklist e resolução na tela de detalhes da vistoria

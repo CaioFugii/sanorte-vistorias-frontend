@@ -63,7 +63,33 @@ export type DashboardTeamRankingMetric =
 import { apiClient } from "../apiClient";
 import { UserRole } from "@/domain/enums";
 
-/** Resposta do POST /uploads (Cloudinary). */
+export type EvidenceDirectUpload =
+  | { mode: "proxy" }
+  | {
+      mode: "direct";
+      method: "PUT";
+      uploadUrl: string;
+      headers: Record<string, string>;
+      storageKey: string;
+      publicUrl: string;
+      expiresInSeconds: number;
+    };
+
+type InspectionEvidenceResponse = {
+  id: string;
+  inspectionId?: string;
+  inspectionItemId?: string;
+  fileName: string;
+  mimeType: string;
+  cloudinaryPublicId?: string;
+  url?: string;
+  bytes?: number;
+  format?: string;
+  width?: number;
+  height?: number;
+  createdAt: string;
+};
+
 export interface CloudinaryUploadResult {
   publicId: string;
   url: string;
@@ -674,24 +700,40 @@ export class ApiRepository {
     return response.data;
   }
 
+  async presignInspectionEvidence(
+    inspectionId: string,
+    payload: { contentType: string; contentLength: number }
+  ): Promise<EvidenceDirectUpload> {
+    const response = await apiClient.post<EvidenceDirectUpload>(
+      `/inspections/${inspectionId}/evidences/presign`,
+      payload
+    );
+    return response.data;
+  }
+
+  async confirmInspectionEvidenceFromStorage(
+    inspectionId: string,
+    payload: {
+      storageKey: string;
+      url: string;
+      inspectionItemId?: string;
+      fileName: string;
+      mimeType: string;
+      bytes: number;
+    }
+  ): Promise<InspectionEvidenceResponse> {
+    const response = await apiClient.post<InspectionEvidenceResponse>(
+      `/inspections/${inspectionId}/evidences/from-storage`,
+      payload
+    );
+    return response.data;
+  }
+
   async addInspectionEvidence(
     inspectionId: string,
     file: File,
     inspectionItemId?: string
-  ): Promise<{
-    id: string;
-    inspectionId?: string;
-    inspectionItemId?: string;
-    fileName: string;
-    mimeType: string;
-    cloudinaryPublicId?: string;
-    url?: string;
-    bytes?: number;
-    format?: string;
-    width?: number;
-    height?: number;
-    createdAt: string;
-  }> {
+  ): Promise<InspectionEvidenceResponse> {
     const formData = new FormData();
     formData.append("file", file);
     if (inspectionItemId) {
