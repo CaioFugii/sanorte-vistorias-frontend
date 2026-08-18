@@ -14,6 +14,7 @@ import {
   InspectionScope,
   InspectionStatus,
   InspectionItem,
+  InvestmentWorkEvaluationModule,
   ModuleType,
   PaginatedResponse,
   Sector,
@@ -618,6 +619,7 @@ export class AppRepository implements IAppRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;
@@ -655,6 +657,7 @@ export class AppRepository implements IAppRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;
@@ -847,6 +850,7 @@ export class AppRepository implements IAppRepository {
     contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
+    evaluationModule?: InvestmentWorkEvaluationModule;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
@@ -860,6 +864,7 @@ export class AppRepository implements IAppRepository {
       ...(input.contractId ? { contractId: input.contractId } : {}),
       serviceOrderId: input.serviceOrderId,
       investmentWorkId: input.investmentWorkId,
+      evaluationModule: input.evaluationModule,
       collaboratorIds: input.collaboratorIds,
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,

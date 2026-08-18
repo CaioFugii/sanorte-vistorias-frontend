@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Escolha de Campo ou Pós-obra na criação de vistoria de Obras de Investimento
 - Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
 - Upload de evidência da vistoria nova direto ao S3 (URL pré-assinada; fallback multipart no ambiente local)
 - Filtros por equipe PDA e resultado na tela de ordens de serviço
@@ -20,7 +21,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
-- Ranking de Qualidade: média, quantidade e pendências consideram apenas Campo, Remoto e Pós-obra
+- Ranking de Qualidade: notas de Obras de Investimento entram em Campo ou Pós-obra conforme o tipo escolhido na vistoria
 - Listagem de vistorias de Qualidade movida para a aba **Vistorias** em Dados (`/quality/analytics?tab=vistorias`); o item **Vistorias** saiu do menu de Qualidade
 - Aba Vistorias de Qualidade com filtros por fiscal, equipe, serviço, status e períodos de execução e vistoria
 

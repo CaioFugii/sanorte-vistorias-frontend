@@ -30,7 +30,7 @@ import { appRepository } from '@/repositories/AppRepository';
 import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
 import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
-import { getModuleLabel } from '@/utils/moduleLabel';
+import { getInvestmentWorkEvaluationModuleLabel, getModuleLabel } from '@/utils/moduleLabel';
 import { generateInspectionPdf } from '@/utils/inspectionPdf';
 import {
   prepareImageForUpload,
@@ -494,6 +494,11 @@ export const InspectionDetailPage = (): JSX.Element => {
             <Typography variant="body2" gutterBottom>
               <strong>Módulo:</strong> {getModuleLabel(inspection.module)}
             </Typography>
+            {inspection.module === ModuleType.OBRAS_INVESTIMENTO && inspection.evaluationModule && (
+              <Typography variant="body2" gutterBottom>
+                <strong>Tipo:</strong> {getInvestmentWorkEvaluationModuleLabel(inspection.evaluationModule)}
+              </Typography>
+            )}
             {inspection.checklist && (
               <Typography variant="body2" gutterBottom>
                 <strong>Checklist:</strong> {inspection.checklist.name}

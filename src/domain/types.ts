@@ -1,5 +1,6 @@
 import {
   ChecklistAnswer,
+  InvestmentWorkEvaluationModule,
   InvestmentWorkStatus,
   InspectionScope,
   InspectionStatus,
@@ -174,6 +175,7 @@ export interface InspectionListItem {
   externalId: string;
   serverId?: string;
   module: ModuleType;
+  evaluationModule?: InvestmentWorkEvaluationModule | null;
   serviceDescription: string;
   locationDescription: string;
   team?: Pick<Team, "name"> | Team | null;

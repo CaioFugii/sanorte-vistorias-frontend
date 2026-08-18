@@ -20,6 +20,8 @@ import {
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { ListPagination } from "@/components/ListPagination";
 import { PercentBadge } from "@/components/PercentBadge";
+import { InvestmentWorkEvaluationModule, ModuleType } from "@/domain/enums";
+import { getInspectionModuleDisplayLabel } from "@/utils/moduleLabel";
 import {
   TableActionsCell,
   TableActionsGroup,
@@ -277,7 +279,12 @@ export function QualityRankingTab({
                       <TableRow key={inspection.inspectionId}>
                         <TableCell>{inspection.serviceOrderNumber || "-"}</TableCell>
                         <TableCell>{inspection.serviceOrderAddress || "-"}</TableCell>
-                        <TableCell>{inspection.module}</TableCell>
+                        <TableCell>
+                          {getInspectionModuleDisplayLabel(
+                            inspection.module as ModuleType,
+                            inspection.evaluationModule as InvestmentWorkEvaluationModule | null
+                          )}
+                        </TableCell>
                         <TableCell>{inspection.status}</TableCell>
                         <TableCell align="center">
                           <PercentBadge percent={inspection.scorePercent} size="small" />

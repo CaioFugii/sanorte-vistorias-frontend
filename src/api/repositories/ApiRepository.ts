@@ -12,6 +12,7 @@ import {
   InspectionScope,
   InspectionItem,
   InspectionStatus,
+  InvestmentWorkEvaluationModule,
   ModuleType,
   PaginatedResponse,
   Sector,
@@ -641,6 +642,7 @@ export class ApiRepository {
     contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
+    evaluationModule?: InvestmentWorkEvaluationModule;
     serviceDescription: string;
     locationDescription?: string;
     collaboratorIds?: string[];
@@ -660,6 +662,7 @@ export class ApiRepository {
     if (input.contractId) payload.contractId = input.contractId;
     if (input.serviceOrderId) payload.serviceOrderId = input.serviceOrderId;
     if (input.investmentWorkId) payload.investmentWorkId = input.investmentWorkId;
+    if (input.evaluationModule) payload.evaluationModule = input.evaluationModule;
     if (input.externalId) payload.externalId = input.externalId;
     if (input.createdOffline !== undefined) payload.createdOffline = input.createdOffline;
     if (input.syncedAt) payload.syncedAt = input.syncedAt;
@@ -961,6 +964,7 @@ export class ApiRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;
@@ -1023,6 +1027,7 @@ export class ApiRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;

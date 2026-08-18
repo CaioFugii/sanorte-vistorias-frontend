@@ -36,7 +36,11 @@ Módulo operacional da vistoria.
 | `REMOTO` | Vistorias remotas — sem exigência de foto em NC; assinatura opcional |
 | `POS_OBRA` | Pós-obra — assinatura opcional no client |
 | `SEGURANCA_TRABALHO` | Segurança do Trabalho — `teamId` opcional; não gera pendência |
-| `OBRAS_INVESTIMENTO` | Vistorias vinculadas a obras de investimento |
+| `OBRAS_INVESTIMENTO` | Vistorias vinculadas a obras de investimento; o tipo Campo ou Pós-obra fica em `evaluationModule` |
+
+### `InvestmentWorkEvaluationModule`
+
+`CAMPO` | `POS_OBRA` — classifica a vistoria de Obras de Investimento no ranking de Qualidade.
 
 ### `UserRole`
 

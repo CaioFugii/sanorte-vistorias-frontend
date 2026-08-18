@@ -6,6 +6,11 @@ export enum ModuleType {
   SEGURANCA_TRABALHO = "SEGURANCA_TRABALHO",
 }
 
+export enum InvestmentWorkEvaluationModule {
+  CAMPO = "CAMPO",
+  POS_OBRA = "POS_OBRA",
+}
+
 
 export enum UserRole {
   ADMIN = "ADMIN",

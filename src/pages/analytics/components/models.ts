@@ -86,6 +86,7 @@ export type TeamRankingInspectionItem = {
   serviceOrderNumber: string;
   serviceOrderAddress: string | null;
   module: string;
+  evaluationModule?: string | null;
   status: string;
   scorePercent: number;
   finishedAt: string | null;

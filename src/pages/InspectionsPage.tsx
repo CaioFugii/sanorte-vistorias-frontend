@@ -29,7 +29,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
-import { getModuleLabel } from "@/utils/moduleLabel";
+import { getInspectionModuleDisplayLabel, getModuleLabel } from "@/utils/moduleLabel";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
@@ -400,7 +400,7 @@ export const InspectionsPage = ({
           ) : (
             inspections.map((inspection) => (
               <TableRow key={inspection.externalId}>
-                <TableCell>{getModuleLabel(inspection.module)}</TableCell>
+                <TableCell>{getInspectionModuleDisplayLabel(inspection.module, inspection.evaluationModule)}</TableCell>
                 <TableCell>
                   {inspection.serviceOrder?.osNumber ??
                     inspection.investmentWork?.workName ??

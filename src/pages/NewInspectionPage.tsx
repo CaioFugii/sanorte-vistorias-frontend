@@ -15,6 +15,8 @@ import {
   RadioGroup,
   Select,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,7 +26,7 @@ import { SectorSelect } from "@/components/SectorSelect";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { Collaborator, Contract, InspectionScope, InvestmentWork, ModuleType, ServiceOrder, Team } from "@/domain";
+import { Collaborator, Contract, InspectionScope, InvestmentWork, InvestmentWorkEvaluationModule, ModuleType, ServiceOrder, Team } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
@@ -37,6 +39,9 @@ export const NewInspectionPage = (): JSX.Element => {
   const [osSearchLoading, setOsSearchLoading] = useState(false);
   const loading = submitLoading || checklistLoading || osSearchLoading;
   const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
+  const [evaluationModule, setEvaluationModule] = useState<InvestmentWorkEvaluationModule>(
+    InvestmentWorkEvaluationModule.CAMPO
+  );
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
   const [teamId, setTeamId] = useState("");
@@ -440,6 +445,7 @@ export const NewInspectionPage = (): JSX.Element => {
         ...(selectedContractId ? { contractId: selectedContractId } : {}),
         serviceOrderId: selectedServiceOrder?.id,
         investmentWorkId: selectedInvestmentWork?.id,
+        ...(isInvestmentWorkModule ? { evaluationModule } : {}),
         collaboratorIds: isCollaboratorScope
           ? [selectedCollaboratorId]
           : selectedTeam?.isContractor
@@ -504,6 +510,7 @@ export const NewInspectionPage = (): JSX.Element => {
               value={module}
               onChange={(value) => {
                 setModule(value);
+                setEvaluationModule(InvestmentWorkEvaluationModule.CAMPO);
                 setInspectionScope(InspectionScope.TEAM);
                 setSectorId("");
                 setChecklistId("");
@@ -528,6 +535,32 @@ export const NewInspectionPage = (): JSX.Element => {
               }}
               required
             />
+            {isInvestmentWorkModule && (
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth required>
+                  <FormLabel id="investment-work-evaluation-label" sx={{ mb: 1 }}>
+                    Tipo de vistoria
+                  </FormLabel>
+                  <ToggleButtonGroup
+                    exclusive
+                    fullWidth
+                    color="primary"
+                    aria-labelledby="investment-work-evaluation-label"
+                    value={evaluationModule}
+                    onChange={(_, value: InvestmentWorkEvaluationModule | null) => {
+                      if (value) setEvaluationModule(value);
+                    }}
+                  >
+                    <ToggleButton value={InvestmentWorkEvaluationModule.CAMPO}>
+                      Vistoria em Campo
+                    </ToggleButton>
+                    <ToggleButton value={InvestmentWorkEvaluationModule.POS_OBRA}>
+                      Vistoria Pós Obra
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </FormControl>
+              </Box>
+            )}
             {!isWorkSafetyModule && (
               <Box sx={{ mt: 2 }}>
                 <Autocomplete

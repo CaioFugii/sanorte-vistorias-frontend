@@ -28,7 +28,7 @@ import { useListQueryState } from "@/hooks/useListQueryState";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
-import { getModuleLabel } from "@/utils/moduleLabel";
+import { getInspectionModuleDisplayLabel, getModuleLabel } from "@/utils/moduleLabel";
 import {
   PageHeader,
   SectionTable,
@@ -456,7 +456,7 @@ export const PendingsPage = (): JSX.Element => {
               inspections.map((inspection) => {
                 return (
                   <TableRow key={inspection.externalId}>
-                    <TableCell>{getModuleLabel(inspection.module)}</TableCell>
+                    <TableCell>{getInspectionModuleDisplayLabel(inspection.module, inspection.evaluationModule)}</TableCell>
                     <TableCell>
                       {inspection.serviceOrder?.osNumber ??
                         inspection.investmentWork?.workName ??

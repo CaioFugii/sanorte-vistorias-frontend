@@ -12,6 +12,7 @@ import {
   InspectionScope,
   InspectionStatus,
   InspectionItem,
+  InvestmentWorkEvaluationModule,
   ModuleType,
   PaginatedResponse,
   Sector,
@@ -372,6 +373,7 @@ export interface IAppRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;
@@ -406,6 +408,7 @@ export interface IAppRepository {
       serviceOrderNumber: string;
       serviceOrderAddress: string | null;
       module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
       status: InspectionStatus;
       scorePercent: number;
       finishedAt: string | null;
@@ -575,6 +578,7 @@ export interface IAppRepository {
     contractId?: string;
     serviceOrderId?: string;
     investmentWorkId?: string;
+    evaluationModule?: InvestmentWorkEvaluationModule;
     collaboratorIds?: string[];
     serviceDescription: string;
     locationDescription: string;
