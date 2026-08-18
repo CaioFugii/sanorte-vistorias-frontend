@@ -59,7 +59,13 @@ const CHECKLISTS_LIST_QUERY = {
 };
 
 function countItems(checklist: Checklist): number {
-  return checklist.sections.reduce((sum, section) => sum + section.items.length, 0);
+  if (typeof checklist.itemCount === "number") return checklist.itemCount;
+  return (checklist.sections ?? []).reduce((sum, section) => sum + section.items.length, 0);
+}
+
+function countSections(checklist: Checklist): number {
+  if (typeof checklist.sectionCount === "number") return checklist.sectionCount;
+  return checklist.sections?.length ?? 0;
 }
 
 export const ChecklistsPage = (): JSX.Element => {
@@ -260,7 +266,7 @@ export const ChecklistsPage = (): JSX.Element => {
                     </TableCell>
                     <TableCell>{getModuleLabel(checklist.module)}</TableCell>
                     <TableCell>{checklist.sector?.name ?? "—"}</TableCell>
-                    <TableCell>{checklist.sections.length}</TableCell>
+                    <TableCell>{countSections(checklist)}</TableCell>
                     <TableCell>{countItems(checklist)}</TableCell>
                     <TableCell>
                       <Chip

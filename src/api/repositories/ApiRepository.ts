@@ -243,6 +243,11 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getTeam(teamId: string): Promise<Team> {
+    const response = await apiClient.get<Team>(`/teams/${teamId}`);
+    return response.data;
+  }
+
   async createTeam(input: {
     name: string;
     active: boolean;

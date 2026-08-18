@@ -33,7 +33,7 @@ export const ManageInspectionPage = (): JSX.Element => {
   const fromState = (location.state as { from?: string } | null)?.from;
   const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
   const user = useAuthStore((state) => state.user);
-  const { loadCache, checklists, teams } = useReferenceStore();
+  const { loadCache, teams } = useReferenceStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingEvidenceId, setDeletingEvidenceId] = useState<string | null>(null);
@@ -42,6 +42,7 @@ export const ManageInspectionPage = (): JSX.Element => {
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [inspectionItems, setInspectionItems] = useState<InspectionItem[]>([]);
+  const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
   const [paralyzeReason, setParalyzeReason] = useState("");
   const [paralyzeError, setParalyzeError] = useState<string | null>(null);
@@ -77,6 +78,12 @@ export const ManageInspectionPage = (): JSX.Element => {
             updatedAt: item.updatedAt ?? data.updatedAt ?? new Date().toISOString(),
           }))
         );
+        if (data.checklistId) {
+          const fullChecklist = await appRepository.getChecklist(data.checklistId);
+          setChecklist(fullChecklist);
+        } else {
+          setChecklist(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -98,15 +105,6 @@ export const ManageInspectionPage = (): JSX.Element => {
       );
     }
   };
-
-  const checklist = useMemo(() => {
-    if (!inspection) return undefined;
-    const embedded = inspection.checklist;
-    if (embedded && "sections" in embedded && Array.isArray((embedded as Checklist).sections)) {
-      return embedded as Checklist;
-    }
-    return checklists.find((entry) => entry.id === inspection.checklistId);
-  }, [checklists, inspection]);
 
   const evidences = useMemo<Evidence[]>(() => inspection?.evidences ?? [], [inspection]);
   const signature = useMemo<Signature | null>(() => inspection?.signatures?.[0] ?? null, [inspection]);

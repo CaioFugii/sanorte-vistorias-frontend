@@ -96,7 +96,7 @@ RASCUNHO → FINALIZADA | PENDENTE_AJUSTE → RESOLVIDA
 | `Sector` | Setor operacional (ESGOTO, AGUA, REPOSICAO, etc.) |
 | `Collaborator` | Vinculado a `sectorId` e opcionalmente `contractId` |
 | `Contract` | Agrupa equipes, usuários e ordens de serviço |
-| `Checklist` | `module`, `inspectionScope`, `sectorId`, `sections[]` |
+| `Checklist` | `module`, `inspectionScope`, `sectorId`, `sections[]`; no máximo 50 perguntas (`ChecklistItem`) |
 | `ChecklistItem` | `requiresPhotoOnNonConformity`, `referenceImageUrl` |
 | `ServiceOrder` | OS vinculável à vistoria (`osNumber`, `sectorId`, flags de módulo) |
 | `InvestmentWork` | Obra de investimento com `status`, `teamId`, `inspectionStats` |
@@ -125,6 +125,10 @@ RASCUNHO → FINALIZADA | PENDENTE_AJUSTE → RESOLVIDA
 ---
 
 ## Regras de negócio (`rules/`)
+
+### Limite de perguntas — `checklistItemLimit`
+
+Um checklist aceita no máximo **50** `ChecklistItem`. A API rejeita `POST /checklists/:id/items` acima desse teto; o editor desabilita "Nova pergunta".
 
 ### Cálculo de nota — `calculateScore`
 

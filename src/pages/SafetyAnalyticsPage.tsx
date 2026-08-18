@@ -239,6 +239,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
     void loadData(filters, globalPeriod, selectedContractId);
   }, [canAccessAnalytics, globalPeriod, selectedContractId]);
 
+  const sortedTeamRanking = useMemo(
+    () =>
+      [...teamRanking].sort((a, b) =>
+        rankingOrder === "asc"
+          ? a.safetyWorkPercent - b.safetyWorkPercent
+          : b.safetyWorkPercent - a.safetyWorkPercent
+      ),
+    [teamRanking, rankingOrder]
+  );
+
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
   }
@@ -255,15 +265,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
     if (Number.isNaN(parsed.getTime())) return "-";
     return parsed.toLocaleString("pt-BR");
   };
-  const sortedTeamRanking = useMemo(
-    () =>
-      [...teamRanking].sort((a, b) =>
-        rankingOrder === "asc"
-          ? a.safetyWorkPercent - b.safetyWorkPercent
-          : b.safetyWorkPercent - a.safetyWorkPercent
-      ),
-    [teamRanking, rankingOrder]
-  );
 
   const openRankingInspections = async (teamId: string, teamName: string, page = 1, limit = rankingInspectionsMeta.limit) => {
     setRankingInspectionsOpen(true);

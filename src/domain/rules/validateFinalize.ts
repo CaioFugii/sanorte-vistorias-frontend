@@ -24,7 +24,7 @@ export function validateFinalize({
     errors.push("Assinatura do líder/encarregado é obrigatória.");
   }
 
-  const checklistItems = checklist.sections
+  const checklistItems = (checklist.sections ?? [])
     .flatMap((section) => section.items)
     .filter((item) => item.active);
   const itemMap = new Map(checklistItems.map((item) => [item.id, item]));

@@ -28,7 +28,7 @@ import {
 import { SignaturePad } from "@/components/SignaturePad";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
-import { InspectionItem } from "@/domain";
+import { Checklist, InspectionItem } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
 import { generateInspectionPdf } from "@/utils/inspectionPdf";
 import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
@@ -39,7 +39,7 @@ export const FillInspectionPage = (): JSX.Element => {
   const location = useLocation();
   const fromState = (location.state as { from?: string } | null)?.from;
   const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
-  const { checklists, serviceOrders, loadServiceOrders, loadCache, loading: referencesLoading } =
+  const { serviceOrders, loadServiceOrders, loadCache, loading: referencesLoading } =
     useReferenceStore();
   const {
     currentInspection,
@@ -66,11 +66,15 @@ export const FillInspectionPage = (): JSX.Element => {
   const [paralyzeReason, setParalyzeReason] = useState("");
   const [paralyzeError, setParalyzeError] = useState<string | null>(null);
   const [paralyzeLoading, setParalyzeLoading] = useState(false);
+  const [checklist, setChecklist] = useState<Checklist | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(true);
 
   useEffect(() => {
     const run = async () => {
       setSignerName("");
       setSignatureDataUrl(null);
+      setChecklist(null);
+      setChecklistLoading(true);
       setLoading(true);
       try {
         await Promise.all([load(externalId), loadCache()]);
@@ -82,13 +86,33 @@ export const FillInspectionPage = (): JSX.Element => {
   }, [externalId, load, loadCache]);
 
   useEffect(() => {
+    const checklistId = currentInspection?.checklistId;
+    if (!checklistId) {
+      setChecklist(null);
+      setChecklistLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setChecklistLoading(true);
+    appRepository
+      .getChecklist(checklistId)
+      .then((data) => {
+        if (!cancelled) setChecklist(data);
+      })
+      .catch(() => {
+        if (!cancelled) setChecklist(null);
+      })
+      .finally(() => {
+        if (!cancelled) setChecklistLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentInspection?.checklistId]);
+
+  useEffect(() => {
     loadServiceOrders();
   }, [loadServiceOrders]);
-
-  const checklist = useMemo(
-    () => checklists.find((entry) => entry.id === currentInspection?.checklistId),
-    [checklists, currentInspection]
-  );
 
   const osNumber = useMemo(() => {
     if (!currentInspection) return null;
@@ -117,7 +141,7 @@ export const FillInspectionPage = (): JSX.Element => {
     if (!currentInspection || !checklist) return;
     if (inspectionItems.length > 0) return;
     const now = new Date().toISOString();
-    const initialItems: InspectionItem[] = checklist.sections
+    const initialItems: InspectionItem[] = (checklist.sections ?? [])
       .flatMap((section) => section.items)
       .filter((item) => item.active)
       .map((item) => ({
@@ -134,7 +158,7 @@ export const FillInspectionPage = (): JSX.Element => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checklist?.id, currentInspection?.externalId]);
 
-  if (loading || referencesLoading) {
+  if (loading || referencesLoading || checklistLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />

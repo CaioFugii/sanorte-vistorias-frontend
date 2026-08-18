@@ -117,6 +117,10 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getTeams(params);
   }
 
+  async getTeam(teamId: string): Promise<Team> {
+    return this.apiRepository.getTeam(teamId);
+  }
+
   async getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>> {
     return this.apiRepository.getSectors(params);
   }

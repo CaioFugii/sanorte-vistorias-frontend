@@ -203,23 +203,36 @@ export const TeamsPage = (): JSX.Element => {
                 <TableCell>{team.name}</TableCell>
                 <TableCell>{team.isContractor ? "Empreiteira" : "Própria"}</TableCell>
                 <TableCell>
-                  {(team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
+                  {(team.collaboratorCount ?? team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
                 </TableCell>
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
                     {!isSupervisor && <TableEditButton
                     onClick={() => {
-                      setEditingTeam(team);
-                      setName(team.name);
-                      setActive(team.active);
-                      setIsContractor(team.isContractor ?? false);
-                      setSelectedCollaboratorIds(
-                        team.collaboratorIds ?? team.collaborators?.map((collaborator) => collaborator.id) ?? []
-                      );
-                      setSelectedContractIds(team.contractIds ?? team.contracts?.map((contract) => contract.id) ?? []);
-                      setFormError(null);
-                      setDialogOpen(true);
+                      void (async () => {
+                        setFormError(null);
+                        try {
+                          const fullTeam = await appRepository.getTeam(team.id);
+                          setEditingTeam(fullTeam);
+                          setName(fullTeam.name);
+                          setActive(fullTeam.active);
+                          setIsContractor(fullTeam.isContractor ?? false);
+                          setSelectedCollaboratorIds(
+                            fullTeam.collaboratorIds ??
+                              fullTeam.collaborators?.map((collaborator) => collaborator.id) ??
+                              []
+                          );
+                          setSelectedContractIds(
+                            fullTeam.contractIds ??
+                              fullTeam.contracts?.map((contract) => contract.id) ??
+                              []
+                          );
+                          setDialogOpen(true);
+                        } catch {
+                          setFormError("Não foi possível carregar a equipe.");
+                        }
+                      })();
                     }}
                     />}
                     {!isSupervisor && <TableDeleteButton onClick={() => setDeletingTeam(team)} />}

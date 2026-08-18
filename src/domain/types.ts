@@ -33,6 +33,7 @@ export interface Team {
   contractIds?: string[];
   collaborators?: Collaborator[];
   collaboratorIds?: string[];
+  collaboratorCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -161,8 +162,10 @@ export interface Checklist {
   sectorId: string;
   sector?: Sector;
   active: boolean;
-  sections: ChecklistSection[];
+  sections?: ChecklistSection[];
   items?: ChecklistItem[];
+  sectionCount?: number;
+  itemCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

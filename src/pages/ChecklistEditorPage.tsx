@@ -17,6 +17,7 @@ import {
   RadioGroup,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -30,6 +31,7 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Checklist, ChecklistItem, ChecklistSection, InspectionScope, Sector } from "@/domain";
 import { ModuleType, UserRole } from "@/domain/enums";
+import { MAX_CHECKLIST_ITEMS, canAddChecklistItem } from "@/domain/rules";
 import { ModuleSelect } from "@/components/ModuleSelect";
 import { SectorSelect } from "@/components/SectorSelect";
 import { appRepository } from "@/repositories/AppRepository";
@@ -150,7 +152,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
         throw new Error("Edição de checklist está disponível apenas online.");
       }
       const data = await appRepository.getChecklist(id);
-      setChecklist({ ...data, sections: sortSections(data.sections) });
+      setChecklist({ ...data, sections: sortSections(data.sections ?? []) });
       setError(null);
     } catch (e) {
       setChecklist(null);
@@ -235,7 +237,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
     setEditingSectionId(null);
     setSectionName("");
     setSectionOrder(
-      (checklist.sections.reduce((max, section) => Math.max(max, section.order), 0) || 0) + 1
+      ((checklist.sections ?? []).reduce((max, section) => Math.max(max, section.order), 0) || 0) + 1
     );
     setSectionActive(true);
     setSectionDialogOpen(true);
@@ -253,11 +255,12 @@ export const ChecklistEditorPage = (): JSX.Element => {
     setChecklist((current) => {
       if (!current) return current;
       const normalized = normalizeSection({ ...section, items: section.items ?? [] });
-      const exists = current.sections.some((s) => s.id === normalized.id);
-      const sections = exists
-        ? current.sections.map((s) => (s.id === normalized.id ? { ...normalized, items: s.items } : s))
-        : [...current.sections, normalized];
-      return { ...current, sections: sortSections(sections) };
+      const sections = current.sections ?? [];
+      const exists = sections.some((s) => s.id === normalized.id);
+      const nextSections = exists
+        ? sections.map((s) => (s.id === normalized.id ? { ...normalized, items: s.items } : s))
+        : [...sections, normalized];
+      return { ...current, sections: sortSections(nextSections) };
     });
   };
 
@@ -266,12 +269,21 @@ export const ChecklistEditorPage = (): JSX.Element => {
       if (!current) return current;
       return {
         ...current,
-        sections: current.sections.filter((section) => section.id !== sectionId),
+        sections: (current.sections ?? []).filter((section) => section.id !== sectionId),
       };
     });
   };
 
   const openNewItemDialog = (section: ChecklistSection): void => {
+    const currentCount = (checklist?.sections ?? []).reduce(
+      (sum, currentSection) => sum + (currentSection.items?.length ?? 0),
+      0
+    );
+    if (!canAddChecklistItem(currentCount)) {
+      setError(`O checklist não pode ter mais de ${MAX_CHECKLIST_ITEMS} perguntas.`);
+      return;
+    }
+    setError(null);
     setItemSectionId(section.id);
     setEditingItemId(null);
     setItemTitle("");
@@ -304,7 +316,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
       if (!current) return current;
       return {
         ...current,
-        sections: current.sections.map((section) => {
+        sections: (current.sections ?? []).map((section) => {
           if (section.id !== sectionId) return section;
           const exists = section.items.some((existing) => existing.id === item.id);
           const items = exists
@@ -321,7 +333,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
       if (!current) return current;
       return {
         ...current,
-        sections: current.sections.map((section) => {
+        sections: (current.sections ?? []).map((section) => {
           if (section.id !== sectionId) return section;
           return normalizeSection({
             ...section,
@@ -367,8 +379,9 @@ export const ChecklistEditorPage = (): JSX.Element => {
     );
   }
 
-  const sections = sortSections(checklist.sections);
+  const sections = sortSections(checklist.sections ?? []);
   const totalItems = sections.reduce((sum, section) => sum + section.items.length, 0);
+  const atItemLimit = !canAddChecklistItem(totalItems);
 
   return (
     <Box>
@@ -397,7 +410,12 @@ export const ChecklistEditorPage = (): JSX.Element => {
               color={checklist.active ? "success" : "default"}
             />
             <Chip label={`${sections.length} seções`} size="small" variant="outlined" />
-            <Chip label={`${totalItems} perguntas`} size="small" variant="outlined" />
+            <Chip
+              label={`${totalItems} / ${MAX_CHECKLIST_ITEMS} perguntas`}
+              size="small"
+              variant="outlined"
+              color={atItemLimit ? "warning" : "default"}
+            />
           </Box>
         </Box>
         {!readOnly && (
@@ -415,6 +433,12 @@ export const ChecklistEditorPage = (): JSX.Element => {
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {atItemLimit && !readOnly && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Limite de {MAX_CHECKLIST_ITEMS} perguntas atingido. Remova uma pergunta para adicionar outra.
         </Alert>
       )}
 
@@ -457,13 +481,24 @@ export const ChecklistEditorPage = (): JSX.Element => {
                   >
                     <Delete />
                   </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => openNewItemDialog(section)}
-                    aria-label="Nova pergunta"
+                  <Tooltip
+                    title={
+                      atItemLimit
+                        ? `Limite de ${MAX_CHECKLIST_ITEMS} perguntas atingido`
+                        : "Nova pergunta"
+                    }
                   >
-                    <Add />
-                  </IconButton>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => openNewItemDialog(section)}
+                        aria-label="Nova pergunta"
+                        disabled={atItemLimit}
+                      >
+                        <Add />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </Box>
               )}
             </Box>
@@ -471,7 +506,10 @@ export const ChecklistEditorPage = (): JSX.Element => {
             {section.items.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
                 Nenhuma pergunta nesta seção.
-                {!readOnly && " Use o botão + para adicionar."}
+                {!readOnly &&
+                  (atItemLimit
+                    ? ` Limite de ${MAX_CHECKLIST_ITEMS} perguntas do checklist atingido.`
+                    : " Use o botão + para adicionar.")}
               </Typography>
             ) : (
               section.items.map((item) => (
@@ -620,7 +658,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
                     ? {
                         ...current,
                         ...updated,
-                        sections: current.sections,
+                        sections: current.sections ?? [],
                       }
                     : current
                 );
@@ -791,9 +829,24 @@ export const ChecklistEditorPage = (): JSX.Element => {
           </Button>
           <Button
             variant="contained"
-            disabled={!itemSectionId || !itemTitle.trim() || savingItem}
+            disabled={
+              !itemSectionId ||
+              !itemTitle.trim() ||
+              savingItem ||
+              (!editingItemId && atItemLimit)
+            }
             onClick={async () => {
               if (!checklist || !itemSectionId || savingItem) return;
+              if (!editingItemId) {
+                const currentCount = (checklist.sections ?? []).reduce(
+                  (sum, section) => sum + (section.items?.length ?? 0),
+                  0
+                );
+                if (!canAddChecklistItem(currentCount)) {
+                  setError(`O checklist não pode ter mais de ${MAX_CHECKLIST_ITEMS} perguntas.`);
+                  return;
+                }
+              }
               setSavingItem(true);
               try {
                 let savedItem: ChecklistItem;

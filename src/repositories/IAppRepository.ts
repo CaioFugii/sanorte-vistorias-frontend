@@ -40,6 +40,7 @@ export interface IAppRepository {
     name?: string;
     contractId?: string;
   }): Promise<PaginatedResponse<Team>>;
+  getTeam(teamId: string): Promise<Team>;
   getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>>;
   getCachedTeams(): Promise<Team[]>;
   getCachedSectors(): Promise<Sector[]>;
