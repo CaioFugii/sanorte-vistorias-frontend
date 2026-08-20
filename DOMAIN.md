@@ -92,7 +92,7 @@ RASCUNHO → FINALIZADA | PENDENTE_AJUSTE → RESOLVIDA
 | Tipo | Campos relevantes |
 |------|-------------------|
 | `User` | `role`, `contractIds` — escopo de acesso por contrato |
-| `Team` | `isContractor` — equipe empreiteira não aceita colaboradores vinculados |
+| `Team` | `isContractor` — equipe empreiteira não aceita colaboradores; `sectors`/`sectorIds` — setores em que a equipe atua |
 | `Sector` | Setor operacional (ESGOTO, AGUA, REPOSICAO, etc.) |
 | `Collaborator` | Vinculado a `sectorId` e opcionalmente `contractId` |
 | `Contract` | Agrupa equipes, usuários e ordens de serviço |

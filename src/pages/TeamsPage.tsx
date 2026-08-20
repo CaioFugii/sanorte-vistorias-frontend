@@ -24,7 +24,7 @@ import {
 import { Add } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
-import { Collaborator, Contract, PaginatedResponse, Team } from '@/domain';
+import { Collaborator, Contract, PaginatedResponse, Sector, Team } from '@/domain';
 import { UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { useAuthStore } from '@/stores/authStore';
@@ -43,11 +43,17 @@ import {
 
 const DEFAULT_LIMIT = 10;
 
+const formatTeamSectors = (team: Team): string => {
+  const names = team.sectors?.map((sector) => sector.name).filter(Boolean) ?? [];
+  return names.length > 0 ? names.join(", ") : "—";
+};
+
 export const TeamsPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
   const loadCache = useReferenceStore((state) => state.loadCache);
+  const sectors = useReferenceStore((state) => state.sectors);
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResponse<Team> | null>(null);
   const [page, setPage] = useState(1);
@@ -64,7 +70,9 @@ export const TeamsPage = (): JSX.Element => {
   const [isContractor, setIsContractor] = useState(false);
   const [contractOptions, setContractOptions] = useState<Contract[]>([]);
   const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
+  const [selectedSectorIds, setSelectedSectorIds] = useState<string[]>([]);
   const [filterContractId, setFilterContractId] = useState("");
+  const [filterSectorId, setFilterSectorId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const getTeamFormFriendlyError = (error: unknown): string | null => {
@@ -88,6 +96,7 @@ export const TeamsPage = (): JSX.Element => {
       page,
       limit,
       contractId: filterContractId || undefined,
+      sectorId: filterSectorId || undefined,
     });
     setResult(res);
     setLoading(false);
@@ -95,7 +104,7 @@ export const TeamsPage = (): JSX.Element => {
 
   useEffect(() => {
     loadTeams();
-  }, [page, limit, filterContractId]);
+  }, [page, limit, filterContractId, filterSectorId]);
 
   useEffect(() => {
     const run = async () => {
@@ -115,6 +124,9 @@ export const TeamsPage = (): JSX.Element => {
 
   const teams = result?.data ?? [];
   const meta = result?.meta;
+  const sectorOptions = sectors.filter(
+    (sector) => sector.active || selectedSectorIds.includes(sector.id)
+  );
 
   if (loading && !result) {
     return (
@@ -142,6 +154,7 @@ export const TeamsPage = (): JSX.Element => {
                 setIsContractor(false);
                 setSelectedCollaboratorIds([]);
                 setSelectedContractIds([]);
+                setSelectedSectorIds([]);
                 setFormError(null);
                 setDialogOpen(true);
               }}
@@ -171,6 +184,24 @@ export const TeamsPage = (): JSX.Element => {
             ))}
           </Select>
         </FormControl>
+        <FormControl size="small" sx={{ minWidth: 240 }}>
+          <InputLabel>Setor</InputLabel>
+          <Select
+            value={filterSectorId}
+            label="Setor"
+            onChange={(event) => {
+              setFilterSectorId(event.target.value);
+              setPage(1);
+            }}
+          >
+            <MenuItem value="">Todos os setores</MenuItem>
+            {sectors.filter((sector) => sector.active).map((sector) => (
+              <MenuItem key={sector.id} value={sector.id}>
+                {sector.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       <SectionTable title="Lista de equipes">
@@ -179,6 +210,7 @@ export const TeamsPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Tipo</TableCell>
+              <TableCell>Setores</TableCell>
               <TableCell>Colaboradores</TableCell>
               <TableCell>Status</TableCell>
               <TableActionsHeaderCell />
@@ -187,13 +219,13 @@ export const TeamsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   Nenhuma equipe encontrada.
                 </TableCell>
               </TableRow>
@@ -202,6 +234,7 @@ export const TeamsPage = (): JSX.Element => {
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
                 <TableCell>{team.isContractor ? "Empreiteira" : "Própria"}</TableCell>
+                <TableCell>{formatTeamSectors(team)}</TableCell>
                 <TableCell>
                   {(team.collaboratorCount ?? team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
                 </TableCell>
@@ -226,6 +259,11 @@ export const TeamsPage = (): JSX.Element => {
                           setSelectedContractIds(
                             fullTeam.contractIds ??
                               fullTeam.contracts?.map((contract) => contract.id) ??
+                              []
+                          );
+                          setSelectedSectorIds(
+                            fullTeam.sectorIds ??
+                              fullTeam.sectors?.map((sector) => sector.id) ??
                               []
                           );
                           setDialogOpen(true);
@@ -314,6 +352,26 @@ export const TeamsPage = (): JSX.Element => {
               )}
             />
           </Box>
+          <Box sx={{ mt: 2 }}>
+            <Autocomplete
+              multiple
+              options={sectorOptions}
+              value={sectorOptions.filter((sector) => selectedSectorIds.includes(sector.id))}
+              onChange={(_, selectedSectors: Sector[]) =>
+                setSelectedSectorIds(selectedSectors.map((sector) => sector.id))
+              }
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Setores"
+                  placeholder="Selecione os setores"
+                  helperText="Setores em que a equipe atua"
+                />
+              )}
+            />
+          </Box>
           {isContractor && (
             <Alert severity="info" sx={{ mt: 2 }}>
               Equipes empreiteiras não permitem vínculo de colaboradores.
@@ -348,6 +406,7 @@ export const TeamsPage = (): JSX.Element => {
                     isContractor,
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                     contractIds: selectedContractIds,
+                    sectorIds: selectedSectorIds,
                   });
                 } else {
                   await appRepository.createTeam({
@@ -356,6 +415,7 @@ export const TeamsPage = (): JSX.Element => {
                     isContractor,
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                     contractIds: selectedContractIds,
+                    sectorIds: selectedSectorIds,
                   });
                 }
                 setDialogOpen(false);

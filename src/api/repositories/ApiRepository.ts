@@ -224,6 +224,7 @@ export class ApiRepository {
     limit?: number;
     name?: string;
     contractId?: string;
+    sectorId?: string;
   }): Promise<PaginatedResponse<Team>> {
     const response = await apiClient.get<PaginatedResponse<Team> | Team[]>("/teams", { params });
     const data = this.unwrapPaginated(response.data);
@@ -254,6 +255,7 @@ export class ApiRepository {
     isContractor?: boolean;
     collaboratorIds?: string[];
     contractIds: string[];
+    sectorIds?: string[];
   }): Promise<Team> {
     const response = await apiClient.post<Team>("/teams", input);
     return response.data;
@@ -261,7 +263,7 @@ export class ApiRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[] }>
   ): Promise<Team> {
     const response = await apiClient.put<Team>(`/teams/${teamId}`, input);
     return response.data;

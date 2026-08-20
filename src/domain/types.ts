@@ -31,6 +31,8 @@ export interface Team {
   isContractor: boolean;
   contracts?: Pick<Contract, "id" | "name">[];
   contractIds?: string[];
+  sectors?: Pick<Sector, "id" | "name">[];
+  sectorIds?: string[];
   collaborators?: Collaborator[];
   collaboratorIds?: string[];
   collaboratorCount?: number;

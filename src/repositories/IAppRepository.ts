@@ -39,6 +39,7 @@ export interface IAppRepository {
     limit?: number;
     name?: string;
     contractId?: string;
+    sectorId?: string;
   }): Promise<PaginatedResponse<Team>>;
   getTeam(teamId: string): Promise<Team>;
   getSectors(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Sector>>;
@@ -101,6 +102,7 @@ export interface IAppRepository {
     isContractor?: boolean;
     collaboratorIds?: string[];
     contractIds: string[];
+    sectorIds?: string[];
   }): Promise<Team>;
   updateTeam(
     teamId: string,
@@ -110,6 +112,7 @@ export interface IAppRepository {
       isContractor: boolean;
       collaboratorIds?: string[];
       contractIds: string[];
+      sectorIds?: string[];
     }>
   ): Promise<Team>;
   deleteTeam(teamId: string): Promise<void>;

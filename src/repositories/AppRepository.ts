@@ -113,6 +113,7 @@ export class AppRepository implements IAppRepository {
     limit?: number;
     name?: string;
     contractId?: string;
+    sectorId?: string;
   }): Promise<PaginatedResponse<Team>> {
     return this.apiRepository.getTeams(params);
   }
@@ -252,6 +253,7 @@ export class AppRepository implements IAppRepository {
     isContractor?: boolean;
     collaboratorIds?: string[];
     contractIds: string[];
+    sectorIds?: string[];
   }): Promise<Team> {
     const team = await this.apiRepository.createTeam(input);
     await this.loadTeams(true);
@@ -260,7 +262,7 @@ export class AppRepository implements IAppRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[] }>
   ): Promise<Team> {
     const team = await this.apiRepository.updateTeam(teamId, input);
     await this.loadTeams(true);

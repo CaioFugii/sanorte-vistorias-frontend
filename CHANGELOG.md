@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Vínculo de equipes a um ou mais setores na criação e edição
 - Limite de 50 perguntas por checklist no editor (espelha a trava da API)
 - Escolha de Campo ou Pós-obra na criação de vistoria de Obras de Investimento
 - Filtros de contrato, equipe, serviço e períodos (execução e vistoria) na tela de pendências
