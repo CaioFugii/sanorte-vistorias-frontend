@@ -270,6 +270,23 @@ export interface IAppRepository {
     page?: number;
     limit?: number;
   }): Promise<PaginatedResponse<InspectionListItem>>;
+  exportInspectionsExcel(params?: {
+    periodFrom?: string;
+    periodTo?: string;
+    module?: ModuleType;
+    inspectionScope?: InspectionScope;
+    teamId?: string;
+    createdByUserId?: string;
+    contractId?: string;
+    status?: InspectionStatus;
+    osNumber?: string;
+    service?: string;
+    executionFrom?: string;
+    executionTo?: string;
+    inspectionFrom?: string;
+    inspectionTo?: string;
+    investmentWorkId?: string;
+  }): Promise<{ blob: Blob; filename: string }>;
   getMyInspections(params?: {
     page?: number;
     limit?: number;

@@ -73,13 +73,21 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
       sessionStorage.removeItem("auth_token");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
       window.dispatchEvent(new CustomEvent("auth:unauthorized"));
       return Promise.reject(error);
+    }
+    const data = error.response?.data;
+    if (typeof Blob !== "undefined" && data instanceof Blob) {
+      try {
+        error.response.data = JSON.parse(await data.text());
+      } catch {
+        // mantém o blob original quando a resposta de erro não for JSON
+      }
     }
     dispatchApiError(getFriendlyErrorMessage(error));
     return Promise.reject(error);

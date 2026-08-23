@@ -20,6 +20,8 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Delete, FilterAltOff, Search } from "@mui/icons-material";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem, Team } from "@/domain";
@@ -352,6 +354,27 @@ export const InspectionsPage = ({
   const canDeleteInspection = (inspection: InspectionListItem): boolean =>
     inspection.status === InspectionStatus.RASCUNHO;
 
+  const inspectionExportFilters = {
+    osNumber: osNumberFilter,
+    module: selectedModule || undefined,
+    contractId: contractId || undefined,
+    teamId: embedded ? selectedTeamId || undefined : undefined,
+    createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
+    service: embedded ? serviceFilter : undefined,
+    status: embedded ? selectedStatus || undefined : undefined,
+    executionFrom: embedded ? executionFrom || undefined : undefined,
+    executionTo: embedded ? executionTo || undefined : undefined,
+    inspectionFrom: embedded ? inspectionFrom || undefined : undefined,
+    inspectionTo: embedded ? inspectionTo || undefined : undefined,
+  };
+
+  const handleExportInspections = async () => {
+    const { blob, filename } = await appRepository.exportInspectionsExcel(
+      inspectionExportFilters
+    );
+    downloadBlob(blob, filename);
+  };
+
   const handleDeleteInspection = async () => {
     if (!deletingInspection || deleting) return;
     setDeleting(true);
@@ -671,6 +694,12 @@ export const InspectionsPage = ({
               Limpar filtros
             </Button>
           </>
+        )}
+        {!isFiscal && (
+          <ExportExcelButton
+            onExport={handleExportInspections}
+            disabled={loading}
+          />
         )}
       </Box>
 

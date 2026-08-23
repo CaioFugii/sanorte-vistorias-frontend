@@ -47,7 +47,7 @@ src/
 ├── pages/            Uma tela por rota; subpastas por feature (ex.: analytics/)
 ├── hooks/            Hooks de UI (ex.: useListQueryState para filtros na URL)
 ├── components/       UI compartilhada (ChecklistRenderer, SignaturePad, etc.)
-└── utils/            PDF, labels, prepareImageForUpload, snackbar
+└── utils/            PDF, Excel download (downloadBlob), labels, prepareImageForUpload, snackbar
 ```
 
 Path alias `@/` aponta para `src/`.

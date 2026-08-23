@@ -62,6 +62,7 @@ export type DashboardTeamRankingMetric =
   | "investmentWorks"
   | "safetyWork";
 import { apiClient } from "../apiClient";
+import { parseContentDispositionFilename } from "@/utils/downloadBlob";
 import { UserRole } from "@/domain/enums";
 
 export type EvidenceDirectUpload =
@@ -610,6 +611,34 @@ export class ApiRepository {
   }): Promise<PaginatedResponse<InspectionListItem>> {
     const response = await apiClient.get<PaginatedResponse<InspectionListItem>>("/inspections", { params });
     return response.data;
+  }
+
+  async exportInspectionsExcel(params?: {
+    periodFrom?: string;
+    periodTo?: string;
+    module?: ModuleType;
+    inspectionScope?: InspectionScope;
+    teamId?: string;
+    createdByUserId?: string;
+    contractId?: string;
+    status?: InspectionStatus;
+    osNumber?: string;
+    service?: string;
+    executionFrom?: string;
+    executionTo?: string;
+    inspectionFrom?: string;
+    inspectionTo?: string;
+    investmentWorkId?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>("/inspections/export", {
+      params,
+      responseType: "blob",
+      timeout: 60000,
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "vistorias.xlsx";
+    return { blob: response.data, filename };
   }
 
   async getMyInspections(params?: {

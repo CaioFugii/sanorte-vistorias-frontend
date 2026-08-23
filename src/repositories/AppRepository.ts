@@ -466,6 +466,26 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.deleteServiceOrder(serviceOrderId);
   }
 
+  async exportInspectionsExcel(params?: {
+    periodFrom?: string;
+    periodTo?: string;
+    module?: ModuleType;
+    inspectionScope?: InspectionScope;
+    teamId?: string;
+    createdByUserId?: string;
+    contractId?: string;
+    status?: InspectionStatus;
+    osNumber?: string;
+    service?: string;
+    executionFrom?: string;
+    executionTo?: string;
+    inspectionFrom?: string;
+    inspectionTo?: string;
+    investmentWorkId?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.exportInspectionsExcel(params);
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;
