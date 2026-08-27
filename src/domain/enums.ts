@@ -37,6 +37,11 @@ export enum InspectionScope {
   COLLABORATOR = "COLLABORATOR",
 }
 
+export enum InspectionExcelLayout {
+  AVALIACOES = "avaliacoes",
+  PENDENCIAS = "pendencias",
+}
+
 export enum InvestmentWorkStatus {
   EM_ANDAMENTO = "EM_ANDAMENTO",
   PARALISADA = "PARALISADA",

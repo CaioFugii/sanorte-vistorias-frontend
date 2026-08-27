@@ -18,10 +18,12 @@ import {
   Tooltip,
 } from "@mui/material";
 import { FilterAltOff, Search } from "@mui/icons-material";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Contract, InspectionListItem, Team } from "@/domain";
-import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
+import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
@@ -139,6 +141,23 @@ export const PendingsPage = (): JSX.Element => {
     setInspections(res.data);
     setMeta(res.meta);
     setLoading(false);
+  };
+
+  const handleExportPendings = async () => {
+    const { blob, filename } = await appRepository.exportInspectionsExcel({
+      status: InspectionStatus.PENDENTE_AJUSTE,
+      module: selectedModule || undefined,
+      contractId: selectedContractId || undefined,
+      teamId: selectedTeamId || undefined,
+      osNumber: osNumber.trim() || undefined,
+      service: service.trim() || undefined,
+      executionFrom: executionFrom || undefined,
+      executionTo: executionTo || undefined,
+      inspectionFrom: inspectionFrom || undefined,
+      inspectionTo: inspectionTo || undefined,
+      layout: InspectionExcelLayout.PENDENCIAS,
+    });
+    downloadBlob(blob, filename);
   };
 
   const getPendingAdjustmentsData = (
@@ -418,6 +437,7 @@ export const PendingsPage = (): JSX.Element => {
         >
           Limpar filtros
         </Button>
+        <ExportExcelButton onExport={handleExportPendings} disabled={loading} />
       </Box>
 
       <SectionTable title="Pendências ativas">

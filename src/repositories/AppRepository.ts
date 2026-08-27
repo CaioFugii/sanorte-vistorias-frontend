@@ -10,6 +10,7 @@ import {
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
   InspectionStatus,
@@ -482,6 +483,8 @@ export class AppRepository implements IAppRepository {
     inspectionFrom?: string;
     inspectionTo?: string;
     investmentWorkId?: string;
+    modules?: ModuleType[];
+    layout?: InspectionExcelLayout;
   }): Promise<{ blob: Blob; filename: string }> {
     return this.apiRepository.exportInspectionsExcel(params);
   }

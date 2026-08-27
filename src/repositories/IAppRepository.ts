@@ -8,6 +8,7 @@ import {
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
   InspectionStatus,
@@ -286,6 +287,8 @@ export interface IAppRepository {
     inspectionFrom?: string;
     inspectionTo?: string;
     investmentWorkId?: string;
+    modules?: ModuleType[];
+    layout?: InspectionExcelLayout;
   }): Promise<{ blob: Blob; filename: string }>;
   getMyInspections(params?: {
     page?: number;

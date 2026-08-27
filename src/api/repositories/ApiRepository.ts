@@ -8,6 +8,7 @@ import {
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
   InspectionItem,
@@ -629,9 +630,14 @@ export class ApiRepository {
     inspectionFrom?: string;
     inspectionTo?: string;
     investmentWorkId?: string;
+    modules?: ModuleType[];
+    layout?: InspectionExcelLayout;
   }): Promise<{ blob: Blob; filename: string }> {
     const response = await apiClient.get<Blob>("/inspections/export", {
-      params,
+      params: {
+        ...params,
+        modules: params?.modules?.join(","),
+      },
       responseType: "blob",
       timeout: 60000,
     });

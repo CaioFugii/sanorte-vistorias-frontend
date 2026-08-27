@@ -25,7 +25,7 @@ import { downloadBlob } from "@/utils/downloadBlob";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { InspectionListItem, Team } from "@/domain";
-import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
+import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
@@ -80,6 +80,7 @@ interface InspectionsPageProps {
   hideHeader?: boolean;
   embedded?: boolean;
   contractId?: string;
+  excelLayout?: InspectionExcelLayout;
 }
 
 export const InspectionsPage = ({
@@ -88,6 +89,7 @@ export const InspectionsPage = ({
   hideHeader = false,
   embedded = false,
   contractId,
+  excelLayout = InspectionExcelLayout.AVALIACOES,
 }: InspectionsPageProps = {}): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -357,6 +359,8 @@ export const InspectionsPage = ({
   const inspectionExportFilters = {
     osNumber: osNumberFilter,
     module: selectedModule || undefined,
+    modules:
+      !selectedModule && availableModules.length > 0 ? availableModules : undefined,
     contractId: contractId || undefined,
     teamId: embedded ? selectedTeamId || undefined : undefined,
     createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
@@ -366,6 +370,7 @@ export const InspectionsPage = ({
     executionTo: embedded ? executionTo || undefined : undefined,
     inspectionFrom: embedded ? inspectionFrom || undefined : undefined,
     inspectionTo: embedded ? inspectionTo || undefined : undefined,
+    layout: excelLayout,
   };
 
   const handleExportInspections = async () => {
