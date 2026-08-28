@@ -1,12 +1,18 @@
 import jsPDF from "jspdf";
 import { getImageFormat } from "./helpers";
 import { MARGIN } from "./sharedLayout";
-import sabespLogoUrl from "@/assets/logos/sabesp.svg";
+import sabespLogoUrl from "@/assets/logos/sabesp.jpg";
 import sanorteLogoUrl from "@/assets/logos/sanorte-infraestrutura.svg";
 
+interface ReportLogoAsset {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
 interface ReportLogos {
-  sanorte: string | null;
-  sabesp: string | null;
+  sanorte: ReportLogoAsset | null;
+  sabesp: ReportLogoAsset | null;
 }
 
 const TOTAL_PAGES_PLACEHOLDER = "{total_pages_count_string}";
@@ -17,7 +23,10 @@ interface LoadAssetOptions {
   recolorWhiteToGray?: boolean;
 }
 
-async function loadAssetAsPngDataUrl(assetUrl: string, options?: LoadAssetOptions): Promise<string | null> {
+async function loadAssetAsPngDataUrl(
+  assetUrl: string,
+  options?: LoadAssetOptions
+): Promise<ReportLogoAsset | null> {
   try {
     const response = await fetch(assetUrl);
     if (!response.ok) return null;
@@ -51,7 +60,11 @@ async function loadAssetAsPngDataUrl(assetUrl: string, options?: LoadAssetOption
       const context = canvas.getContext("2d");
       if (!context) return null;
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/png");
+      return {
+        dataUrl: canvas.toDataURL("image/png"),
+        width: canvas.width,
+        height: canvas.height,
+      };
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -72,19 +85,33 @@ async function getReportLogos(): Promise<ReportLogos> {
 
 function drawLogoInsideBox(
   doc: jsPDF,
-  logoDataUrl: string | null,
+  logo: ReportLogoAsset | null,
   x: number,
   y: number,
   width: number,
-  height: number
+  height: number,
+  options?: { contain?: boolean }
 ): void {
-  if (!logoDataUrl) return;
-  const format = getImageFormat(logoDataUrl);
+  if (!logo) return;
+  const format = getImageFormat(logo.dataUrl);
   if (!format) return;
   const pad = 0.8;
-  const drawW = width - pad * 2;
-  const drawH = height - pad * 2;
-  doc.addImage(logoDataUrl, format, x + pad, y + pad, drawW, drawH);
+  const maxW = Math.max(0.1, width - pad * 2);
+  const maxH = Math.max(0.1, height - pad * 2);
+  let drawW = maxW;
+  let drawH = maxH;
+  if (options?.contain && logo.width > 0 && logo.height > 0) {
+    const aspectRatio = logo.width / logo.height;
+    drawW = maxW;
+    drawH = drawW / aspectRatio;
+    if (drawH > maxH) {
+      drawH = maxH;
+      drawW = drawH * aspectRatio;
+    }
+  }
+  const drawX = x + pad + (maxW - drawW) / 2;
+  const drawY = y + pad + (maxH - drawH) / 2;
+  doc.addImage(logo.dataUrl, format, drawX, drawY, drawW, drawH);
 }
 
 export async function drawStandardPhotoReportHeader(
@@ -121,7 +148,7 @@ export async function drawStandardPhotoReportHeader(
     x0 + sabespW + titleW + sanorteW + infoW,
     y + (h1 / 3) * 2
   );
-  drawLogoInsideBox(doc, logos.sabesp, x0 + 0.2, y + 0.2, sabespW - 0.4, h1 - 0.4);
+  drawLogoInsideBox(doc, logos.sabesp, x0 + 0.2, y + 0.2, sabespW - 0.4, h1 - 0.4, { contain: true });
   drawLogoInsideBox(doc, logos.sanorte, x0 + sabespW + titleW + 0.5, y + 0.5, sanorteW - 1, h1 - 1);
 
   doc.setFont("helvetica", "bold");
@@ -226,7 +253,7 @@ export async function drawPhotoReportTitleWithLogos(
   doc.rect(x0 + leftW, y, centerW, rowHeight);
   doc.rect(x0 + leftW + centerW, y, rightW, rowHeight);
 
-  drawLogoInsideBox(doc, logos.sabesp, x0 + 0.4, y + 0.4, leftW - 0.8, rowHeight - 0.8);
+  drawLogoInsideBox(doc, logos.sabesp, x0 + 0.4, y + 0.4, leftW - 0.8, rowHeight - 0.8, { contain: true });
   drawLogoInsideBox(doc, logos.sanorte, x0 + leftW + centerW + 0.4, y + 0.4, rightW - 0.8, rowHeight - 0.8);
 
   doc.setFont("helvetica", "bold");
