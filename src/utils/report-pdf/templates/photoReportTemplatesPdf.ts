@@ -5,6 +5,7 @@ import {
   formatReportDate,
   getImageFormat,
   loadImageAsDataUrl,
+  resolveEmissionDate,
 } from "../helpers";
 import { ReportPdfInput } from "../types";
 import { MARGIN } from "../sharedLayout";
@@ -709,8 +710,7 @@ async function generatePavimentoBasePdf(
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -785,8 +785,7 @@ export async function generatePvTransicaoPdf(input: ReportPdfInput): Promise<voi
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -831,8 +830,7 @@ export async function generateObrasCivisEeePdf(input: ReportPdfInput): Promise<v
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -878,8 +876,7 @@ export async function generateFornecimentoEeeLrPdf(input: ReportPdfInput): Promi
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -937,8 +934,7 @@ export async function generateMontagemEeePdf(input: ReportPdfInput): Promise<voi
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -988,8 +984,7 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
   const tituloComplemento = findFieldValue(orderedFields, formData, [
     "titulo_complemento",
@@ -1057,8 +1052,7 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
   const tituloComplemento = findFieldValue(orderedFields, formData, [
     "titulo_complemento",
@@ -1163,7 +1157,7 @@ export async function generateLimpezaRedePdf(input: ReportPdfInput): Promise<voi
   const engenheiroGerenciamento = "Juliane Cristina dos Santos";
   const coordenadorObraGerenciadora = "Trinid Roman";
   const contratada = "CONS. ESG IT. M. DIREITA";
-  const dataRelatorio = new Date().toLocaleDateString("pt-BR");
+  const dataRelatorio = resolveEmissionDate(orderedFields, formData);
   const responsavelAtendimento = "Vanusa Pereira de Souza";
   const dataAtendimento = findFieldValue(orderedFields, formData, [
     "dataAtendimento",
@@ -1256,7 +1250,7 @@ export async function generateReparoNcfPdf(input: ReportPdfInput): Promise<void>
   const engenheiroGerenciamento = "Juliane Cristina dos Santos";
   const coordenadorObraGerenciadora = "Trinid Roman";
   const contratada = "CONS. ESG IT. M. DIREITA";
-  const dataRelatorio = new Date().toLocaleDateString("pt-BR");
+  const dataRelatorio = resolveEmissionDate(orderedFields, formData);
   const responsavelAtendimento = "Vanusa Pereira de Souza";
   const dataPrevisaoAtendimento = findFieldValue(orderedFields, formData, [
     "data_previsao_atendimento",
@@ -1373,8 +1367,7 @@ export async function generateManutencaoCanteiroPdf(input: ReportPdfInput): Prom
   const { reportType, fields, formData } = input;
   const orderedFields = [...fields].sort((a, b) => a.order - b.order);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
-  const dataEmissao = formatDatePtBr(dataEmissaoRaw);
+  const dataEmissao = resolveEmissionDate(orderedFields, formData);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);

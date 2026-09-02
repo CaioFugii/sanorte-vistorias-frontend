@@ -21,6 +21,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Persistência de filtros e paginação na URL das listagens (`useListQueryState`); Voltar restaura o estado
 - Filtro por contrato nas telas de usuários e equipes
 - Select de complemento do título nos relatórios Ligação e passeio e Ligações (PDF `RELATÓRIO PREÇO {preço} {complemento}`)
+- Data de emissão editável nos relatórios de engenharia (padrão: hoje)
+- Campos de data dos relatórios no formato `dd/MM/yyyy`
 
 ### Changed
 

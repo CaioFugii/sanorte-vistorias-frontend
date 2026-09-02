@@ -25,7 +25,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ReportFieldOption, ReportType, ReportTypeField } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
+import { BrDateField } from "@/components";
 import { generateReportPdf } from "@/utils/reportPdf";
+import { isCompleteDateValue, todayBrDate, toBrDateInput } from "@/utils/brDate";
 
 function parseFieldOptions(options: unknown): ReportFieldOption[] {
   if (!Array.isArray(options)) return [];
@@ -70,8 +72,22 @@ function toFileArray(value: unknown): LocalMediaFile[] {
   return single ? [single] : [];
 }
 
+function isEmissionDateField(field: ReportTypeField): boolean {
+  const key = field.fieldKey.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  return key === "dataemissao";
+}
+
 function getDefaultValue(field: ReportTypeField): unknown {
-  if (field.defaultValue !== null && field.defaultValue !== undefined) return field.defaultValue;
+  if (isEmissionDateField(field)) {
+    const configured = field.defaultValue;
+    if (configured !== null && configured !== undefined && String(configured).trim()) {
+      return toBrDateInput(String(configured));
+    }
+    return todayBrDate();
+  }
+  if (field.defaultValue !== null && field.defaultValue !== undefined) {
+    return field.type === "date" ? toBrDateInput(String(field.defaultValue)) : field.defaultValue;
+  }
   if (field.multiple) return [];
   if (field.type === "checkbox") return false;
   return "";
@@ -96,6 +112,9 @@ function hasRequiredValue(field: ReportTypeField, value: unknown): boolean {
   }
   if (field.type === "checkbox" && !field.multiple) {
     return Boolean(value);
+  }
+  if (field.type === "date") {
+    return isCompleteDateValue(value);
   }
   if (typeof value === "number") return Number.isFinite(value);
   if (typeof value === "boolean") return value;
@@ -280,7 +299,21 @@ export const ReportFormPage = (): JSX.Element => {
                 );
               }
 
-              if (field.type === "text" || field.type === "date" || field.type === "datetime" || field.type === "number") {
+              if (field.type === "date") {
+                return (
+                  <BrDateField
+                    key={field.id}
+                    label={field.label}
+                    value={value}
+                    onChange={(next) => updateFieldValue(field.fieldKey, next)}
+                    required={field.required}
+                    error={Boolean(requiredError)}
+                    helperText={requiredError || field.helpText || ""}
+                  />
+                );
+              }
+
+              if (field.type === "text" || field.type === "datetime" || field.type === "number") {
                 return (
                   <TextField
                     key={field.id}
@@ -291,15 +324,9 @@ export const ReportFormPage = (): JSX.Element => {
                     error={Boolean(requiredError)}
                     helperText={requiredError || field.helpText || ""}
                     type={
-                      field.type === "date"
-                        ? "date"
-                        : field.type === "datetime"
-                          ? "datetime-local"
-                          : field.type === "number"
-                            ? "number"
-                            : "text"
+                      field.type === "datetime" ? "datetime-local" : field.type === "number" ? "number" : "text"
                     }
-                    InputLabelProps={field.type === "date" || field.type === "datetime" ? { shrink: true } : undefined}
+                    InputLabelProps={field.type === "datetime" ? { shrink: true } : undefined}
                     fullWidth
                   />
                 );

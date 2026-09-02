@@ -13,6 +13,22 @@ export function extractPrecoCode(value: string): string {
   return match?.[0] ?? raw;
 }
 
+export function todayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function resolveEmissionDate(
+  fields: ReportTypeField[],
+  formData: Record<string, unknown>
+): string {
+  const raw = findFieldValue(fields, formData, ["data_emissao", "data emissao"]);
+  return formatReportDate(raw, formatReportDate(todayIsoDate()));
+}
+
 export function formatReportDate(value: string, emptyFallback = "-"): string {
   const raw = value.trim();
   if (!raw || raw === "-") return emptyFallback;

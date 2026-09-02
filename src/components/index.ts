@@ -1,3 +1,4 @@
+export { BrDateField } from './BrDateField';
 export { ModuleSelect } from './ModuleSelect';
 export { TeamSelect } from './TeamSelect';
 export { SectorSelect } from './SectorSelect';
