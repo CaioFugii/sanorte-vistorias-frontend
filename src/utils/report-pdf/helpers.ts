@@ -1,6 +1,36 @@
 import { ReportTypeField } from "@/domain";
 import { LocalMediaFile } from "./types";
 
+/**
+ * Formats a calendar date for report PDFs without timezone shift.
+ * HTML `type="date"` values (`YYYY-MM-DD`) must not go through `new Date()`,
+ * which parses them as UTC midnight and shows the previous day in Brazil.
+ */
+export function extractPrecoCode(value: string): string {
+  const raw = value.trim();
+  if (!raw || raw === "-") return "";
+  const match = raw.match(/^\d+/);
+  return match?.[0] ?? raw;
+}
+
+export function formatReportDate(value: string, emptyFallback = "-"): string {
+  const raw = value.trim();
+  if (!raw || raw === "-") return emptyFallback;
+
+  const isoDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDate) {
+    const [, year, month, day] = isoDate;
+    return `${day}/${month}/${year}`;
+  }
+
+  const brDate = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (brDate) {
+    return `${brDate[1]}/${brDate[2]}/${brDate[3]}`;
+  }
+
+  return raw;
+}
+
 export function toDisplayText(value: unknown): string {
   if (value === null || value === undefined) return "-";
   if (Array.isArray(value)) {

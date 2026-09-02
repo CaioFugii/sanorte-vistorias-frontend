@@ -1,5 +1,11 @@
 import jsPDF from "jspdf";
-import { findFieldValue, getImageFormat, loadImageAsDataUrl } from "../helpers";
+import {
+  extractPrecoCode,
+  findFieldValue,
+  formatReportDate,
+  getImageFormat,
+  loadImageAsDataUrl,
+} from "../helpers";
 import { ReportPdfInput } from "../types";
 import { MARGIN } from "../sharedLayout";
 import {
@@ -20,26 +26,11 @@ const DEFAULT_REPORT_PHOTO_WIDTH_SCALE = 0.65;
 const PHOTO_SECTION_ESTIMATED_HEIGHT = DEFAULT_REPORT_PHOTO_HEIGHT + 13;
 
 function formatDatePtBr(value: string): string {
-  const raw = value.trim();
-  if (!raw || raw === "-") {
-    return new Date().toLocaleDateString("pt-BR");
-  }
-  const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toLocaleDateString("pt-BR");
-  }
-  return raw;
+  return formatReportDate(value, new Date().toLocaleDateString("pt-BR"));
 }
 
 function formatDateDdMmYyyy(value: string): string {
-  const raw = value.trim();
-  if (!raw || raw === "-") return "-";
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return raw;
-  const day = String(parsed.getDate()).padStart(2, "0");
-  const month = String(parsed.getMonth() + 1).padStart(2, "0");
-  const year = parsed.getFullYear();
-  return `${day}/${month}/${year}`;
+  return formatReportDate(value, "-");
 }
 
 function toAceitePhoto(value: unknown): AceitePhoto | null {
@@ -1000,6 +991,11 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
   const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
   const dataEmissao = formatDatePtBr(dataEmissaoRaw);
   const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
+  const tituloComplemento = findFieldValue(orderedFields, formData, [
+    "titulo_complemento",
+    "complemento do titulo",
+    "tipo de titulo",
+  ]);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -1011,7 +1007,9 @@ export async function generateLigacaoPasseioPdf(input: ReportPdfInput): Promise<
   const rgi = findFieldValue(orderedFields, formData, ["rgi"]);
   const trecho = montante !== "-" && jusante !== "-" ? `${montante} AO ${jusante}` : "-";
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
-  const reportTitle = `RELATÓRIO PREÇO ${preco}`;
+  const reportTitle = [extractPrecoCode(preco), tituloComplemento]
+    .filter((part) => part && part !== "-")
+    .reduce((title, part) => `${title} ${part}`, "RELATÓRIO PREÇO");
   const drawStaticContent = (headerEndY: number): number => {
     let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
     y = drawLigacaoPasseioMetaStrip(doc, y + 1, {
@@ -1062,6 +1060,11 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
   const dataEmissaoRaw = findFieldValue(orderedFields, formData, ["data", "emissao"]);
   const dataEmissao = formatDatePtBr(dataEmissaoRaw);
   const preco = findFieldValue(orderedFields, formData, ["preco", "preço"]);
+  const tituloComplemento = findFieldValue(orderedFields, formData, [
+    "titulo_complemento",
+    "complemento do titulo",
+    "tipo de titulo",
+  ]);
   const medicao = findFieldValue(orderedFields, formData, ["medicao"]);
   const inicioPeriodo = findFieldValue(orderedFields, formData, ["inicioPeriodo"]);
   const fimPeriodo = findFieldValue(orderedFields, formData, ["fimPeriodo"]);
@@ -1094,7 +1097,13 @@ export async function generateLigacoesPdf(input: ReportPdfInput): Promise<void> 
   ]);
   const posicaoRede = findFieldValue(orderedFields, formData, ["posicao_rede", "posição_rede", "posicao da rede"]);
   const photos = resolvePhotosFromMediaFields(formData, orderedFields);
-  const reportTitle = `RELATÓRIO PREÇO ${preco}`;
+  const precoCode = extractPrecoCode(preco);
+  const reportTitle = [precoCode, tituloComplemento]
+    .filter((part) => part && part !== "-")
+    .reduce(
+      (title, part, index) => (index === 0 ? `${title} ${part}` : `${title} – ${part}`),
+      "RELATÓRIO PREÇO"
+    );
   const drawStaticContent = (headerEndY: number): number => {
     let y = drawContractMetaGrid(doc, headerEndY + 1, medicao, inicioPeriodo, fimPeriodo);
     y = drawLigacoesMetaStrip(doc, y + 1, {

@@ -20,6 +20,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Observações do fiscal no PDF da vistoria
 - Persistência de filtros e paginação na URL das listagens (`useListQueryState`); Voltar restaura o estado
 - Filtro por contrato nas telas de usuários e equipes
+- Select de complemento do título nos relatórios Ligação e passeio e Ligações (PDF `RELATÓRIO PREÇO {preço} {complemento}`)
 
 ### Changed
 
@@ -31,6 +32,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Fixed
 
+- Datas dos relatórios de engenharia no PDF sem atraso de um dia (fuso UTC)
 - Seletor de linhas por página nas listagens com filtros persistidos na URL
 
 ## [1.0.0] — 2026-06-18
