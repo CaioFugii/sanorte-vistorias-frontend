@@ -290,6 +290,12 @@ export interface IAppRepository {
     modules?: ModuleType[];
     layout?: InspectionExcelLayout;
   }): Promise<{ blob: Blob; filename: string }>;
+  exportQualityRankingExcel(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    contractId?: string;
+  }): Promise<{ blob: Blob; filename: string }>;
   getMyInspections(params?: {
     page?: number;
     limit?: number;

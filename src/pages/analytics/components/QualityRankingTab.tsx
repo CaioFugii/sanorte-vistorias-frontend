@@ -28,6 +28,7 @@ import {
   TableActionsHeaderCell,
   TableViewButton,
 } from "@/components/ui";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   TeamRankingInspectionItem,
@@ -66,6 +67,8 @@ type QualityRankingTabProps = {
   formatDateTime: (value: string | null) => string;
   setRankingInspectionsMeta: Dispatch<SetStateAction<TeamRankingInspectionsMeta>>;
   dateFilterHint: ReactNode;
+  onExportRanking: () => Promise<void>;
+  exportDisabled?: boolean;
 };
 
 export function QualityRankingTab({
@@ -85,6 +88,8 @@ export function QualityRankingTab({
   formatDateTime,
   setRankingInspectionsMeta,
   dateFilterHint,
+  onExportRanking,
+  exportDisabled = false,
 }: QualityRankingTabProps): JSX.Element {
   return (
     <>
@@ -94,7 +99,10 @@ export function QualityRankingTab({
             <Typography variant="h6" fontWeight={800}>
               Ranking por Equipes - Qualidade
             </Typography>
-            {dateFilterHint}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+              <ExportExcelButton onExport={onExportRanking} disabled={exportDisabled} />
+              {dateFilterHint}
+            </Box>
           </Box>
         </Box>
 

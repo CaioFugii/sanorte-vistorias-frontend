@@ -489,6 +489,15 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.exportInspectionsExcel(params);
   }
 
+  async exportQualityRankingExcel(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    contractId?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.exportQualityRankingExcel(params);
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;

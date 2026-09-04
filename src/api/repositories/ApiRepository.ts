@@ -647,6 +647,23 @@ export class ApiRepository {
     return { blob: response.data, filename };
   }
 
+  async exportQualityRankingExcel(params: {
+    from: string;
+    to: string;
+    module?: ModuleType;
+    contractId?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>("/dashboards/quality/ranking/teams/export", {
+      params,
+      responseType: "blob",
+      timeout: 60000,
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "ranking-qualidade.xlsx";
+    return { blob: response.data, filename };
+  }
+
   async getMyInspections(params?: {
     page?: number;
     limit?: number;

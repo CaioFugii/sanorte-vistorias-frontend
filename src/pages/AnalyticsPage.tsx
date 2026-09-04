@@ -31,6 +31,7 @@ import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityN
 import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import { TeamRankingInspectionItem, TeamRankingOrderBy } from "@/pages/analytics/components/models";
+import { downloadBlob } from "@/utils/downloadBlob";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
@@ -592,6 +593,14 @@ export function AnalyticsPage(): JSX.Element {
       return rankingOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
   }, [teamRankingQuality, rankingOrder, rankingOrderBy]);
+  const handleExportRanking = async () => {
+    const { blob, filename } = await appRepository.exportQualityRankingExcel({
+      from: globalPeriod.from,
+      to: globalPeriod.to,
+      contractId: selectedContractId || undefined,
+    });
+    downloadBlob(blob, filename);
+  };
   const formatDateTime = (value: string | null): string => {
     if (!value) return "-";
     const parsed = new Date(value);
@@ -809,6 +818,8 @@ export function AnalyticsPage(): JSX.Element {
                   dateFilterHint={
                     <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
                   }
+                  onExportRanking={handleExportRanking}
+                  exportDisabled={loading}
                 />
               )}
 
