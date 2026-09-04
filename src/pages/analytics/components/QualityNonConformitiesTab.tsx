@@ -18,6 +18,9 @@ const CHART_HEADER_SX = {
 };
 
 type QualityNonConformitiesTabProps = {
+  checklistTitle?: string;
+  teamTitle?: string;
+  topLimit?: number;
   byChecklist: {
     checklists: Array<{
       checklistId: string;
@@ -52,6 +55,9 @@ type QualityNonConformitiesTabProps = {
 };
 
 export function QualityNonConformitiesTab({
+  checklistTitle = "Perguntas com mais não conformidades por checklist (Top 5)",
+  teamTitle = "Top não conformidades da equipe selecionada (Top 5)",
+  topLimit = 5,
   byChecklist,
   byTeam,
   teamOptions,
@@ -74,7 +80,7 @@ export function QualityNonConformitiesTab({
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
               <Typography variant="h6" fontWeight={800}>
-                Perguntas com mais não conformidades por checklist (Top 5)
+                {checklistTitle}
               </Typography>
               {dateFilterHint}
             </Box>
@@ -109,10 +115,16 @@ export function QualityNonConformitiesTab({
                         Total de NC: {checklist.totalNonConformities.toLocaleString("pt-BR")}
                       </Typography>
                       <Box sx={{ mt: 1.5 }}>
-                        {checklist.questions.slice(0, 5).map((question, index) => (
+                        {checklist.questions.slice(0, topLimit).map((question, index) => (
                           <Box
                             key={question.checklistItemId}
-                            sx={{ py: 1, borderBottom: index < 4 ? "1px solid #e2e8f0" : "none" }}
+                            sx={{
+                              py: 1,
+                              borderBottom:
+                                index < Math.min(checklist.questions.length, topLimit) - 1
+                                  ? "1px solid #e2e8f0"
+                                  : "none",
+                            }}
                           >
                             <Typography variant="body2" fontWeight={700}>
                               {index + 1}. {question.checklistItemTitle}
@@ -139,7 +151,7 @@ export function QualityNonConformitiesTab({
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
               <Typography variant="h6" fontWeight={800}>
-                Top não conformidades da equipe selecionada (Top 5)
+                {teamTitle}
               </Typography>
               {dateFilterHint}
             </Box>
@@ -182,17 +194,23 @@ export function QualityNonConformitiesTab({
                 <Typography color="text.secondary">
                   {selectedTeamName
                     ? `Nenhuma não conformidade encontrada para ${selectedTeamName} no período selecionado.`
-                    : "Selecione uma equipe para visualizar o top 5 de não conformidades."}
+                    : `Selecione uma equipe para visualizar o top ${topLimit} de não conformidades.`}
                 </Typography>
               </Paper>
             )}
 
             {!byTeamLoading && !byTeamError && byTeam && byTeam.nonConformities.length > 0 && (
               <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
-                {byTeam.nonConformities.slice(0, 5).map((item, index) => (
+                {byTeam.nonConformities.slice(0, topLimit).map((item, index) => (
                   <Box
                     key={item.checklistItemId}
-                    sx={{ py: 1.2, borderBottom: index < 4 ? "1px solid #e2e8f0" : "none" }}
+                    sx={{
+                      py: 1.2,
+                      borderBottom:
+                        index < Math.min(byTeam.nonConformities.length, topLimit) - 1
+                          ? "1px solid #e2e8f0"
+                          : "none",
+                    }}
                   >
                     <Typography variant="body2" fontWeight={700}>
                       {index + 1}. {item.checklistItemTitle}

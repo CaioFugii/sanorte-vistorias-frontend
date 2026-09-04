@@ -493,6 +493,28 @@ export interface IAppRepository {
       } | null;
     }>;
   }>;
+  getDashboardSafetyWorkQualityByService(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    period: string[];
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      series: Array<{
+        month: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+      growth: {
+        fromMonth: string;
+        toMonth: string;
+        growthPercent: number;
+        deltaPoints: number;
+      } | null;
+    }>;
+  }>;
   getDashboardCurrentMonthByService(params?: {
     month?: string;
     module?: ModuleType;
@@ -561,6 +583,49 @@ export interface IAppRepository {
       checklistsCount: number;
     }>;
   }>;
+  getDashboardSafetyWorkNonConformitiesByChecklist(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    limitPerChecklist: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
+    }>;
+  }>;
+  getDashboardSafetyWorkNonConformitiesByTeam(params: {
+    from: string;
+    to: string;
+    teamId: string;
+    contractId?: string;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    limit: number;
+    nonConformities: Array<{
+      checklistItemId: string;
+      checklistItemTitle: string;
+      nonConformitiesCount: number;
+      answersCount: number;
+      nonConformityRatePercent: number;
+      checklistsCount: number;
+    }>;
+  }>;
   getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
@@ -580,6 +645,23 @@ export interface IAppRepository {
       averagePercent: number;
       worstScorePercent: number;
       bestScorePercent: number;
+    }>;
+  }>;
+  getDashboardSafetyWorkInspectorsProduction(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    days: string[];
+    inspectors: Array<{
+      userId: string;
+      userName: string;
+      inspectionsCount: number;
+      daysWithInspections: number;
+      dailyAverage: number;
+      dailyCounts: Array<{ date: string; count: number }>;
     }>;
   }>;
   getDashboardTeamPerformanceByTeams(params: {

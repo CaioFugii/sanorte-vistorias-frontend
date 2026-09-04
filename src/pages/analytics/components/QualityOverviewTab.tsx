@@ -10,6 +10,7 @@ const CHART_HEADER_SX = {
 };
 
 type QualityOverviewTabProps = {
+  title?: string;
   qualityByService: QualityByServiceData;
   chartMonths: QualityChartMonth[];
   qualityChartMax: number;
@@ -18,6 +19,7 @@ type QualityOverviewTabProps = {
 };
 
 export function QualityOverviewTab({
+  title = "Desempenho Mensal de Qualidade",
   qualityByService,
   chartMonths,
   qualityChartMax,
@@ -31,7 +33,7 @@ export function QualityOverviewTab({
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
               <Typography variant="h6" fontWeight={800}>
-                Desempenho Mensal de Qualidade
+                {title}
               </Typography>
               {dateFilterHint}
             </Box>

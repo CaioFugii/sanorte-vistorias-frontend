@@ -8,6 +8,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Aba **Fiscais** em Dados de Segurança do Trabalho: tabela mensal e gráfico de produção diária por usuário
+- Aba **Visão Geral** em Dados de Segurança do Trabalho: gráfico de evolução mensal por serviço (mesmo formato da Qualidade)
+- Aba **Não Conformidades** em Dados de Segurança do Trabalho: Top 10 por checklist e por equipe
 - Exportação Excel das Ordens de Serviço (layout da listagem cadastrada)
 - Exportação Excel do Ranking de Qualidade (layout da classificação avaliativa)
 - Vínculo de equipes a um ou mais setores na criação e edição

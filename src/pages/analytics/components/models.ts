@@ -93,6 +93,27 @@ export type TeamRankingInspectionItem = {
   createdAt: string;
 };
 
+export type InspectorDailyCount = {
+  date: string;
+  count: number;
+};
+
+export type InspectorProductionRow = {
+  userId: string;
+  userName: string;
+  inspectionsCount: number;
+  daysWithInspections: number;
+  dailyAverage: number;
+  dailyCounts: InspectorDailyCount[];
+};
+
+export type InspectorsProductionData = {
+  from: string;
+  to: string;
+  days: string[];
+  inspectors: InspectorProductionRow[];
+};
+
 export type TeamRankingInspectionsMeta = {
   teamId: string;
   teamName: string;

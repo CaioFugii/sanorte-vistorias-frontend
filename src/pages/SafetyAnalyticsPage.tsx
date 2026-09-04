@@ -31,13 +31,20 @@ import { Navigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { Contract, ModuleType, UserRole } from "@/domain";
+import { Contract, ModuleType, Team, UserRole } from "@/domain";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { appRepository } from "@/repositories/AppRepository";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
 import { SafetyKpiStrip } from "@/pages/analytics/components/SafetyKpiStrip";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
+import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
+import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
+import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { InspectorsProductionData, QualityByServiceData } from "@/pages/analytics/components/models";
+
+const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
+const SAFETY_NC_TOP = 10;
 
 const CHART_HEADER_SX = {
   px: 2.5,
@@ -102,6 +109,21 @@ function getInitialSafetyFilters(): { lowScoreThreshold: number; limit: number }
   };
 }
 
+function getFixedSafetyOverviewRange(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to.getFullYear(), to.getMonth() - 3, 1);
+  return {
+    from: formatDateForInput(from),
+    to: formatDateForInput(to),
+  };
+}
+
+function formatMonthLabel(yyyyMM: string): string {
+  const [year, month] = yyyyMM.split("-").map(Number);
+  const date = new Date(year, (month || 1) - 1, 1);
+  return new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(date).toUpperCase();
+}
+
 type TeamRankingInspectionItem = {
   inspectionId: string;
   serviceOrderId: string;
@@ -141,6 +163,18 @@ export function SafetyAnalyticsPage(): JSX.Element {
       safetyWorkPercent: number;
     }>
   >([]);
+  const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
+  const [qualityByService, setQualityByService] = useState<QualityByServiceData | null>(null);
+  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<Awaited<
+    ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByChecklist>
+  > | null>(null);
+  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<Awaited<
+    ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByTeam>
+  > | null>(null);
+  const [nonConformitiesTeamId, setNonConformitiesTeamId] = useState("");
+  const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
+  const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
+  const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
   const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
@@ -193,26 +227,47 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setLoading(true);
     setError(null);
     try {
-      const [summaryResult, result, rankingResult] = await Promise.all([
-        appRepository.getDashboardSafetyWorkSummary({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardSafetyWorkLowScoreCollaborators({
-          ...nextFilters,
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardTeamRankingSafetyWork({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-      ]);
+      const overviewRange = getFixedSafetyOverviewRange();
+      const [summaryResult, result, rankingResult, inspectorsResult, overviewResult, nonConformitiesResult] =
+        await Promise.all([
+          appRepository.getDashboardSafetyWorkSummary({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkLowScoreCollaborators({
+            ...nextFilters,
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardTeamRankingSafetyWork({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkInspectorsProduction({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkQualityByService({
+            from: overviewRange.from,
+            to: overviewRange.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkNonConformitiesByChecklist({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+            limitPerChecklist: SAFETY_NC_TOP,
+          }),
+        ]);
       setSummary(summaryResult);
       setData(result);
+      setInspectorsProduction(inspectorsResult);
+      setQualityByService(overviewResult);
+      setNonConformitiesByChecklist(nonConformitiesResult);
       setTeamRanking(
         rankingResult.map((item) => ({
           teamId: item.teamId,
@@ -239,6 +294,72 @@ export function SafetyAnalyticsPage(): JSX.Element {
     void loadData(filters, globalPeriod, selectedContractId);
   }, [canAccessAnalytics, globalPeriod, selectedContractId]);
 
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    let cancelled = false;
+    const loadTeams = async () => {
+      try {
+        const result = await appRepository.getTeams({
+          page: 1,
+          limit: 100,
+          contractId: selectedContractId || undefined,
+        });
+        if (!cancelled) {
+          const activeTeams = result.data
+            .filter((team) => team.active)
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+          setTeamOptions(activeTeams);
+          setNonConformitiesTeamId((current) =>
+            current && activeTeams.some((team) => team.id === current) ? current : ""
+          );
+        }
+      } catch {
+        if (!cancelled) setTeamOptions([]);
+      }
+    };
+    void loadTeams();
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessAnalytics, selectedContractId]);
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    if (!nonConformitiesTeamId) {
+      setNonConformitiesByTeam(null);
+      setNonConformitiesByTeamError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadNonConformitiesByTeam = async () => {
+      setNonConformitiesByTeamLoading(true);
+      setNonConformitiesByTeamError(null);
+      try {
+        const response = await appRepository.getDashboardSafetyWorkNonConformitiesByTeam({
+          from: globalPeriod.from,
+          to: globalPeriod.to,
+          teamId: nonConformitiesTeamId,
+          contractId: selectedContractId || undefined,
+          limit: SAFETY_NC_TOP,
+        });
+        if (!cancelled) setNonConformitiesByTeam(response);
+      } catch {
+        if (!cancelled) {
+          setNonConformitiesByTeam(null);
+          setNonConformitiesByTeamError("Falha ao carregar o top de não conformidades da equipe.");
+        }
+      } finally {
+        if (!cancelled) setNonConformitiesByTeamLoading(false);
+      }
+    };
+
+    void loadNonConformitiesByTeam();
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessAnalytics, globalPeriod, nonConformitiesTeamId, selectedContractId]);
+
   const sortedTeamRanking = useMemo(
     () =>
       [...teamRanking].sort((a, b) =>
@@ -247,6 +368,26 @@ export function SafetyAnalyticsPage(): JSX.Element {
           : b.safetyWorkPercent - a.safetyWorkPercent
       ),
     [teamRanking, rankingOrder]
+  );
+
+  const overviewRange = getFixedSafetyOverviewRange();
+  const overviewRangeLabel = `${formatDateLabel(overviewRange.from)} a ${formatDateLabel(overviewRange.to)}`;
+  const chartMonths = useMemo(
+    () =>
+      (qualityByService?.period || []).map((month, index) => ({
+        key: month,
+        label: formatMonthLabel(month),
+        color: MONTH_COLORS[index % MONTH_COLORS.length],
+      })),
+    [qualityByService]
+  );
+  const qualityChartMax = useMemo(
+    () =>
+      Math.max(
+        ...(qualityByService?.services.flatMap((service) => service.series.map((point) => point.qualityPercent)) || [0]),
+        100
+      ),
+    [qualityByService]
   );
 
   if (!canAccessAnalytics) {
@@ -304,6 +445,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setSelectedContractId("");
     setGlobalPeriod(nextPeriod);
     setFilters(nextFilters);
+    setNonConformitiesTeamId("");
   };
   const hasCoreSafetyData = Boolean(data);
   const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
@@ -399,7 +541,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
           <Tab label="Fiscais" />
           <Tab label="Visão Geral" />
           <Tab label="Não Conformidades" />
-
         </Tabs>
       </Paper>
 
@@ -548,6 +689,59 @@ export function SafetyAnalyticsPage(): JSX.Element {
         ) : (
           <SafetyTabSkeleton />
         ))}
+
+      {activeTab === 2 && (
+        <SafetyFiscaisTab
+          data={inspectorsProduction}
+          loading={loading}
+          error={error}
+          dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
+        />
+      )}
+
+      {activeTab === 3 &&
+        (qualityByService ? (
+          qualityByService.services.length === 0 ? (
+            <Paper sx={{ p: 2.5 }}>
+              <Typography color="text.secondary">
+                Nenhuma vistoria de Segurança do Trabalho encontrada no período da evolução mensal.
+              </Typography>
+            </Paper>
+          ) : (
+            <QualityOverviewTab
+              title="Desempenho Mensal de Segurança do Trabalho"
+              qualityByService={qualityByService}
+              chartMonths={chartMonths}
+              qualityChartMax={qualityChartMax}
+              growthTitle="CRESCIMENTO (MÊS ANTERIOR VS MÊS VIGENTE)"
+              dateFilterHint={
+                <DateFilterHint
+                  label={overviewRangeLabel}
+                  isFiltered
+                  textOverride={`Período fixo: ${overviewRangeLabel}`}
+                />
+              }
+            />
+          )
+        ) : (
+          <SafetyTabSkeleton />
+        ))}
+
+      {activeTab === 4 && (
+        <QualityNonConformitiesTab
+          checklistTitle="Perguntas com mais não conformidades por checklist (Top 10)"
+          teamTitle="Não conformidades da equipe selecionada (Top 10)"
+          topLimit={SAFETY_NC_TOP}
+          byChecklist={nonConformitiesByChecklist}
+          byTeam={nonConformitiesByTeam}
+          teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+          selectedTeamId={nonConformitiesTeamId}
+          onSelectedTeamIdChange={setNonConformitiesTeamId}
+          byTeamLoading={nonConformitiesByTeamLoading}
+          byTeamError={nonConformitiesByTeamError}
+          dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
+        />
+      )}
 
       {activeTab === 0 && (
         <Paper sx={{ p: 0, overflow: "hidden" }}>

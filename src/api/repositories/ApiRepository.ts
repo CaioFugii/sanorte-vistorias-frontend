@@ -1217,6 +1217,49 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkQualityByService(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    period: string[];
+    services: Array<{
+      serviceKey: string;
+      serviceLabel: string;
+      series: Array<{
+        month: string;
+        qualityPercent: number;
+        inspectionsCount: number;
+      }>;
+      growth: {
+        fromMonth: string;
+        toMonth: string;
+        growthPercent: number;
+        deltaPoints: number;
+      } | null;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      period: string[];
+      services: Array<{
+        serviceKey: string;
+        serviceLabel: string;
+        series: Array<{
+          month: string;
+          qualityPercent: number;
+          inspectionsCount: number;
+        }>;
+        growth: {
+          fromMonth: string;
+          toMonth: string;
+          growthPercent: number;
+          deltaPoints: number;
+        } | null;
+      }>;
+    }>("/dashboards/safety-work/quality-by-service", { params });
+    return response.data;
+  }
+
   async getDashboardCurrentMonthByService(params?: {
     month?: string;
     module?: ModuleType;
@@ -1343,6 +1386,87 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkNonConformitiesByChecklist(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    limitPerChecklist: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      limitPerChecklist: number;
+      checklists: Array<{
+        checklistId: string;
+        checklistName: string;
+        sectorName?: string;
+        totalNonConformities: number;
+        questions: Array<{
+          checklistItemId: string;
+          checklistItemTitle: string;
+          nonConformitiesCount: number;
+          answersCount: number;
+          nonConformityRatePercent: number;
+        }>;
+      }>;
+    }>("/dashboards/safety-work/non-conformities/by-checklist", { params });
+    return response.data;
+  }
+
+  async getDashboardSafetyWorkNonConformitiesByTeam(params: {
+    from: string;
+    to: string;
+    teamId: string;
+    contractId?: string;
+    limit?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId: string;
+    limit: number;
+    nonConformities: Array<{
+      checklistItemId: string;
+      checklistItemTitle: string;
+      nonConformitiesCount: number;
+      answersCount: number;
+      nonConformityRatePercent: number;
+      checklistsCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      teamId: string;
+      limit: number;
+      nonConformities: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+        checklistsCount: number;
+      }>;
+    }>("/dashboards/safety-work/non-conformities/by-team", { params });
+    return response.data;
+  }
+
   async getDashboardSafetyWorkLowScoreCollaborators(params: {
     from: string;
     to: string;
@@ -1379,6 +1503,39 @@ export class ApiRepository {
         bestScorePercent: number;
       }>;
     }>("/dashboards/safety-work/low-score-collaborators", { params });
+    return response.data;
+  }
+
+  async getDashboardSafetyWorkInspectorsProduction(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    days: string[];
+    inspectors: Array<{
+      userId: string;
+      userName: string;
+      inspectionsCount: number;
+      daysWithInspections: number;
+      dailyAverage: number;
+      dailyCounts: Array<{ date: string; count: number }>;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      days: string[];
+      inspectors: Array<{
+        userId: string;
+        userName: string;
+        inspectionsCount: number;
+        daysWithInspections: number;
+        dailyAverage: number;
+        dailyCounts: Array<{ date: string; count: number }>;
+      }>;
+    }>("/dashboards/safety-work/inspectors-production", { params });
     return response.data;
   }
 
