@@ -20,6 +20,8 @@ import {
   Typography,
 } from "@mui/material";
 import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { useState, useRef, useEffect } from "react";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
@@ -247,6 +249,22 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     setPage(1);
   };
 
+  const handleExportServiceOrders = async () => {
+    const { blob, filename } = await appRepository.exportServiceOrdersExcel({
+      osNumber: osNumberFilter,
+      sectorId: sectorId.trim() || undefined,
+      contractId: contractId.trim() || undefined,
+      from: from || undefined,
+      to: to || undefined,
+      field: field === "" ? undefined : field === "true",
+      remote: remote === "" ? undefined : remote === "true",
+      postWork: postWork === "" ? undefined : postWork === "true",
+      equipe: equipeFilter,
+      resultado: resultadoFilter,
+    });
+    downloadBlob(blob, filename);
+  };
+
   const meta = result?.meta;
   const data = result?.data ?? [];
 
@@ -403,6 +421,10 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
         >
           Limpar filtros
         </Button>
+        <ExportExcelButton
+          onExport={handleExportServiceOrders}
+          disabled={loading || !navigator.onLine}
+        />
         {meta && (
           <Chip
             color="primary"

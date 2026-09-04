@@ -467,6 +467,21 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.deleteServiceOrder(serviceOrderId);
   }
 
+  async exportServiceOrdersExcel(params?: {
+    osNumber?: string;
+    sectorId?: string;
+    contractId?: string;
+    from?: string;
+    to?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
+    equipe?: string;
+    resultado?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.exportServiceOrdersExcel(params);
+  }
+
   async exportInspectionsExcel(params?: {
     periodFrom?: string;
     periodTo?: string;

@@ -591,6 +591,29 @@ export class ApiRepository {
     await apiClient.delete(`/service-orders/${serviceOrderId}`);
   }
 
+  async exportServiceOrdersExcel(params?: {
+    osNumber?: string;
+    sectorId?: string;
+    contractId?: string;
+    from?: string;
+    to?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
+    equipe?: string;
+    resultado?: string;
+  }): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>("/service-orders/export", {
+      params,
+      responseType: "blob",
+      timeout: 60000,
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "ordens-de-servico.xlsx";
+    return { blob: response.data, filename };
+  }
+
   async getInspections(params?: {
     periodFrom?: string;
     periodTo?: string;

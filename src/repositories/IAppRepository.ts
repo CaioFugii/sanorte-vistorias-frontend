@@ -250,6 +250,18 @@ export interface IAppRepository {
     deleted: number;
     errors: string[];
   }>;
+  exportServiceOrdersExcel(params?: {
+    osNumber?: string;
+    sectorId?: string;
+    contractId?: string;
+    from?: string;
+    to?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
+    equipe?: string;
+    resultado?: string;
+  }): Promise<{ blob: Blob; filename: string }>;
   deleteServiceOrder(serviceOrderId: string): Promise<void>;
 
   getInspections(params?: {
