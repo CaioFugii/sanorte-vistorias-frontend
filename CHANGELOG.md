@@ -34,6 +34,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Fill e gestão de vistoria buscam o checklist completo em `GET /checklists/:id`; a listagem permanece slim
 - Ranking de Qualidade: notas de Obras de Investimento entram em Campo ou Pós-obra conforme o tipo escolhido na vistoria
 - Listagem de vistorias de Qualidade movida para a aba **Vistorias** em Dados (`/quality/analytics?tab=vistorias`); o item **Vistorias** saiu do menu de Qualidade
+- Listagem de vistorias de Segurança do Trabalho movida para a aba **Vistorias** em Dados (`/safety/analytics?tab=vistorias`); o item **Vistorias** saiu do menu de Segurança do Trabalho
 - Aba Vistorias de Qualidade com filtros por fiscal, equipe, serviço, status e períodos de execução e vistoria
 - Logo da Sabesp nos relatórios fotográficos PDF (marca oficial em ciano)
 

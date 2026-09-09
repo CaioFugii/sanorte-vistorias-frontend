@@ -78,7 +78,6 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       icon: <Warning fontSize="small" />,
       items: [
         { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
       ],
     },
     {
@@ -117,7 +116,6 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       icon: <Warning fontSize="small" />,
       items: [
         { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/safety/inspections", label: "Vistorias", icon: <Assignment fontSize="small" /> },
       ],
     },
     {

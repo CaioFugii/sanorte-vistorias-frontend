@@ -18,7 +18,6 @@ import {
   ReportFormPage,
   ReportTypesPage,
   SafetyAnalyticsPage,
-  SafetyInspectionsPage,
   SectorsPage,
   ServiceOrdersPage,
   TeamsPage,
@@ -210,7 +209,7 @@ export const router = createBrowserRouter([
         path: "/safety/inspections",
         element: (
           <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
-            <SafetyInspectionsPage />
+            <Navigate to="/safety/analytics?tab=vistorias" replace />
           </RequireRoles>
         ),
       },

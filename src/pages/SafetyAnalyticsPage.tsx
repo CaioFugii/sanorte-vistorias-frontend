@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Clear, Close } from "@mui/icons-material";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
@@ -39,12 +39,32 @@ import { ListPagination } from "@/components/ListPagination";
 import { SafetyKpiStrip } from "@/pages/analytics/components/SafetyKpiStrip";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
+import { SafetyInspectionsTab } from "@/pages/analytics/components/SafetyInspectionsTab";
 import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
 import { InspectorsProductionData, QualityByServiceData } from "@/pages/analytics/components/models";
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
 const SAFETY_NC_TOP = 10;
+const SAFETY_TAB_KEYS = [
+  "ranking",
+  "colaboradores",
+  "fiscais",
+  "overview",
+  "nonconformities",
+  "vistorias",
+] as const;
+
+type SafetyTabKey = (typeof SAFETY_TAB_KEYS)[number];
+
+const SAFETY_TAB_LABELS: Record<SafetyTabKey, string> = {
+  ranking: "Ranking",
+  colaboradores: "Colaboradores",
+  fiscais: "Fiscais",
+  overview: "Visão Geral",
+  nonconformities: "Não Conformidades",
+  vistorias: "Vistorias",
+};
 
 const CHART_HEADER_SX = {
   px: 2.5,
@@ -180,7 +200,18 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const visibleTabs = useMemo(
+    () => SAFETY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
+    [canSeeInspectionsTab]
+  );
+  const activeTab = useMemo(() => {
+    const tabParam = searchParams.get("tab");
+    const index = visibleTabs.indexOf(tabParam as SafetyTabKey);
+    return index >= 0 ? index : 0;
+  }, [searchParams, visibleTabs]);
+  const activeTabKey = visibleTabs[activeTab] ?? "ranking";
   const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
     teamId: "",
     teamName: "",
@@ -447,6 +478,21 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setFilters(nextFilters);
     setNonConformitiesTeamId("");
   };
+  const handleTabChange = (_: unknown, nextTab: number) => {
+    const key = visibleTabs[nextTab];
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (!key || key === "ranking") {
+          next.delete("tab");
+        } else {
+          next.set("tab", key);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const hasCoreSafetyData = Boolean(data);
   const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
   const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
@@ -532,19 +578,26 @@ export function SafetyAnalyticsPage(): JSX.Element {
       <Paper sx={{ mb: 3 }}>
         <Tabs
           value={activeTab}
-          onChange={(_, nextTab) => setActiveTab(nextTab)}
+          onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label="Ranking" />
-          <Tab label="Colaboradores" />
-          <Tab label="Fiscais" />
-          <Tab label="Visão Geral" />
-          <Tab label="Não Conformidades" />
+          {visibleTabs.map((key) => (
+            <Tab key={key} label={SAFETY_TAB_LABELS[key]} />
+          ))}
         </Tabs>
       </Paper>
 
-      {activeTab === 1 &&
+      {activeTabKey === "vistorias" && (
+        <SafetyInspectionsTab
+          contractId={selectedContractId || undefined}
+          dateFilterHint={
+            <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+          }
+        />
+      )}
+
+      {activeTabKey === "colaboradores" &&
         (hasCoreSafetyData ? (
           <Paper sx={{ p: 0, overflow: "hidden" }}>
             <Box sx={CHART_HEADER_SX}>
@@ -690,7 +743,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
           <SafetyTabSkeleton />
         ))}
 
-      {activeTab === 2 && (
+      {activeTabKey === "fiscais" && (
         <SafetyFiscaisTab
           data={inspectorsProduction}
           loading={loading}
@@ -699,7 +752,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
         />
       )}
 
-      {activeTab === 3 &&
+      {activeTabKey === "overview" &&
         (qualityByService ? (
           qualityByService.services.length === 0 ? (
             <Paper sx={{ p: 2.5 }}>
@@ -727,7 +780,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
           <SafetyTabSkeleton />
         ))}
 
-      {activeTab === 4 && (
+      {activeTabKey === "nonconformities" && (
         <QualityNonConformitiesTab
           checklistTitle="Perguntas com mais não conformidades por checklist (Top 10)"
           teamTitle="Não conformidades da equipe selecionada (Top 10)"
@@ -743,7 +796,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
         />
       )}
 
-      {activeTab === 0 && (
+      {activeTabKey === "ranking" && (
         <Paper sx={{ p: 0, overflow: "hidden" }}>
           <Box sx={CHART_HEADER_SX}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
