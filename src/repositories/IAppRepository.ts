@@ -354,7 +354,17 @@ export interface IAppRepository {
     module?: ModuleType;
     teamId?: string;
     contractId?: string;
-  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>;
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+    }>;
+  }>;
   getDashboardTeamRanking(params?: {
     from?: string;
     to?: string;

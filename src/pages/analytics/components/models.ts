@@ -94,6 +94,20 @@ export type TeamRankingInspectionItem = {
   createdAt: string;
 };
 
+export type SafetyWorkChecklistSummary = {
+  checklistId: string;
+  checklistName: string;
+  averagePercent: number;
+  inspectionsCount: number;
+};
+
+export type SafetyWorkSummary = {
+  averagePercent: number;
+  inspectionsCount: number;
+  pendingCount: number;
+  checklists: SafetyWorkChecklistSummary[];
+};
+
 export type InspectorDailyCount = {
   date: string;
   count: number;

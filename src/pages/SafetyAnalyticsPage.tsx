@@ -77,14 +77,19 @@ function SafetyKpiStripSkeleton(): JSX.Element {
   return (
     <Box sx={{ mb: 3 }}>
       <Grid container spacing={2}>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Grid key={`safety-kpi-skeleton-${index}`} item xs={12} sm={6} md={4}>
-            <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
-              <Skeleton variant="text" width="45%" height={18} />
-              <Skeleton variant="rounded" width={120} height={34} sx={{ mt: 1 }} />
-            </Paper>
-          </Grid>
-        ))}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
+            <Skeleton variant="text" width="45%" height={18} />
+            <Skeleton variant="rounded" width={120} height={34} sx={{ mt: 1 }} />
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
+            <Skeleton variant="text" width="40%" height={18} />
+            <Skeleton variant="rounded" width="100%" height={28} sx={{ mt: 1 }} />
+            <Skeleton variant="rounded" width="100%" height={28} sx={{ mt: 1 }} />
+          </Paper>
+        </Grid>
       </Grid>
     </Box>
   );

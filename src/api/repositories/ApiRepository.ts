@@ -950,11 +950,28 @@ export class ApiRepository {
     module?: ModuleType;
     teamId?: string;
     contractId?: string;
-  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
-    const response = await apiClient.get<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>(
-      "/dashboards/safety-work/summary",
-      { params }
-    );
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      averagePercent: number;
+      inspectionsCount: number;
+      pendingCount: number;
+      checklists: Array<{
+        checklistId: string;
+        checklistName: string;
+        averagePercent: number;
+        inspectionsCount: number;
+      }>;
+    }>("/dashboards/safety-work/summary", { params });
     return response.data;
   }
 

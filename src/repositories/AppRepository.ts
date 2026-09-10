@@ -602,7 +602,17 @@ export class AppRepository implements IAppRepository {
     module?: ModuleType;
     teamId?: string;
     contractId?: string;
-  }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
+  }): Promise<{
+    averagePercent: number;
+    inspectionsCount: number;
+    pendingCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      averagePercent: number;
+      inspectionsCount: number;
+    }>;
+  }> {
     return this.apiRepository.getDashboardSafetyWorkSummary(params);
   }
 
