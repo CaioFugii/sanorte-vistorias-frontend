@@ -532,6 +532,7 @@ export interface IAppRepository {
       serviceLabel: string;
       qualityPercent: number;
       inspectionsCount: number;
+      teamsCount: number;
     }>;
   }>;
   getDashboardNonConformitiesByChecklist(params: {

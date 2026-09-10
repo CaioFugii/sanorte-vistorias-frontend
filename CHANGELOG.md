@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Aba **Serviços** em Dados de Qualidade: quantidade de equipes que atuaram em cada serviço no mês
 - Aba **Fiscais** em Dados de Segurança do Trabalho: tabela mensal e gráfico de produção diária por usuário
 - Aba **Visão Geral** em Dados de Segurança do Trabalho: gráfico de evolução mensal por serviço (mesmo formato da Qualidade)
 - Aba **Não Conformidades** em Dados de Segurança do Trabalho: Top 10 por checklist e por equipe

@@ -1277,6 +1277,7 @@ export class ApiRepository {
       serviceLabel: string;
       qualityPercent: number;
       inspectionsCount: number;
+      teamsCount: number;
     }>;
   }> {
     const response = await apiClient.get<{
@@ -1291,6 +1292,7 @@ export class ApiRepository {
         serviceLabel: string;
         qualityPercent: number;
         inspectionsCount: number;
+        teamsCount: number;
       }>;
     }>("/dashboards/current-month-by-service", { params });
     return response.data;

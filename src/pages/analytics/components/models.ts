@@ -36,6 +36,7 @@ export type CurrentMonthByServiceData = {
     serviceKey: string;
     serviceLabel: string;
     inspectionsCount: number;
+    teamsCount: number;
     qualityPercent: number;
   }>;
 };

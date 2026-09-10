@@ -804,6 +804,7 @@ export class AppRepository implements IAppRepository {
       serviceLabel: string;
       qualityPercent: number;
       inspectionsCount: number;
+      teamsCount: number;
     }>;
   }> {
     return this.apiRepository.getDashboardCurrentMonthByService(params);

@@ -118,6 +118,15 @@ export function QualityServicesTab({
                     >
                       {item.serviceLabel}
                     </Typography>
+                    <Typography
+                      variant="caption"
+                      display="block"
+                      align="center"
+                      sx={{ color: "#64748b", lineHeight: 1.2 }}
+                    >
+                      {item.teamsCount.toLocaleString("pt-BR")}{" "}
+                      {item.teamsCount === 1 ? "equipe" : "equipes"}
+                    </Typography>
                   </Box>
                 ))}
               </Box>
@@ -147,6 +156,7 @@ export function QualityServicesTab({
               <TableRow>
                 <TableCell>Serviço</TableCell>
                 <TableCell align="center">Qualidade atual</TableCell>
+                <TableCell align="center">Qtd equipes</TableCell>
                 <TableCell align="center">Qtd vistorias</TableCell>
                 <TableCell align="center">Crescimento</TableCell>
               </TableRow>
@@ -160,6 +170,7 @@ export function QualityServicesTab({
                   <TableRow key={service.serviceKey}>
                     <TableCell>{service.serviceLabel}</TableCell>
                     <TableCell align="center">{service.qualityPercent.toFixed(1).replace(".", ",")}%</TableCell>
+                    <TableCell align="center">{service.teamsCount.toLocaleString("pt-BR")}</TableCell>
                     <TableCell align="center">{service.inspectionsCount.toLocaleString("pt-BR")}</TableCell>
                     <TableCell align="center">
                       {growthData
