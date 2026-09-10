@@ -13,7 +13,6 @@ import {
   Paper,
   Select,
   Skeleton,
-  Stack,
   Tab,
   Table,
   TableBody,
@@ -42,13 +41,18 @@ import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab"
 import { SafetyInspectionsTab } from "@/pages/analytics/components/SafetyInspectionsTab";
 import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
-import { InspectorsProductionData, QualityByServiceData } from "@/pages/analytics/components/models";
+import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
+import {
+  InspectorsProductionData,
+  QualityByServiceData,
+  TeamPerformanceFilters,
+} from "@/pages/analytics/components/models";
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
 const SAFETY_NC_TOP = 10;
 const SAFETY_TAB_KEYS = [
   "ranking",
-  "colaboradores",
+  "teams",
   "fiscais",
   "overview",
   "nonconformities",
@@ -59,7 +63,7 @@ type SafetyTabKey = (typeof SAFETY_TAB_KEYS)[number];
 
 const SAFETY_TAB_LABELS: Record<SafetyTabKey, string> = {
   ranking: "Ranking",
-  colaboradores: "Colaboradores",
+  teams: "Equipes",
   fiscais: "Fiscais",
   overview: "Visão Geral",
   nonconformities: "Não Conformidades",
@@ -127,13 +131,6 @@ function formatDateLabel(value: string): string {
   return `${day}/${month}/${year}`;
 }
 
-function getInitialSafetyFilters(): { lowScoreThreshold: number; limit: number } {
-  return {
-    lowScoreThreshold: 70,
-    limit: 15,
-  };
-}
-
 function getFixedSafetyOverviewRange(): { from: string; to: string } {
   const to = new Date();
   const from = new Date(to.getFullYear(), to.getMonth() - 3, 1);
@@ -170,15 +167,23 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState("");
   const [globalPeriod, setGlobalPeriod] = useState(getInitialSafetyPeriod);
-  const [filters, setFilters] = useState(getInitialSafetyFilters);
+  const initialTeamPerformanceFilters = useMemo<TeamPerformanceFilters>(
+    () => ({
+      teamIds: [],
+    }),
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Awaited<
     ReturnType<typeof appRepository.getDashboardSafetyWorkSummary>
   > | null>(null);
-  const [data, setData] = useState<Awaited<
-    ReturnType<typeof appRepository.getDashboardSafetyWorkLowScoreCollaborators>
+  const [teamPerformanceFilters, setTeamPerformanceFilters] = useState(initialTeamPerformanceFilters);
+  const [teamPerformanceByTeams, setTeamPerformanceByTeams] = useState<Awaited<
+    ReturnType<typeof appRepository.getDashboardSafetyWorkTeamPerformanceByTeams>
   > | null>(null);
+  const [teamPerformanceLoading, setTeamPerformanceLoading] = useState(false);
+  const [teamPerformanceError, setTeamPerformanceError] = useState<string | null>(null);
   const [teamRanking, setTeamRanking] = useState<
     Array<{
       teamId: string;
@@ -256,7 +261,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
   }, [contractsForFilters]);
 
   const loadData = async (
-    nextFilters: typeof filters,
     period: typeof globalPeriod = globalPeriod,
     contractId: string = selectedContractId
   ) => {
@@ -264,15 +268,9 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setError(null);
     try {
       const overviewRange = getFixedSafetyOverviewRange();
-      const [summaryResult, result, rankingResult, inspectorsResult, overviewResult, nonConformitiesResult] =
+      const [summaryResult, rankingResult, inspectorsResult, overviewResult, nonConformitiesResult] =
         await Promise.all([
           appRepository.getDashboardSafetyWorkSummary({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkLowScoreCollaborators({
-            ...nextFilters,
             from: period.from,
             to: period.to,
             contractId: contractId || undefined,
@@ -300,7 +298,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
           }),
         ]);
       setSummary(summaryResult);
-      setData(result);
       setInspectorsProduction(inspectorsResult);
       setQualityByService(overviewResult);
       setNonConformitiesByChecklist(nonConformitiesResult);
@@ -327,7 +324,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
-    void loadData(filters, globalPeriod, selectedContractId);
+    void loadData(globalPeriod, selectedContractId);
   }, [canAccessAnalytics, globalPeriod, selectedContractId]);
 
   useEffect(() => {
@@ -335,13 +332,28 @@ export function SafetyAnalyticsPage(): JSX.Element {
     let cancelled = false;
     const loadTeams = async () => {
       try {
-        const result = await appRepository.getTeams({
-          page: 1,
-          limit: 100,
-          contractId: selectedContractId || undefined,
-        });
+        const contractId = selectedContractId || undefined;
+        const pageSize = 100;
+        const collected: Team[] = [];
+        let page = 1;
+        let hasNext = true;
+
+        while (hasNext) {
+          const result = await appRepository.getTeams({
+            page,
+            limit: pageSize,
+            contractId,
+          });
+          collected.push(...result.data);
+          hasNext = Boolean(result.meta?.hasNext);
+          page += 1;
+          if (page > 50) {
+            break;
+          }
+        }
+
         if (!cancelled) {
-          const activeTeams = result.data
+          const activeTeams = collected
             .filter((team) => team.active)
             .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
           setTeamOptions(activeTeams);
@@ -358,6 +370,42 @@ export function SafetyAnalyticsPage(): JSX.Element {
       cancelled = true;
     };
   }, [canAccessAnalytics, selectedContractId]);
+
+  const loadTeamPerformanceData = async (filters: TeamPerformanceFilters): Promise<void> => {
+    if (filters.teamIds.length === 0) {
+      setTeamPerformanceByTeams(null);
+      setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+      return;
+    }
+
+    setTeamPerformanceLoading(true);
+    setTeamPerformanceError(null);
+
+    try {
+      const result = await appRepository.getDashboardSafetyWorkTeamPerformanceByTeams({
+        from: globalPeriod.from,
+        to: globalPeriod.to,
+        teamIds: filters.teamIds,
+        contractId: selectedContractId || undefined,
+      });
+      setTeamPerformanceByTeams(result);
+    } catch {
+      setTeamPerformanceError("Falha ao carregar o gráfico de desempenho por equipes.");
+    } finally {
+      setTeamPerformanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    setTeamPerformanceFilters({ ...initialTeamPerformanceFilters, teamIds: [] });
+    setTeamPerformanceByTeams(null);
+    setTeamPerformanceError(
+      teamOptions.length === 0
+        ? "Nenhuma equipe ativa encontrada para pesquisa."
+        : "Selecione ao menos uma equipe para buscar."
+    );
+  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod, teamOptions.length]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -430,12 +478,18 @@ export function SafetyAnalyticsPage(): JSX.Element {
     return <Navigate to="/inspections/mine" replace />;
   }
 
-  const lowScoreBarMax = Math.max(
-    ...(data?.collaborators.map((item) => item.badScoreRatePercent) || [0]),
-    100
+  const teamPerformanceRows = useMemo(() => {
+    if (!teamPerformanceByTeams) return [];
+    return [...teamPerformanceByTeams.teams].sort((a, b) =>
+      a.teamName.localeCompare(b.teamName, "pt-BR", { sensitivity: "base" })
+    );
+  }, [teamPerformanceByTeams]);
+
+  const teamPerformanceBarMax = useMemo(
+    () => Math.max(...(teamPerformanceRows.map((row) => row.averagePercent) || [0]), 100),
+    [teamPerformanceRows]
   );
-  const formatPercent = (value: number, digits = 2) =>
-    `${value.toFixed(digits).replace(".", ",")}%`;
+
   const formatDateTime = (value: string | null): string => {
     if (!value) return "-";
     const parsed = new Date(value);
@@ -477,11 +531,11 @@ export function SafetyAnalyticsPage(): JSX.Element {
 
   const handleClearFilters = () => {
     const nextPeriod = getInitialSafetyPeriod();
-    const nextFilters = getInitialSafetyFilters();
     setSelectedContractId("");
     setGlobalPeriod(nextPeriod);
-    setFilters(nextFilters);
     setNonConformitiesTeamId("");
+    setTeamPerformanceFilters({ teamIds: [] });
+    setTeamPerformanceByTeams(null);
   };
   const handleTabChange = (_: unknown, nextTab: number) => {
     const key = visibleTabs[nextTab];
@@ -498,7 +552,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
       { replace: true }
     );
   };
-  const hasCoreSafetyData = Boolean(data);
   const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
   const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
 
@@ -602,151 +655,26 @@ export function SafetyAnalyticsPage(): JSX.Element {
         />
       )}
 
-      {activeTabKey === "colaboradores" &&
-        (hasCoreSafetyData ? (
-          <Paper sx={{ p: 0, overflow: "hidden" }}>
-            <Box sx={CHART_HEADER_SX}>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
-              <Typography variant="h6" fontWeight={800}>
-                Segurança do Trabalho - Colaboradores com Nota Baixa
-              </Typography>
-              <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
-            </Box>
-            </Box>
-
-            <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Limiar nota baixa"
-                    value={filters.lowScoreThreshold}
-                    inputProps={{ min: 0, max: 100, step: 1 }}
-                    onChange={(event) => {
-                      const parsed = Number(event.target.value);
-                      if (!Number.isFinite(parsed)) return;
-                      setFilters((prev) => ({
-                        ...prev,
-                        lowScoreThreshold: Math.max(0, Math.min(100, parsed)),
-                      }));
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Limite"
-                    value={filters.limit}
-                    inputProps={{ min: 1, max: 100, step: 1 }}
-                    onChange={(event) => {
-                      const parsed = Number(event.target.value);
-                      if (!Number.isFinite(parsed)) return;
-                      setFilters((prev) => ({
-                        ...prev,
-                        limit: Math.max(1, Math.min(100, parsed)),
-                      }));
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={2} display="flex" alignItems="stretch">
-                  <Button
-                    variant="contained"
-                    onClick={() => void loadData(filters, globalPeriod, selectedContractId)}
-                    disabled={loading}
-                    sx={{ width: "100%", fontWeight: 700 }}
-                  >
-                    Buscar
-                  </Button>
-                </Grid>
-              </Grid>
-
-              {loading && (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                  <CircularProgress size={28} />
-                </Box>
-              )}
-
-              {error && (
-                <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
-                  <Typography variant="body2" color="error.contrastText">
-                    {error}
-                  </Typography>
-                </Paper>
-              )}
-
-              {!loading && !error && data && data.collaborators.length === 0 && (
-                <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-                  <Typography color="text.secondary">
-                    Nenhum colaborador encontrado abaixo do limiar selecionado no período.
-                  </Typography>
-                </Paper>
-              )}
-
-              {!loading && !error && data && data.collaborators.length > 0 && (
-                <Stack spacing={1.5}>
-                  {data.collaborators.map((item) => (
-                    <Paper key={item.collaboratorId} sx={{ p: 1.75, border: "1px solid #e2e8f0" }}>
-                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
-                        <Box>
-                          <Typography variant="subtitle2" fontWeight={800}>
-                            {item.collaboratorName}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {item.badScoresCount} notas ruins em {item.inspectionsCount} inspeções
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" fontWeight={800} color="error.main">
-                          {formatPercent(item.badScoreRatePercent)}
-                        </Typography>
-                      </Box>
-
-                      <Box sx={{ mt: 1.25, height: 10, borderRadius: 999, bgcolor: "#e2e8f0", overflow: "hidden" }}>
-                        <Box
-                          sx={{
-                            width: `${(item.badScoreRatePercent / lowScoreBarMax) * 100}%`,
-                            bgcolor: "#d32f2f",
-                            height: "100%",
-                          }}
-                        />
-                      </Box>
-
-                      <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                        <Grid item xs={4}>
-                          <Typography variant="caption" color="text.secondary">
-                            Média
-                          </Typography>
-                          <Typography variant="body2" fontWeight={700}>
-                            {formatPercent(item.averagePercent)}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={4}>
-                          <Typography variant="caption" color="text.secondary">
-                            Pior nota
-                          </Typography>
-                          <Typography variant="body2" fontWeight={700} color="error.main">
-                            {formatPercent(item.worstScorePercent, 0)}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={4}>
-                          <Typography variant="caption" color="text.secondary">
-                            Melhor nota
-                          </Typography>
-                          <Typography variant="body2" fontWeight={700} color="success.main">
-                            {formatPercent(item.bestScorePercent, 0)}
-                          </Typography>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-          </Paper>
-        ) : (
-          <SafetyTabSkeleton />
-        ))}
+      {activeTabKey === "teams" && (
+        <QualityTeamsTab
+          teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
+          teamPerformanceFilters={teamPerformanceFilters}
+          setTeamPerformanceFilters={setTeamPerformanceFilters}
+          globalPeriod={globalPeriod}
+          onSearchTeamPerformance={() => void loadTeamPerformanceData(teamPerformanceFilters)}
+          teamPerformanceLoading={teamPerformanceLoading}
+          teamPerformanceError={teamPerformanceError}
+          teamPerformanceByTeams={teamPerformanceByTeams}
+          teamPerformanceRows={teamPerformanceRows}
+          teamPerformanceBarMax={teamPerformanceBarMax}
+          clearTeamSelection={() => {
+            setTeamPerformanceFilters((prev) => ({ ...prev, teamIds: [] }));
+            setTeamPerformanceByTeams(null);
+            setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
+          }}
+          dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
+        />
+      )}
 
       {activeTabKey === "fiscais" && (
         <SafetyFiscaisTab

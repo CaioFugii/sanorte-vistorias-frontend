@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Aba **Equipes** em Dados de Segurança do Trabalho: mesmo gráfico multi-equipes da Qualidade
 - Dados de Segurança do Trabalho: quadro de avaliações por checklist no lugar de Vistorias no período e Canteiro
 - Aba **Serviços** em Dados de Qualidade: quantidade de equipes que atuaram em cada serviço no mês
 - Aba **Fiscais** em Dados de Segurança do Trabalho: tabela mensal e gráfico de produção diária por usuário
@@ -30,6 +31,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - Select de complemento do título nos relatórios Ligação e passeio e Ligações (PDF `RELATÓRIO PREÇO {preço} {complemento}`)
 - Data de emissão editável nos relatórios de engenharia (padrão: hoje)
 - Campos de data dos relatórios no formato `dd/MM/yyyy`
+
+### Removed
+
+- Aba **Colaboradores** em Dados de Segurança do Trabalho
 
 ### Changed
 
