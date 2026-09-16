@@ -30,6 +30,7 @@ import {
 } from "@/components/ui";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { Dispatch, ReactNode, SetStateAction } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   TeamRankingInspectionItem,
   TeamRankingInspectionsMeta,
@@ -52,7 +53,7 @@ type QualityRankingTabProps = {
   setRankingOrder: Dispatch<SetStateAction<"asc" | "desc">>;
   sortedTeamRankingQuality: TeamRankingQualityRow[];
   rankingInspectionsOpen: boolean;
-  setRankingInspectionsOpen: Dispatch<SetStateAction<boolean>>;
+  onCloseRankingInspections: () => void;
   rankingInspectionsLoading: boolean;
   rankingInspectionsError: string | null;
   rankingInspectionsItems: TeamRankingInspectionItem[];
@@ -79,7 +80,7 @@ export function QualityRankingTab({
   setRankingOrder,
   sortedTeamRankingQuality,
   rankingInspectionsOpen,
-  setRankingInspectionsOpen,
+  onCloseRankingInspections,
   rankingInspectionsLoading,
   rankingInspectionsError,
   rankingInspectionsItems,
@@ -91,6 +92,10 @@ export function QualityRankingTab({
   onExportRanking,
   exportDisabled = false,
 }: QualityRankingTabProps): JSX.Element {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
+
   return (
     <>
       <Paper sx={{ p: 0, overflow: "hidden" }}>
@@ -238,12 +243,12 @@ export function QualityRankingTab({
         </Box>
       </Paper>
 
-      <Dialog open={rankingInspectionsOpen} onClose={() => setRankingInspectionsOpen(false)} maxWidth="lg" fullWidth>
+      <Dialog open={rankingInspectionsOpen} onClose={onCloseRankingInspections} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {rankingInspectionsMeta.teamName
             ? `Equipe: ${rankingInspectionsMeta.teamName}`
             : "Vistorias da métrica"}
-          <IconButton onClick={() => setRankingInspectionsOpen(false)} size="small" aria-label="Fechar">
+          <IconButton onClick={onCloseRankingInspections} size="small" aria-label="Fechar">
             <Close />
           </IconButton>
         </DialogTitle>
@@ -305,7 +310,9 @@ export function QualityRankingTab({
                               disabled={!inspection.externalId && !inspection.inspectionId}
                               onClick={() => {
                                 const inspectionRouteId = inspection.externalId ?? inspection.inspectionId;
-                                window.open(`/inspections/${inspectionRouteId}`, "_blank", "noopener,noreferrer");
+                                navigate(`/inspections/${inspectionRouteId}`, {
+                                  state: { from: detailFrom },
+                                });
                               }}
                             />
                           </TableActionsGroup>

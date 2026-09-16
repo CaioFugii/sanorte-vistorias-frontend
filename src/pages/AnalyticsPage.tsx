@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import { Clear } from "@mui/icons-material";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, Team, UserRole, ModuleType } from "@/domain";
@@ -106,6 +106,79 @@ const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
   nonconformities: "Não conformidades",
   vistorias: "Vistorias",
 };
+
+const RANKING_DIALOG_METRICS: DashboardTeamRankingMetric[] = [
+  "average",
+  "postWork",
+  "remote",
+  "field",
+  "investmentWorks",
+];
+
+type RankingDialogParams = {
+  teamId: string;
+  teamName: string;
+  metric: DashboardTeamRankingMetric;
+  page: number;
+  limit: number;
+};
+
+function isRankingDialogMetric(value: string | null): value is DashboardTeamRankingMetric {
+  return !!value && RANKING_DIALOG_METRICS.includes(value as DashboardTeamRankingMetric);
+}
+
+function parseIsoDateParam(value: string | null): string | null {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function parseRankingDialogParams(searchParams: URLSearchParams): RankingDialogParams | null {
+  const teamId = searchParams.get("rankingTeam")?.trim() ?? "";
+  const metric = searchParams.get("rankingMetric");
+  if (!teamId || !isRankingDialogMetric(metric)) return null;
+  const page = Number(searchParams.get("rankingPage") || "1");
+  const limit = Number(searchParams.get("rankingLimit") || "20");
+  return {
+    teamId,
+    teamName: searchParams.get("rankingTeamName")?.trim() ?? "",
+    metric,
+    page: Number.isFinite(page) && page > 0 ? Math.floor(page) : 1,
+    limit: Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 20,
+  };
+}
+
+function parsePeriodParams(searchParams: URLSearchParams): { from: string; to: string } | null {
+  const from = parseIsoDateParam(searchParams.get("from"));
+  const to = parseIsoDateParam(searchParams.get("to"));
+  if (!from || !to) return null;
+  return { from, to };
+}
+
+function applyRankingDialogParams(
+  searchParams: URLSearchParams,
+  params: RankingDialogParams | null,
+  extras?: { from: string; to: string; contractId?: string }
+): URLSearchParams {
+  const next = new URLSearchParams(searchParams);
+  next.delete("rankingTeam");
+  next.delete("rankingTeamName");
+  next.delete("rankingMetric");
+  next.delete("rankingPage");
+  next.delete("rankingLimit");
+  if (!params) return next;
+  next.delete("tab");
+  next.set("rankingTeam", params.teamId);
+  next.set("rankingMetric", params.metric);
+  if (params.teamName) next.set("rankingTeamName", params.teamName);
+  if (params.page > 1) next.set("rankingPage", String(params.page));
+  if (params.limit !== 20) next.set("rankingLimit", String(params.limit));
+  if (extras) {
+    next.set("from", extras.from);
+    next.set("to", extras.to);
+    if (extras.contractId) next.set("contract", extras.contractId);
+    else next.delete("contract");
+  }
+  return next;
+}
 
 function getDefaultQualityRange(): { from: string; to: string } {
   const to = new Date();
@@ -252,10 +325,11 @@ export function AnalyticsPage(): JSX.Element {
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
+  const [searchParams, setSearchParams] = useSearchParams();
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
-  const [selectedContractId, setSelectedContractId] = useState("");
-  const [globalPeriod, setGlobalPeriod] = useState(getInitialGlobalPeriod);
+  const [selectedContractId, setSelectedContractId] = useState(() => searchParams.get("contract") ?? "");
+  const [globalPeriod, setGlobalPeriod] = useState(() => parsePeriodParams(searchParams) ?? getInitialGlobalPeriod());
   const initialTeamPerformanceFilters = useMemo(() => {
     return {
       teamIds: [] as string[],
@@ -292,22 +366,30 @@ export function AnalyticsPage(): JSX.Element {
   >([]);
   const [rankingOrderBy, setRankingOrderBy] = useState<TeamRankingOrderBy>("average");
   const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
-  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
-  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
+  const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(
+    () => Boolean(parseRankingDialogParams(searchParams))
+  );
+  const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(
+    () => Boolean(parseRankingDialogParams(searchParams))
+  );
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState({
-    teamId: "",
-    teamName: "",
-    metric: "field" as DashboardTeamRankingMetric,
-    page: 1,
-    limit: 20,
-    total: 0,
-    totalPages: 1,
-    hasNext: false,
-    hasPrev: false,
+  const [rankingInspectionsMeta, setRankingInspectionsMeta] = useState(() => {
+    const parsed = parseRankingDialogParams(searchParams);
+    return {
+      teamId: parsed?.teamId ?? "",
+      teamName: parsed?.teamName ?? "",
+      metric: (parsed?.metric ?? "field") as DashboardTeamRankingMetric,
+      page: parsed?.page ?? 1,
+      limit: parsed?.limit ?? 20,
+      total: 0,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    };
   });
-  const [searchParams, setSearchParams] = useSearchParams();
+  const rankingRequestKeyRef = useRef<string | null>(null);
+  const rankingDialogFromUrl = useMemo(() => parseRankingDialogParams(searchParams), [searchParams]);
   const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
   const visibleTabs = useMemo(
     () => QUALITY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
@@ -612,8 +694,34 @@ export function AnalyticsPage(): JSX.Element {
     teamName: string,
     metric: DashboardTeamRankingMetric,
     page = 1,
-    limit = rankingInspectionsMeta.limit
+    limit = rankingInspectionsMeta.limit,
+    options?: { skipUrlUpdate?: boolean }
   ) => {
+    const requestKey = [
+      teamId,
+      metric,
+      page,
+      limit,
+      globalPeriod.from,
+      globalPeriod.to,
+      selectedContractId,
+    ].join("|");
+    rankingRequestKeyRef.current = requestKey;
+    if (!options?.skipUrlUpdate) {
+      setSearchParams(
+        (current) =>
+          applyRankingDialogParams(
+            current,
+            { teamId, teamName, metric, page, limit },
+            {
+              from: globalPeriod.from,
+              to: globalPeriod.to,
+              contractId: selectedContractId || undefined,
+            }
+          ),
+        { replace: true }
+      );
+    }
     setRankingInspectionsOpen(true);
     setRankingInspectionsLoading(true);
     setRankingInspectionsError(null);
@@ -646,6 +754,45 @@ export function AnalyticsPage(): JSX.Element {
     }
   };
 
+  const closeRankingInspections = () => {
+    rankingRequestKeyRef.current = null;
+    setRankingInspectionsOpen(false);
+    setSearchParams((current) => applyRankingDialogParams(current, null), { replace: true });
+  };
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    if (!rankingDialogFromUrl) {
+      rankingRequestKeyRef.current = null;
+      setRankingInspectionsOpen(false);
+      return;
+    }
+    const requestKey = [
+      rankingDialogFromUrl.teamId,
+      rankingDialogFromUrl.metric,
+      rankingDialogFromUrl.page,
+      rankingDialogFromUrl.limit,
+      globalPeriod.from,
+      globalPeriod.to,
+      selectedContractId,
+    ].join("|");
+    if (rankingRequestKeyRef.current === requestKey) return;
+    void openRankingInspections(
+      rankingDialogFromUrl.teamId,
+      rankingDialogFromUrl.teamName,
+      rankingDialogFromUrl.metric,
+      rankingDialogFromUrl.page,
+      rankingDialogFromUrl.limit,
+      { skipUrlUpdate: true }
+    );
+  }, [
+    canAccessAnalytics,
+    rankingDialogFromUrl,
+    globalPeriod.from,
+    globalPeriod.to,
+    selectedContractId,
+  ]);
+
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
   }
@@ -658,7 +805,8 @@ export function AnalyticsPage(): JSX.Element {
     const key = visibleTabs[nextTab];
     setSearchParams(
       (current) => {
-        const next = new URLSearchParams(current);
+        const next =
+          key && key !== "ranking" ? applyRankingDialogParams(current, null) : new URLSearchParams(current);
         if (!key || key === "ranking") {
           next.delete("tab");
         } else {
@@ -807,7 +955,7 @@ export function AnalyticsPage(): JSX.Element {
                   setRankingOrder={setRankingOrder}
                   sortedTeamRankingQuality={sortedTeamRankingQuality}
                   rankingInspectionsOpen={rankingInspectionsOpen}
-                  setRankingInspectionsOpen={setRankingInspectionsOpen}
+                  onCloseRankingInspections={closeRankingInspections}
                   rankingInspectionsLoading={rankingInspectionsLoading}
                   rankingInspectionsError={rankingInspectionsError}
                   rankingInspectionsItems={rankingInspectionsItems}
