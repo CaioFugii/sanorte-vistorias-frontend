@@ -326,6 +326,25 @@ export interface ReportFieldOption {
   value: string;
 }
 
+export interface DashboardOverviewMonth {
+  month: string;
+  averagePercent: number;
+  inspectionsCount: number;
+}
+
+export interface DashboardOverviewModule {
+  averagePercent: number;
+  inspectionsCount: number;
+  months: DashboardOverviewMonth[];
+}
+
+export interface DashboardOverview {
+  from: string;
+  to: string;
+  quality: DashboardOverviewModule;
+  safetyWork: DashboardOverviewModule;
+}
+
 export interface ReportTypeField {
   id: string;
   reportTypeId: string;

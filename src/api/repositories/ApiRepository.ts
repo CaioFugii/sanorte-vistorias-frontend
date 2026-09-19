@@ -5,6 +5,7 @@ import {
   ChecklistSection,
   Collaborator,
   Contract,
+  DashboardOverview,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
@@ -887,6 +888,15 @@ export class ApiRepository {
       "/dashboards/summary",
       { params }
     );
+    return response.data;
+  }
+
+  async getDashboardOverview(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<DashboardOverview> {
+    const response = await apiClient.get<DashboardOverview>("/dashboards/overview", { params });
     return response.data;
   }
 

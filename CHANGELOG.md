@@ -35,9 +35,11 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Removed
 
 - Aba **Colaboradores** em Dados de Segurança do Trabalho
+- Cards de Faturamento Total, Despesa Total e Cronograma na Gestão (ainda sem dado real)
 
 ### Changed
 
+- Gestão: dois painéis de Qualidade e Segurança (últimos 4 meses), só com filtro de contrato (padrão: todos)
 - Fill e gestão de vistoria buscam o checklist completo em `GET /checklists/:id`; a listagem permanece slim
 - Ranking de Qualidade: notas de Obras de Investimento entram em Campo ou Pós-obra conforme o tipo escolhido na vistoria
 - Ranking de Qualidade: coluna Média usa a média das notas de Campo, Remoto e Pós-obra (igual peso), não a média de todas as O.S. juntas

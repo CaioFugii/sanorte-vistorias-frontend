@@ -4,6 +4,7 @@ import {
   ChecklistSection,
   Collaborator,
   Contract,
+  DashboardOverview,
   Evidence,
   InvestmentWork,
   InvestmentWorkStatus,
@@ -321,6 +322,11 @@ export interface IAppRepository {
     teamId?: string;
     contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }>;
+  getDashboardOverview(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<DashboardOverview>;
   getDashboardQualitySummary(params?: {
     from?: string;
     to?: string;

@@ -6,6 +6,7 @@ import {
   ChecklistSection,
   Collaborator,
   Contract,
+  DashboardOverview,
   Evidence,
   InvestmentWork,
   InvestmentWorkStatus,
@@ -564,6 +565,14 @@ export class AppRepository implements IAppRepository {
     contractId?: string;
   }): Promise<{ averagePercent: number; inspectionsCount: number; pendingCount: number }> {
     return this.apiRepository.getDashboardSummary(params);
+  }
+
+  async getDashboardOverview(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<DashboardOverview> {
+    return this.apiRepository.getDashboardOverview(params);
   }
 
   async getDashboardQualitySummary(params?: {
