@@ -1084,6 +1084,10 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getInspectionPdf(inspectionId);
   }
 
+  async getInspectionEvidenceFile(inspectionId: string, evidenceId: string): Promise<Blob> {
+    return this.apiRepository.getInspectionEvidenceFile(inspectionId, evidenceId);
+  }
+
   async getInspection(externalId: string, forceApi = false): Promise<Inspection | null> {
     void forceApi;
     try {

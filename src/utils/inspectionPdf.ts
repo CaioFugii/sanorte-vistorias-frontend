@@ -118,7 +118,32 @@ async function loadSanorteLogoAsPngDataUrl(): Promise<string | null> {
   return sanorteLogoPromise;
 }
 
-async function loadImageAsDataUrl(url?: string | null): Promise<string | null> {
+async function blobToPdfDataUrl(blob: Blob): Promise<string | null> {
+  if (blob.type.includes("svg")) return svgBlobToPngDataUrl(blob);
+  if (blob.type.includes("webp")) {
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      return await imageToPngDataUrl(objectUrl);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+  return toDataUrlFromBlob(blob);
+}
+
+async function loadImageAsDataUrl(
+  url?: string | null,
+  viaApi?: { inspectionId: string; evidenceId: string; fetchFile: InspectionPdfImageLoader },
+): Promise<string | null> {
+  if (viaApi) {
+    try {
+      const blob = await viaApi.fetchFile(viaApi.inspectionId, viaApi.evidenceId);
+      const dataUrl = await blobToPdfDataUrl(blob);
+      if (dataUrl) return dataUrl;
+    } catch {
+      // cai no fallback da URL pública
+    }
+  }
   if (!url) return null;
   if (url.startsWith("data:image/svg")) return imageToPngDataUrl(url);
   if (url.startsWith("data:image/")) return url;
@@ -126,8 +151,7 @@ async function loadImageAsDataUrl(url?: string | null): Promise<string | null> {
     const response = await fetch(url);
     if (!response.ok) return null;
     const blob = await response.blob();
-    if (blob.type.includes("svg")) return await svgBlobToPngDataUrl(blob);
-    return await toDataUrlFromBlob(blob);
+    return await blobToPdfDataUrl(blob);
   } catch {
     return null;
   }
@@ -383,7 +407,12 @@ function drawHeader(doc: jsPDF, inspection: Inspection, logoDataUrl: string | nu
   return margin + 37;
 }
 
-type PdfPhotoEntry = { src: string; label: string };
+type PdfPhotoEntry = { src: string; label: string; evidenceId?: string };
+
+export type InspectionPdfImageLoader = (
+  inspectionId: string,
+  evidenceId: string,
+) => Promise<Blob>;
 
 type PdfPhotoSection = {
   heading: string;
@@ -402,10 +431,14 @@ function getChecklistItemNotes(item: InspectionItem): string | null {
   return item.notes?.trim() || null;
 }
 
-function toPhotoEntry(src: string | undefined | null, label: string): PdfPhotoEntry | null {
+function toPhotoEntry(
+  src: string | undefined | null,
+  label: string,
+  evidenceId?: string,
+): PdfPhotoEntry | null {
   const trimmed = src?.trim() ?? "";
   if (!trimmed) return null;
-  return { src: trimmed, label };
+  return { src: trimmed, label, evidenceId };
 }
 
 function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
@@ -416,7 +449,11 @@ function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
   const generalEntries = evidences
     .filter((evidence) => !evidence.inspectionItemId)
     .map((evidence, index) =>
-      toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+      toPhotoEntry(
+        evidence.url ?? evidence.dataUrl,
+        evidence.fileName || `Foto ${index + 1}`,
+        evidence.id,
+      ),
     )
     .filter((entry): entry is PdfPhotoEntry => entry !== null);
   if (generalEntries.length > 0) {
@@ -431,7 +468,11 @@ function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
       entries: itemEvidences
         .filter((evidence) => evidence.inspectionItemId === item.id)
         .map((evidence, index) =>
-          toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+          toPhotoEntry(
+            evidence.url ?? evidence.dataUrl,
+            evidence.fileName || `Foto ${index + 1}`,
+            evidence.id,
+          ),
         )
         .filter((entry): entry is PdfPhotoEntry => entry !== null),
     }))
@@ -439,7 +480,11 @@ function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
   const orphanEntries = itemEvidences
     .filter((evidence) => evidence.inspectionItemId && !itemIds.has(evidence.inspectionItemId))
     .map((evidence, index) =>
-      toPhotoEntry(evidence.url ?? evidence.dataUrl, evidence.fileName || `Foto ${index + 1}`),
+      toPhotoEntry(
+        evidence.url ?? evidence.dataUrl,
+        evidence.fileName || `Foto ${index + 1}`,
+        evidence.id,
+      ),
     )
     .filter((entry): entry is PdfPhotoEntry => entry !== null);
   if (orphanEntries.length > 0) {
@@ -461,7 +506,10 @@ function extractEvidenceSections(inspection: Inspection): PdfPhotoSection[] {
   return sections;
 }
 
-export async function generateInspectionPdf(inspection: Inspection): Promise<void> {
+export async function generateInspectionPdf(
+  inspection: Inspection,
+  options?: { fetchEvidenceFile?: InspectionPdfImageLoader },
+): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -584,7 +632,17 @@ export async function generateInspectionPdf(inspection: Inspection): Promise<voi
 
       const x = margin + column * (photoColumnWidth + 6) + (photoColumnWidth - photoWidth) / 2;
       const entry = entries[index];
-      const dataUrl = await loadImageAsDataUrl(entry.src);
+      const inspectionId = inspection.serverId ?? inspection.externalId;
+      const dataUrl = await loadImageAsDataUrl(
+        entry.src,
+        options?.fetchEvidenceFile && entry.evidenceId && inspectionId
+          ? {
+              inspectionId,
+              evidenceId: entry.evidenceId,
+              fetchFile: options.fetchEvidenceFile,
+            }
+          : undefined,
+      );
       const imageFormat = dataUrl ? getImageFormat(dataUrl) : null;
 
       doc.setDrawColor(160, 160, 160);

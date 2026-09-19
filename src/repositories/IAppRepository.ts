@@ -783,6 +783,7 @@ export interface IAppRepository {
   ): Promise<InspectionItem>;
   finalizeInspection(inspectionId: string): Promise<Inspection>;
   getInspectionPdf(inspectionId: string): Promise<Blob>;
+  getInspectionEvidenceFile(inspectionId: string, evidenceId: string): Promise<Blob>;
 
   resolvePendingInspection(
     externalId: string,

@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- PDF da vistoria busca fotos via API autenticada (`GET /inspections/:id/evidences/:evidenceId/file`), sem `fetch` direto no S3
 - Aba **Equipes** em Dados de Segurança do Trabalho: mesmo gráfico multi-equipes da Qualidade
 - Dados de Segurança do Trabalho: quadro de avaliações por checklist no lugar de Vistorias no período e Canteiro
 - Aba **Serviços** em Dados de Qualidade: quantidade de equipes que atuaram em cada serviço no mês

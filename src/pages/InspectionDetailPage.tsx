@@ -361,7 +361,10 @@ export const InspectionDetailPage = (): JSX.Element => {
     if (!inspection) return;
     setPdfLoading(true);
     try {
-      await generateInspectionPdf(inspection);
+      await generateInspectionPdf(inspection, {
+        fetchEvidenceFile: (inspectionId, evidenceId) =>
+          appRepository.getInspectionEvidenceFile(inspectionId, evidenceId),
+      });
     } finally {
       setPdfLoading(false);
     }

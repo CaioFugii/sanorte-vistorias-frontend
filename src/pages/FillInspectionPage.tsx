@@ -340,11 +340,17 @@ export const FillInspectionPage = (): JSX.Element => {
 
   const handleGeneratePdf = async (): Promise<void> => {
     try {
-      await generateInspectionPdf({
-        ...currentInspection,
-        evidences,
-        signatures: signature ? [signature] : [],
-      });
+      await generateInspectionPdf(
+        {
+          ...currentInspection,
+          evidences,
+          signatures: signature ? [signature] : [],
+        },
+        {
+          fetchEvidenceFile: (inspectionId, evidenceId) =>
+            appRepository.getInspectionEvidenceFile(inspectionId, evidenceId),
+        },
+      );
     } catch {
       toast.error("Nao foi possivel gerar o PDF.");
     }

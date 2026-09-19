@@ -786,6 +786,14 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getInspectionEvidenceFile(inspectionId: string, evidenceId: string): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      `/inspections/${inspectionId}/evidences/${evidenceId}/file`,
+      { responseType: "blob" }
+    );
+    return response.data;
+  }
+
   async presignInspectionEvidence(
     inspectionId: string,
     payload: { contentType: string; contentLength: number }
