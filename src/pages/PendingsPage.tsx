@@ -63,12 +63,6 @@ const PENDINGS_LIST_QUERY = {
   inspectionTo: "",
 };
 
-function teamMatchesContract(team: Team, contractId?: string): boolean {
-  if (!contractId) return true;
-  if (team.contractIds?.includes(contractId)) return true;
-  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
-}
-
 export const PendingsPage = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -232,7 +226,7 @@ export const PendingsPage = (): JSX.Element => {
         }
         if (cancelled) return;
         const activeTeams = collected
-          .filter((team) => team.active && teamMatchesContract(team, contractId))
+          .filter((team) => team.active)
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
         setTeamOptions(activeTeams);
         if (selectedTeamIdRef.current && !activeTeams.some((team) => team.id === selectedTeamIdRef.current)) {

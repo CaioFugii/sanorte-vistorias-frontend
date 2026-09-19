@@ -237,12 +237,6 @@ function formatMonthYearLabel(yyyyMM: string): string {
     .replace(/^./, (char) => char.toUpperCase());
 }
 
-function teamMatchesContract(team: Team, contractId?: string): boolean {
-  if (!contractId) return true;
-  if (team.contractIds?.includes(contractId)) return true;
-  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
-}
-
 function mergeQualityByServiceResponses(
   responses: QualityByServiceResponse[]
 ): QualityByServiceResponse {
@@ -519,7 +513,7 @@ export function AnalyticsPage(): JSX.Element {
       }
 
       const activeTeams = collected
-        .filter((team) => team.active && teamMatchesContract(team, contractId))
+        .filter((team) => team.active)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
       setTeamOptions(activeTeams);
       return activeTeams;

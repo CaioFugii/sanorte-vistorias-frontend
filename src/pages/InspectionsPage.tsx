@@ -59,12 +59,6 @@ function toSearchParam(value: string): string | undefined {
   return trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : undefined;
 }
 
-function teamMatchesContract(team: Team, contractId?: string): boolean {
-  if (!contractId) return true;
-  if (team.contractIds?.includes(contractId)) return true;
-  return Boolean(team.contracts?.some((contract) => contract.id === contractId));
-}
-
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -232,7 +226,7 @@ export const InspectionsPage = ({
         if (cancelled) return;
 
         const activeTeams = collected
-          .filter((team) => team.active && teamMatchesContract(team, selectedContractId))
+          .filter((team) => team.active)
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
         setTeamOptions(activeTeams);
         if (
