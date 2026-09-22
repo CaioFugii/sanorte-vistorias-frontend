@@ -1183,6 +1183,72 @@ export class ApiRepository {
     };
   }
 
+  async getDashboardSafetyWorkChecklistInspections(
+    checklistId: string,
+    params: {
+      from: string;
+      to: string;
+      page?: number;
+      limit?: number;
+      contractId?: string;
+    }
+  ): Promise<{
+    from: string;
+    to: string;
+    checklistId: string;
+    checklistName: string;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    inspections: Array<{
+      inspectionId: string;
+      externalId: string | null;
+      teamId: string | null;
+      teamName: string | null;
+      serviceOrderId: string | null;
+      serviceOrderNumber: string | null;
+      serviceOrderAddress: string | null;
+      module: ModuleType;
+      evaluationModule?: InvestmentWorkEvaluationModule | null;
+      status: InspectionStatus;
+      scorePercent: number;
+      finishedAt: string | null;
+      createdAt: string;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      checklistId: string;
+      checklistName: string;
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+      inspections: Array<{
+        inspectionId: string;
+        externalId: string | null;
+        teamId: string | null;
+        teamName: string | null;
+        serviceOrderId: string | null;
+        serviceOrderNumber: string | null;
+        serviceOrderAddress: string | null;
+        module: ModuleType;
+        evaluationModule?: InvestmentWorkEvaluationModule | null;
+        status: InspectionStatus;
+        scorePercent: number;
+        finishedAt: string | null;
+        createdAt: string;
+      }>;
+    }>(`/dashboards/safety-work/checklists/${checklistId}/inspections`, { params });
+    return response.data;
+  }
+
   async getDashboardTeam(
     teamId: string,
     params?: { from?: string; to?: string; module?: ModuleType; contractId?: string }

@@ -1,16 +1,17 @@
-import { Box, Grid, Paper, Typography } from "@mui/material";
+import { Box, Button, Grid, Paper, Tooltip, Typography } from "@mui/material";
 import { getKpiScoreHighlight } from "@/pages/analytics/components/kpiScoreHighlight";
-import { SafetyWorkSummary } from "@/pages/analytics/components/models";
+import { SafetyWorkChecklistSummary, SafetyWorkSummary } from "@/pages/analytics/components/models";
 
 type SafetyKpiStripProps = {
   summary: SafetyWorkSummary;
+  onViewChecklist: (checklist: SafetyWorkChecklistSummary) => void;
 };
 
 function formatPercent(value: number, digits = 1): string {
   return `${value.toFixed(digits).replace(".", ",")}%`;
 }
 
-export function SafetyKpiStrip({ summary }: SafetyKpiStripProps): JSX.Element {
+export function SafetyKpiStrip({ summary, onViewChecklist }: SafetyKpiStripProps): JSX.Element {
   const checklists = summary.checklists ?? [];
   const averageHighlight = getKpiScoreHighlight(summary.averagePercent);
 
@@ -90,10 +91,25 @@ export function SafetyKpiStrip({ summary }: SafetyKpiStripProps): JSX.Element {
                         >
                           {formatPercent(checklist.averagePercent, 1)}
                         </Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {checklist.inspectionsCount.toLocaleString("pt-BR")}{" "}
-                          {checklist.inspectionsCount === 1 ? "vistoria" : "vistorias"}
-                        </Typography>
+                        <Tooltip title="Ver vistorias">
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => onViewChecklist(checklist)}
+                            sx={{
+                              minWidth: 0,
+                              px: 0.5,
+                              color: "text.secondary",
+                              fontWeight: 500,
+                              textTransform: "none",
+                              textDecoration: "underline",
+                              textUnderlineOffset: "3px",
+                            }}
+                          >
+                            {checklist.inspectionsCount.toLocaleString("pt-BR")}{" "}
+                            {checklist.inspectionsCount === 1 ? "vistoria" : "vistorias"}
+                          </Button>
+                        </Tooltip>
                       </Box>
                     </Box>
                   );

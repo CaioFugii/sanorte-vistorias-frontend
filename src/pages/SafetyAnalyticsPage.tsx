@@ -26,9 +26,15 @@ import {
   Typography,
 } from "@mui/material";
 import { Clear, Close } from "@mui/icons-material";
-import { Navigate, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
-import { PageHeader } from "@/components/ui";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  PageHeader,
+  TableActionsCell,
+  TableActionsGroup,
+  TableActionsHeaderCell,
+  TableViewButton,
+} from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, ModuleType, Team, UserRole } from "@/domain";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
@@ -116,6 +122,61 @@ function formatDateForInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function parseIsoDateParam(value: string | null): string | null {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function parsePeriodParams(searchParams: URLSearchParams): { from: string; to: string } | null {
+  const from = parseIsoDateParam(searchParams.get("from"));
+  const to = parseIsoDateParam(searchParams.get("to"));
+  if (!from || !to || from > to) return null;
+  return { from, to };
+}
+
+type ChecklistDialogParams = {
+  checklistId: string;
+  checklistName: string;
+  page: number;
+  limit: number;
+};
+
+function parseChecklistDialogParams(searchParams: URLSearchParams): ChecklistDialogParams | null {
+  const checklistId = searchParams.get("checklist")?.trim() ?? "";
+  if (!checklistId) return null;
+  const page = Number(searchParams.get("checklistPage") || "1");
+  const limit = Number(searchParams.get("checklistLimit") || "20");
+  return {
+    checklistId,
+    checklistName: searchParams.get("checklistName")?.trim() ?? "",
+    page: Number.isFinite(page) && page > 0 ? Math.floor(page) : 1,
+    limit: Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 20,
+  };
+}
+
+function applyChecklistDialogParams(
+  searchParams: URLSearchParams,
+  params: ChecklistDialogParams | null,
+  extras?: { from: string; to: string; contractId?: string }
+): URLSearchParams {
+  const next = new URLSearchParams(searchParams);
+  next.delete("checklist");
+  next.delete("checklistName");
+  next.delete("checklistPage");
+  next.delete("checklistLimit");
+  if (!params) return next;
+  next.set("checklist", params.checklistId);
+  if (params.checklistName) next.set("checklistName", params.checklistName);
+  if (params.page > 1) next.set("checklistPage", String(params.page));
+  if (params.limit !== 20) next.set("checklistLimit", String(params.limit));
+  if (extras) {
+    next.set("from", extras.from);
+    next.set("to", extras.to);
+    if (extras.contractId) next.set("contract", extras.contractId);
+    else next.delete("contract");
+  }
+  return next;
+}
+
 function getInitialSafetyPeriod(): { from: string; to: string } {
   const to = new Date();
   const from = new Date(to.getFullYear(), to.getMonth(), 1);
@@ -148,6 +209,7 @@ function formatMonthLabel(yyyyMM: string): string {
 
 type TeamRankingInspectionItem = {
   inspectionId: string;
+  externalId: string | null;
   serviceOrderId: string;
   serviceOrderNumber: string;
   serviceOrderAddress: string | null;
@@ -158,15 +220,31 @@ type TeamRankingInspectionItem = {
   createdAt: string;
 };
 
+type ChecklistInspectionItem = {
+  inspectionId: string;
+  externalId: string | null;
+  teamName: string | null;
+  serviceOrderNumber: string | null;
+  serviceOrderAddress: string | null;
+  status: string;
+  scorePercent: number;
+  finishedAt: string | null;
+  createdAt: string;
+};
+
 export function SafetyAnalyticsPage(): JSX.Element {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const detailFrom = `${location.pathname}${location.search}`;
   const { hasAnyRole, user } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
+  const [searchParams, setSearchParams] = useSearchParams();
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
-  const [selectedContractId, setSelectedContractId] = useState("");
-  const [globalPeriod, setGlobalPeriod] = useState(getInitialSafetyPeriod);
+  const [selectedContractId, setSelectedContractId] = useState(() => searchParams.get("contract") ?? "");
+  const [globalPeriod, setGlobalPeriod] = useState(() => parsePeriodParams(searchParams) ?? getInitialSafetyPeriod());
   const initialTeamPerformanceFilters = useMemo<TeamPerformanceFilters>(
     () => ({
       teamIds: [],
@@ -210,7 +288,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const [searchParams, setSearchParams] = useSearchParams();
   const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
   const visibleTabs = useMemo(
     () => SAFETY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
@@ -233,6 +310,29 @@ export function SafetyAnalyticsPage(): JSX.Element {
     hasNext: false,
     hasPrev: false,
   });
+  const [checklistInspectionsOpen, setChecklistInspectionsOpen] = useState(
+    () => Boolean(parseChecklistDialogParams(searchParams))
+  );
+  const [checklistInspectionsLoading, setChecklistInspectionsLoading] = useState(
+    () => Boolean(parseChecklistDialogParams(searchParams))
+  );
+  const [checklistInspectionsError, setChecklistInspectionsError] = useState<string | null>(null);
+  const [checklistInspectionsItems, setChecklistInspectionsItems] = useState<ChecklistInspectionItem[]>([]);
+  const [checklistInspectionsMeta, setChecklistInspectionsMeta] = useState(() => {
+    const parsed = parseChecklistDialogParams(searchParams);
+    return {
+      checklistId: parsed?.checklistId ?? "",
+      checklistName: parsed?.checklistName ?? "",
+      page: parsed?.page ?? 1,
+      limit: parsed?.limit ?? 20,
+      total: 0,
+      totalPages: 1,
+      hasNext: false,
+      hasPrev: false,
+    };
+  });
+  const checklistRequestKeyRef = useRef<string | null>(null);
+  const checklistDialogFromUrl = useMemo(() => parseChecklistDialogParams(searchParams), [searchParams]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -474,10 +574,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
     [qualityByService]
   );
 
-  if (!canAccessAnalytics) {
-    return <Navigate to="/inspections/mine" replace />;
-  }
-
   const teamPerformanceRows = useMemo(() => {
     if (!teamPerformanceByTeams) return [];
     return [...teamPerformanceByTeams.teams].sort((a, b) =>
@@ -529,6 +625,132 @@ export function SafetyAnalyticsPage(): JSX.Element {
     }
   };
 
+  const openInspectionDetail = (inspection: { externalId: string | null; inspectionId: string }) => {
+    const inspectionRouteId = inspection.externalId ?? inspection.inspectionId;
+    navigate(`/inspections/${inspectionRouteId}`, {
+      state: { from: detailFrom },
+    });
+  };
+
+  const checklistPageLimit = checklistInspectionsMeta.limit;
+  const openChecklistInspections = useCallback(async (
+    checklistId: string,
+    checklistName: string,
+    page = 1,
+    limit = checklistPageLimit,
+    options?: { skipUrlUpdate?: boolean }
+  ) => {
+    const requestKey = [
+      checklistId,
+      page,
+      limit,
+      globalPeriod.from,
+      globalPeriod.to,
+      selectedContractId,
+    ].join("|");
+    checklistRequestKeyRef.current = requestKey;
+    if (!options?.skipUrlUpdate) {
+      setSearchParams(
+        (current) =>
+          applyChecklistDialogParams(
+            current,
+            { checklistId, checklistName, page, limit },
+            {
+              from: globalPeriod.from,
+              to: globalPeriod.to,
+              contractId: selectedContractId || undefined,
+            }
+          ),
+        { replace: true }
+      );
+    }
+    setChecklistInspectionsOpen(true);
+    setChecklistInspectionsLoading(true);
+    setChecklistInspectionsError(null);
+    try {
+      const response = await appRepository.getDashboardSafetyWorkChecklistInspections(checklistId, {
+        from: globalPeriod.from,
+        to: globalPeriod.to,
+        page,
+        limit,
+        contractId: selectedContractId || undefined,
+      });
+      setChecklistInspectionsItems(response.inspections);
+      setChecklistInspectionsMeta({
+        checklistId: response.checklistId,
+        checklistName: response.checklistName || checklistName,
+        page: response.page,
+        limit: response.limit,
+        total: response.total,
+        totalPages: response.totalPages,
+        hasNext: response.hasNext,
+        hasPrev: response.hasPrev,
+      });
+    } catch {
+      setChecklistInspectionsError("Falha ao carregar as vistorias da avaliação selecionada.");
+      setChecklistInspectionsItems([]);
+    } finally {
+      setChecklistInspectionsLoading(false);
+    }
+  }, [checklistPageLimit, globalPeriod.from, globalPeriod.to, selectedContractId, setSearchParams]);
+
+  const closeChecklistInspections = () => {
+    checklistRequestKeyRef.current = null;
+    setChecklistInspectionsOpen(false);
+    setSearchParams((current) => applyChecklistDialogParams(current, null), { replace: true });
+  };
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("from", globalPeriod.from);
+        next.set("to", globalPeriod.to);
+        if (selectedContractId) next.set("contract", selectedContractId);
+        else next.delete("contract");
+        return next.toString() === current.toString() ? current : next;
+      },
+      { replace: true }
+    );
+  }, [canAccessAnalytics, globalPeriod.from, globalPeriod.to, selectedContractId, setSearchParams]);
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    if (!checklistDialogFromUrl) {
+      checklistRequestKeyRef.current = null;
+      setChecklistInspectionsOpen(false);
+      return;
+    }
+    const requestKey = [
+      checklistDialogFromUrl.checklistId,
+      checklistDialogFromUrl.page,
+      checklistDialogFromUrl.limit,
+      globalPeriod.from,
+      globalPeriod.to,
+      selectedContractId,
+    ].join("|");
+    if (checklistRequestKeyRef.current === requestKey) return;
+    void openChecklistInspections(
+      checklistDialogFromUrl.checklistId,
+      checklistDialogFromUrl.checklistName,
+      checklistDialogFromUrl.page,
+      checklistDialogFromUrl.limit,
+      { skipUrlUpdate: true }
+    );
+  }, [
+    canAccessAnalytics,
+    checklistDialogFromUrl,
+    globalPeriod.from,
+    globalPeriod.to,
+    selectedContractId,
+    openChecklistInspections,
+  ]);
+
+  if (!canAccessAnalytics) {
+    return <Navigate to="/inspections/mine" replace />;
+  }
+
   const handleClearFilters = () => {
     const nextPeriod = getInitialSafetyPeriod();
     setSelectedContractId("");
@@ -536,6 +758,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setNonConformitiesTeamId("");
     setTeamPerformanceFilters({ teamIds: [] });
     setTeamPerformanceByTeams(null);
+    closeChecklistInspections();
   };
   const handleTabChange = (_: unknown, nextTab: number) => {
     const key = visibleTabs[nextTab];
@@ -631,7 +854,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
         </Grid>
       </Paper>
 
-      {summary ? <SafetyKpiStrip summary={summary} /> : <SafetyKpiStripSkeleton />}
+      {summary ? (
+        <SafetyKpiStrip
+          summary={summary}
+          onViewChecklist={(checklist) =>
+            void openChecklistInspections(checklist.checklistId, checklist.checklistName)
+          }
+        />
+      ) : (
+        <SafetyKpiStripSkeleton />
+      )}
 
       <Paper sx={{ mb: 3 }}>
         <Tabs
@@ -838,12 +1070,13 @@ export function SafetyAnalyticsPage(): JSX.Element {
                     <TableCell align="center">Nota</TableCell>
                     <TableCell>Finalizada em</TableCell>
                     <TableCell>Criada em</TableCell>
+                    <TableActionsHeaderCell />
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {rankingInspectionsItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         <Typography color="text.secondary" sx={{ py: 2 }}>
                           Nenhuma vistoria encontrada para os filtros selecionados.
                         </Typography>
@@ -861,6 +1094,14 @@ export function SafetyAnalyticsPage(): JSX.Element {
                         </TableCell>
                         <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
                         <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                        <TableActionsCell>
+                          <TableActionsGroup>
+                            <TableViewButton
+                              disabled={!inspection.externalId && !inspection.inspectionId}
+                              onClick={() => openInspectionDetail(inspection)}
+                            />
+                          </TableActionsGroup>
+                        </TableActionsCell>
                       </TableRow>
                     ))
                   )}
@@ -887,6 +1128,104 @@ export function SafetyAnalyticsPage(): JSX.Element {
                   }}
                   rowsPerPageOptions={[10, 20, 50, 100]}
                   disabled={rankingInspectionsLoading}
+                />
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={checklistInspectionsOpen}
+        onClose={closeChecklistInspections}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {checklistInspectionsMeta.checklistName || "Vistorias da avaliação"}
+          <IconButton onClick={closeChecklistInspections} size="small" aria-label="Fechar">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {checklistInspectionsLoading && (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          )}
+          {checklistInspectionsError && !checklistInspectionsLoading && (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              {checklistInspectionsError}
+            </Typography>
+          )}
+          {!checklistInspectionsLoading && !checklistInspectionsError && (
+            <>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Equipe</TableCell>
+                    <TableCell>Endereço</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Nota</TableCell>
+                    <TableCell>Finalizada em</TableCell>
+                    <TableCell>Criada em</TableCell>
+                    <TableActionsHeaderCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {checklistInspectionsItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Typography color="text.secondary" sx={{ py: 2 }}>
+                          Nenhuma vistoria encontrada para os filtros selecionados.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    checklistInspectionsItems.map((inspection) => (
+                      <TableRow key={inspection.inspectionId}>
+                        <TableCell>{inspection.teamName || "-"}</TableCell>
+                        <TableCell>{inspection.serviceOrderAddress || "-"}</TableCell>
+                        <TableCell>{inspection.status}</TableCell>
+                        <TableCell align="center">
+                          <PercentBadge percent={inspection.scorePercent} size="small" />
+                        </TableCell>
+                        <TableCell>{formatDateTime(inspection.finishedAt)}</TableCell>
+                        <TableCell>{formatDateTime(inspection.createdAt)}</TableCell>
+                        <TableActionsCell>
+                          <TableActionsGroup>
+                            <TableViewButton
+                              disabled={!inspection.externalId && !inspection.inspectionId}
+                              onClick={() => openInspectionDetail(inspection)}
+                            />
+                          </TableActionsGroup>
+                        </TableActionsCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {checklistInspectionsMeta.total > 0 && (
+                <ListPagination
+                  meta={checklistInspectionsMeta}
+                  onPageChange={(page) =>
+                    void openChecklistInspections(
+                      checklistInspectionsMeta.checklistId,
+                      checklistInspectionsMeta.checklistName,
+                      page
+                    )
+                  }
+                  onRowsPerPageChange={(newLimit) => {
+                    setChecklistInspectionsMeta((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                    void openChecklistInspections(
+                      checklistInspectionsMeta.checklistId,
+                      checklistInspectionsMeta.checklistName,
+                      1,
+                      newLimit
+                    );
+                  }}
+                  rowsPerPageOptions={[10, 20, 50, 100]}
+                  disabled={checklistInspectionsLoading}
                 />
               )}
             </>
