@@ -4,6 +4,7 @@ import {
   Backdrop,
   Box,
   Button,
+  Chip,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -27,6 +28,7 @@ import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { Collaborator, Contract, InspectionScope, InvestmentWork, InvestmentWorkEvaluationModule, ModuleType, ServiceOrder, Team } from "@/domain";
+import { appendServiceDescriptionOption, serviceDescriptionIncludesOption } from "@/domain/rules";
 import { UserRole } from "@/domain/enums";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
@@ -65,6 +67,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const [selectedContractId, setSelectedContractId] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [serviceDescriptionSuggestions, setServiceDescriptionSuggestions] = useState<string[]>([]);
   const [locationDescription, setLocationDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,6 +146,12 @@ export const NewInspectionPage = (): JSX.Element => {
       cancelled = true;
     };
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!checklistId) {
+      setServiceDescriptionSuggestions([]);
+    }
+  }, [checklistId]);
 
   useEffect(() => {
     if (contractsForSelection.length === 1) {
@@ -789,7 +798,10 @@ export const NewInspectionPage = (): JSX.Element => {
             <Box sx={{ mt: 2 }}>
               <ChecklistSelect
                 value={checklistId}
-                onChange={setChecklistId}
+                onChange={(nextId, checklist) => {
+                  setChecklistId(nextId);
+                  setServiceDescriptionSuggestions(checklist?.serviceDescriptionSuggestions ?? []);
+                }}
                 module={module}
                 inspectionScope={inspectionScope}
                 sectorId={sectorId}
@@ -914,16 +926,53 @@ export const NewInspectionPage = (): JSX.Element => {
               </Alert>
             )}
             {!isRemoteModule && (
-              <TextField
-                fullWidth
-                label="Descrição do serviço"
-                required
-                value={serviceDescription}
-                onChange={(event) => setServiceDescription(event.target.value)}
-                margin="normal"
-                multiline
-                rows={3}
-              />
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Descrição do serviço"
+                  required
+                  value={serviceDescription}
+                  onChange={(event) => setServiceDescription(event.target.value)}
+                  margin="normal"
+                  multiline
+                  rows={3}
+                />
+                {serviceDescriptionSuggestions.length > 0 && (
+                  <Box sx={{ mt: 0.5, mb: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>
+                      Descrições pré-definidas
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 1,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "action.hover",
+                      }}
+                    >
+                    {serviceDescriptionSuggestions.map((suggestion) => {
+                      const selected = serviceDescriptionIncludesOption(serviceDescription, suggestion);
+                      return (
+                        <Chip
+                          key={suggestion}
+                          label={suggestion}
+                          clickable
+                          color={selected ? "primary" : "default"}
+                          variant={selected ? "filled" : "outlined"}
+                          onClick={() =>
+                            setServiceDescription((current) =>
+                              appendServiceDescriptionOption(current, suggestion)
+                            )
+                          }
+                        />
+                      );
+                    })}
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             )}
             <TextField
               fullWidth

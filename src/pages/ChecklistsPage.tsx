@@ -30,6 +30,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Checklist, InspectionScope, PaginatedResponse, Sector } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
 import { SectorSelect } from "@/components/SectorSelect";
+import { ServiceDescriptionSuggestionsField } from "@/components/ServiceDescriptionSuggestionsField";
 import { ModuleType, UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -92,6 +93,7 @@ export const ChecklistsPage = (): JSX.Element => {
   const [checklistDescription, setChecklistDescription] = useState("");
   const [checklistSectorId, setChecklistSectorId] = useState("");
   const [checklistActive, setChecklistActive] = useState(true);
+  const [checklistSuggestions, setChecklistSuggestions] = useState<string[]>([]);
 
   const isWorkSafetyChecklistModule = checklistModule === ModuleType.SEGURANCA_TRABALHO;
   const workSafetySectorId = useMemo(
@@ -183,6 +185,7 @@ export const ChecklistsPage = (): JSX.Element => {
     setChecklistDescription("");
     setChecklistSectorId(sectors.find((sector) => sector.active)?.id ?? "");
     setChecklistActive(true);
+    setChecklistSuggestions([]);
     setChecklistDialogOpen(true);
   };
 
@@ -231,91 +234,91 @@ export const ChecklistsPage = (): JSX.Element => {
       </DataCard>
 
       <SectionTable title="Lista de checklists">
-        {loading ? (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress size={32} />
-          </Box>
-        ) : visibleChecklists.length === 0 ? (
-          <Box py={4} textAlign="center">
-            <Typography color="text.secondary">Nenhum checklist encontrado.</Typography>
-          </Box>
-        ) : (
-          <>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Nome</TableCell>
-                  <TableCell>Módulo</TableCell>
-                  <TableCell>Setor</TableCell>
-                  <TableCell>Seções</TableCell>
-                  <TableCell>Perguntas</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableActionsHeaderCell />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleChecklists.map((checklist) => (
-                  <TableRow key={checklist.id} hover>
-                    <TableCell>
-                      <Typography fontWeight={600}>{checklist.name}</Typography>
-                      {checklist.description && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          {checklist.description}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{getModuleLabel(checklist.module)}</TableCell>
-                    <TableCell>{checklist.sector?.name ?? "—"}</TableCell>
-                    <TableCell>{countSections(checklist)}</TableCell>
-                    <TableCell>{countItems(checklist)}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={checklist.active ? "Ativo" : "Inativo"}
-                        size="small"
-                        color={checklist.active ? "success" : "default"}
-                      />
-                    </TableCell>
-                    <TableActionsCell>
-                      <TableActionsGroup>
-                        {isSupervisor ? (
-                          <TableViewButton
-                            label="Ver"
-                            onClick={() =>
-                              navigate(`/checklists/${checklist.id}/edit`, {
-                                state: { from: detailFrom },
-                              })
-                            }
+            {loading ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : visibleChecklists.length === 0 ? (
+              <Box py={4} textAlign="center">
+                <Typography color="text.secondary">Nenhum checklist encontrado.</Typography>
+              </Box>
+            ) : (
+              <>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nome</TableCell>
+                      <TableCell>Módulo</TableCell>
+                      <TableCell>Setor</TableCell>
+                      <TableCell>Seções</TableCell>
+                      <TableCell>Perguntas</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableActionsHeaderCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {visibleChecklists.map((checklist) => (
+                      <TableRow key={checklist.id} hover>
+                        <TableCell>
+                          <Typography fontWeight={600}>{checklist.name}</Typography>
+                          {checklist.description && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {checklist.description}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>{getModuleLabel(checklist.module)}</TableCell>
+                        <TableCell>{checklist.sector?.name ?? "—"}</TableCell>
+                        <TableCell>{countSections(checklist)}</TableCell>
+                        <TableCell>{countItems(checklist)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={checklist.active ? "Ativo" : "Inativo"}
+                            size="small"
+                            color={checklist.active ? "success" : "default"}
                           />
-                        ) : (
-                          <>
-                            <TableEditButton
-                              onClick={() =>
-                                navigate(`/checklists/${checklist.id}/edit`, {
-                                  state: { from: detailFrom },
-                                })
-                              }
-                            />
-                            <TableDeleteButton onClick={() => setDeletingChecklist(checklist)} />
-                          </>
-                        )}
-                      </TableActionsGroup>
-                    </TableActionsCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {meta && meta.total > 0 && (
-              <ListPagination
-                meta={meta}
-                onPageChange={setPage}
-            onRowsPerPageChange={setLimit}
-                rowsPerPageOptions={[10, 20, 50, 100]}
-                disabled={loading}
-              />
+                        </TableCell>
+                        <TableActionsCell>
+                          <TableActionsGroup>
+                            {isSupervisor ? (
+                              <TableViewButton
+                                label="Ver"
+                                onClick={() =>
+                                  navigate(`/checklists/${checklist.id}/edit`, {
+                                    state: { from: detailFrom },
+                                  })
+                                }
+                              />
+                            ) : (
+                              <>
+                                <TableEditButton
+                                  onClick={() =>
+                                    navigate(`/checklists/${checklist.id}/edit`, {
+                                      state: { from: detailFrom },
+                                    })
+                                  }
+                                />
+                                <TableDeleteButton onClick={() => setDeletingChecklist(checklist)} />
+                              </>
+                            )}
+                          </TableActionsGroup>
+                        </TableActionsCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {meta && meta.total > 0 && (
+                  <ListPagination
+                    meta={meta}
+                    onPageChange={setPage}
+                    onRowsPerPageChange={setLimit}
+                    rowsPerPageOptions={[10, 20, 50, 100]}
+                    disabled={loading}
+                  />
+                )}
+              </>
             )}
-          </>
-        )}
-      </SectionTable>
+          </SectionTable>
 
       <Dialog open={checklistDialogOpen && !isSupervisor} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Novo checklist</DialogTitle>
@@ -374,6 +377,11 @@ export const ChecklistsPage = (): JSX.Element => {
             control={<Switch checked={checklistActive} onChange={(e) => setChecklistActive(e.target.checked)} />}
             label="Ativo"
           />
+          <ServiceDescriptionSuggestionsField
+            value={checklistSuggestions}
+            onChange={setChecklistSuggestions}
+            disabled={savingChecklist}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setChecklistDialogOpen(false)} disabled={savingChecklist}>Cancelar</Button>
@@ -395,6 +403,7 @@ export const ChecklistsPage = (): JSX.Element => {
                   description: checklistDescription || undefined,
                   sectorId: checklistSectorId,
                   active: checklistActive,
+                  serviceDescriptionSuggestions: checklistSuggestions,
                 });
                 setChecklistDialogOpen(false);
                 navigate(`/checklists/${created.id}/edit`, {

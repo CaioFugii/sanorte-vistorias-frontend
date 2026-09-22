@@ -169,6 +169,7 @@ export interface Checklist {
   items?: ChecklistItem[];
   sectionCount?: number;
   itemCount?: number;
+  serviceDescriptionSuggestions?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

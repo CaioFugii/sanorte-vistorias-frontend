@@ -135,6 +135,7 @@ export interface IAppRepository {
     description?: string;
     sectorId: string;
     active: boolean;
+    serviceDescriptionSuggestions?: string[];
   }): Promise<Checklist>;
   updateChecklist(
     checklistId: string,
@@ -145,6 +146,7 @@ export interface IAppRepository {
       description?: string;
       sectorId: string;
       active: boolean;
+      serviceDescriptionSuggestions?: string[];
     }>
   ): Promise<Checklist>;
   deleteChecklist(checklistId: string): Promise<void>;

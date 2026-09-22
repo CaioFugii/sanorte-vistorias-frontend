@@ -297,6 +297,7 @@ export class AppRepository implements IAppRepository {
     description?: string;
     sectorId: string;
     active: boolean;
+    serviceDescriptionSuggestions?: string[];
   }): Promise<Checklist> {
     const checklist = await this.apiRepository.createChecklist(input);
     await this.loadChecklists(true);
@@ -312,6 +313,7 @@ export class AppRepository implements IAppRepository {
       description?: string;
       sectorId: string;
       active: boolean;
+      serviceDescriptionSuggestions?: string[];
     }>
   ): Promise<Checklist> {
     const checklist = await this.apiRepository.updateChecklist(checklistId, input);

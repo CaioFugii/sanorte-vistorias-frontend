@@ -405,6 +405,7 @@ export class ApiRepository {
     description?: string;
     sectorId: string;
     active: boolean;
+    serviceDescriptionSuggestions?: string[];
   }): Promise<Checklist> {
     const response = await apiClient.post<Checklist>("/checklists", input);
     return normalizeChecklistSections(response.data);
@@ -419,6 +420,7 @@ export class ApiRepository {
       description?: string;
       sectorId: string;
       active: boolean;
+      serviceDescriptionSuggestions?: string[];
     }>
   ): Promise<Checklist> {
     const response = await apiClient.put<Checklist>(`/checklists/${checklistId}`, input);

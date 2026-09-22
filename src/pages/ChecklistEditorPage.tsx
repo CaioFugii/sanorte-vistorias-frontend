@@ -34,6 +34,7 @@ import { ModuleType, UserRole } from "@/domain/enums";
 import { MAX_CHECKLIST_ITEMS, canAddChecklistItem } from "@/domain/rules";
 import { ModuleSelect } from "@/components/ModuleSelect";
 import { SectorSelect } from "@/components/SectorSelect";
+import { ServiceDescriptionSuggestionsField } from "@/components/ServiceDescriptionSuggestionsField";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useAuthStore } from "@/stores/authStore";
@@ -105,6 +106,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
   const [metadataDescription, setMetadataDescription] = useState("");
   const [metadataSectorId, setMetadataSectorId] = useState("");
   const [metadataActive, setMetadataActive] = useState(true);
+  const [metadataSuggestions, setMetadataSuggestions] = useState<string[]>([]);
   const [savingMetadata, setSavingMetadata] = useState(false);
 
   const isWorkSafetyModule = metadataModule === ModuleType.SEGURANCA_TRABALHO;
@@ -357,6 +359,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
     setMetadataDescription(checklist.description || "");
     setMetadataSectorId(checklist.sectorId);
     setMetadataActive(checklist.active);
+    setMetadataSuggestions(checklist.serviceDescriptionSuggestions ?? []);
     setMetadataDialogOpen(true);
   };
 
@@ -631,6 +634,11 @@ export const ChecklistEditorPage = (): JSX.Element => {
             control={<Switch checked={metadataActive} onChange={(e) => setMetadataActive(e.target.checked)} />}
             label="Ativo"
           />
+          <ServiceDescriptionSuggestionsField
+            value={metadataSuggestions}
+            onChange={setMetadataSuggestions}
+            disabled={savingMetadata}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setMetadataDialogOpen(false)} disabled={savingMetadata}>Cancelar</Button>
@@ -652,6 +660,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
                   description: metadataDescription || undefined,
                   sectorId: metadataSectorId,
                   active: metadataActive,
+                  serviceDescriptionSuggestions: metadataSuggestions,
                 });
                 setChecklist((current) =>
                   current

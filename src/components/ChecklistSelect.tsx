@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 interface ChecklistSelectProps {
   value: string;
-  onChange: (checklistId: string) => void;
+  onChange: (checklistId: string, checklist?: Checklist) => void;
   module?: ModuleType;
   inspectionScope?: InspectionScope;
   sectorId?: string;
@@ -64,7 +64,13 @@ export function ChecklistSelect({
     prevModuleRef.current = module;
   }, [module]);
 
-  const handleChange = (event: SelectChangeEvent<string>) => onChange(event.target.value);
+  const handleChange = (event: SelectChangeEvent<string>) => {
+    const nextId = event.target.value;
+    onChange(
+      nextId,
+      checklists.find((checklist) => checklist.id === nextId)
+    );
+  };
   const hasNoOptions = checklists.length === 0;
 
   return (

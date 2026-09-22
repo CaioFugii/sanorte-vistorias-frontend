@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Sugestões de descrição de serviço no cadastro do checklist; o fiscal clica para incluir no campo livre da Nova Vistoria
 - Dados de Segurança do Trabalho: a quantidade de vistorias de cada avaliação abre a listagem e a vistoria; Voltar reabre a lista com o mesmo período, contrato e página
 - PDF da vistoria busca fotos via API autenticada (`GET /inspections/:id/evidences/:evidenceId/file`), sem `fetch` direto no S3
 - Aba **Equipes** em Dados de Segurança do Trabalho: mesmo gráfico multi-equipes da Qualidade

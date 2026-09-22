@@ -210,6 +210,7 @@ Exceções por módulo:
 - Checklist com `inspectionScope` padrão `TEAM`
 - Equipe empreiteira (`isContractor = true`) não permite colaboradores vinculados
 - `serviceDescription` obrigatório exceto para módulo `REMOTO`
+- Cada checklist pode ter `serviceDescriptionSuggestions`: o fiscal clica para incluir no campo livre da Nova Vistoria e continua digitando
 
 ---
 
