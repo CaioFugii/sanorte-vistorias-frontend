@@ -948,7 +948,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
       {activeTabKey === "nonconformities" && (
         <QualityNonConformitiesTab
           checklistTitle="Perguntas com mais não conformidades por checklist (Top 10)"
-          teamTitle="Não conformidades da equipe selecionada (Top 10)"
+          teamTitle="Não conformidades da equipe selecionada por checklist (Top 10)"
           topLimit={SAFETY_NC_TOP}
           byChecklist={nonConformitiesByChecklist}
           byTeam={nonConformitiesByTeam}

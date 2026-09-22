@@ -627,13 +627,18 @@ export interface IAppRepository {
     module?: ModuleType;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }>;
   getDashboardSafetyWorkNonConformitiesByChecklist(params: {
@@ -670,13 +675,18 @@ export interface IAppRepository {
     to: string;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }>;
   getDashboardSafetyWorkLowScoreCollaborators(params: {

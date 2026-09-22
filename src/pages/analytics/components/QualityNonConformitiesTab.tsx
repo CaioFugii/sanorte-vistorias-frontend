@@ -10,6 +10,17 @@ import {
 import { ReactNode } from "react";
 import { TeamOption } from "./models";
 
+function formatRatePercent(rate: number): string {
+  const rounded = Math.round(rate * 10) / 10;
+  return Number.isInteger(rounded)
+    ? rounded.toLocaleString("pt-BR")
+    : rounded.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function formatNonConformityCaption(count: number, answers: number, rate: number): string {
+  return `Não conforme em ${count.toLocaleString("pt-BR")} de ${answers.toLocaleString("pt-BR")} respostas (${formatRatePercent(rate)}%)`;
+}
+
 const CHART_HEADER_SX = {
   px: 2.5,
   py: 1.7,
@@ -37,13 +48,18 @@ type QualityNonConformitiesTabProps = {
     }>;
   } | null;
   byTeam: {
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   } | null;
   teamOptions: TeamOption[];
@@ -56,7 +72,7 @@ type QualityNonConformitiesTabProps = {
 
 export function QualityNonConformitiesTab({
   checklistTitle = "Perguntas com mais não conformidades por checklist (Top 5)",
-  teamTitle = "Top não conformidades da equipe selecionada (Top 5)",
+  teamTitle = "Não conformidades da equipe selecionada por checklist (Top 5)",
   topLimit = 5,
   byChecklist,
   byTeam,
@@ -112,7 +128,7 @@ export function QualityNonConformitiesTab({
                         ) : null}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Total de NC: {checklist.totalNonConformities.toLocaleString("pt-BR")}
+                        Total de não conformidades: {checklist.totalNonConformities.toLocaleString("pt-BR")}
                       </Typography>
                       <Box sx={{ mt: 1.5 }}>
                         {checklist.questions.slice(0, topLimit).map((question, index) => (
@@ -130,9 +146,11 @@ export function QualityNonConformitiesTab({
                               {index + 1}. {question.checklistItemTitle}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {question.nonConformitiesCount.toLocaleString("pt-BR")} NC em{" "}
-                              {question.answersCount.toLocaleString("pt-BR")} respostas (
-                              {question.nonConformityRatePercent.toFixed(1).replace(".", ",")}%)
+                              {formatNonConformityCaption(
+                                question.nonConformitiesCount,
+                                question.answersCount,
+                                question.nonConformityRatePercent
+                              )}
                             </Typography>
                           </Box>
                         ))}
@@ -189,40 +207,67 @@ export function QualityNonConformitiesTab({
               </Paper>
             )}
 
-            {!byTeamLoading && !byTeamError && (!byTeam || byTeam.nonConformities.length === 0) && (
+            {!byTeamLoading && !byTeamError && (!byTeam || byTeam.checklists.length === 0) && (
               <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
                 <Typography color="text.secondary">
                   {selectedTeamName
                     ? `Nenhuma não conformidade encontrada para ${selectedTeamName} no período selecionado.`
-                    : `Selecione uma equipe para visualizar o top ${topLimit} de não conformidades.`}
+                    : `Selecione uma equipe para visualizar as não conformidades por checklist.`}
                 </Typography>
               </Paper>
             )}
 
-            {!byTeamLoading && !byTeamError && byTeam && byTeam.nonConformities.length > 0 && (
-              <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
-                {byTeam.nonConformities.slice(0, topLimit).map((item, index) => (
-                  <Box
-                    key={item.checklistItemId}
-                    sx={{
-                      py: 1.2,
-                      borderBottom:
-                        index < Math.min(byTeam.nonConformities.length, topLimit) - 1
-                          ? "1px solid #e2e8f0"
-                          : "none",
-                    }}
-                  >
-                    <Typography variant="body2" fontWeight={700}>
-                      {index + 1}. {item.checklistItemTitle}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {item.nonConformitiesCount.toLocaleString("pt-BR")} NC em{" "}
-                      {item.answersCount.toLocaleString("pt-BR")} respostas (
-                      {item.nonConformityRatePercent.toFixed(1).replace(".", ",")}%)
-                    </Typography>
-                  </Box>
+            {!byTeamLoading && !byTeamError && byTeam && byTeam.checklists.length > 0 && (
+              <Grid container spacing={2}>
+                {byTeam.checklists.map((checklist) => (
+                  <Grid key={checklist.checklistId} item xs={12} md={6}>
+                    <Paper sx={{ p: 2, border: "1px solid #e2e8f0" }}>
+                      <Typography variant="subtitle2" fontWeight={800}>
+                        {checklist.checklistName}
+                        {checklist.sectorName ? (
+                          <Typography
+                            component="span"
+                            variant="subtitle2"
+                            fontWeight={700}
+                            color="text.secondary"
+                            sx={{ ml: 0.75 }}
+                          >
+                            · {checklist.sectorName}
+                          </Typography>
+                        ) : null}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Total de não conformidades: {checklist.totalNonConformities.toLocaleString("pt-BR")}
+                      </Typography>
+                      <Box sx={{ mt: 1.5 }}>
+                        {checklist.questions.slice(0, topLimit).map((question, index) => (
+                          <Box
+                            key={question.checklistItemId}
+                            sx={{
+                              py: 1,
+                              borderBottom:
+                                index < Math.min(checklist.questions.length, topLimit) - 1
+                                  ? "1px solid #e2e8f0"
+                                  : "none",
+                            }}
+                          >
+                            <Typography variant="body2" fontWeight={700}>
+                              {index + 1}. {question.checklistItemTitle}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {formatNonConformityCaption(
+                                question.nonConformitiesCount,
+                                question.answersCount,
+                                question.nonConformityRatePercent
+                              )}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Paper>
+                  </Grid>
                 ))}
-              </Paper>
+              </Grid>
             )}
           </Box>
         </Paper>

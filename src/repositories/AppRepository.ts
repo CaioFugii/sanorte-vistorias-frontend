@@ -911,13 +911,18 @@ export class AppRepository implements IAppRepository {
     module?: ModuleType;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }> {
     return this.apiRepository.getDashboardNonConformitiesByTeam(params);
@@ -960,13 +965,18 @@ export class AppRepository implements IAppRepository {
     to: string;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }> {
     return this.apiRepository.getDashboardSafetyWorkNonConformitiesByTeam(params);

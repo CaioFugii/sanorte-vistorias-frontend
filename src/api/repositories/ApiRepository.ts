@@ -1462,13 +1462,18 @@ export class ApiRepository {
     module?: ModuleType;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }> {
     const response = await apiClient.get<{
@@ -1477,13 +1482,18 @@ export class ApiRepository {
       module?: ModuleType;
       teamId: string;
       limit: number;
-      nonConformities: Array<{
-        checklistItemId: string;
-        checklistItemTitle: string;
-        nonConformitiesCount: number;
-        answersCount: number;
-        nonConformityRatePercent: number;
-        checklistsCount: number;
+      checklists: Array<{
+        checklistId: string;
+        checklistName: string;
+        sectorName?: string;
+        totalNonConformities: number;
+        questions: Array<{
+          checklistItemId: string;
+          checklistItemTitle: string;
+          nonConformitiesCount: number;
+          answersCount: number;
+          nonConformityRatePercent: number;
+        }>;
       }>;
     }>("/dashboards/non-conformities/by-team", { params });
     return response.data;
@@ -1544,13 +1554,18 @@ export class ApiRepository {
     to: string;
     teamId: string;
     limit: number;
-    nonConformities: Array<{
-      checklistItemId: string;
-      checklistItemTitle: string;
-      nonConformitiesCount: number;
-      answersCount: number;
-      nonConformityRatePercent: number;
-      checklistsCount: number;
+    checklists: Array<{
+      checklistId: string;
+      checklistName: string;
+      sectorName?: string;
+      totalNonConformities: number;
+      questions: Array<{
+        checklistItemId: string;
+        checklistItemTitle: string;
+        nonConformitiesCount: number;
+        answersCount: number;
+        nonConformityRatePercent: number;
+      }>;
     }>;
   }> {
     const response = await apiClient.get<{
@@ -1558,13 +1573,18 @@ export class ApiRepository {
       to: string;
       teamId: string;
       limit: number;
-      nonConformities: Array<{
-        checklistItemId: string;
-        checklistItemTitle: string;
-        nonConformitiesCount: number;
-        answersCount: number;
-        nonConformityRatePercent: number;
-        checklistsCount: number;
+      checklists: Array<{
+        checklistId: string;
+        checklistName: string;
+        sectorName?: string;
+        totalNonConformities: number;
+        questions: Array<{
+          checklistItemId: string;
+          checklistItemTitle: string;
+          nonConformitiesCount: number;
+          answersCount: number;
+          nonConformityRatePercent: number;
+        }>;
       }>;
     }>("/dashboards/safety-work/non-conformities/by-team", { params });
     return response.data;
