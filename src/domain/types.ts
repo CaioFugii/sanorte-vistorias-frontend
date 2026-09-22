@@ -114,6 +114,7 @@ export interface InvestmentWork {
   singularities?: string | null;
   status: InvestmentWorkStatus;
   active: boolean;
+  averageScorePercent?: number | null;
   inspectionStats?: {
     total: number;
     averageScorePercent?: number | null;

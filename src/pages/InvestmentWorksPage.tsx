@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -35,6 +36,7 @@ import {
   TableEditButton,
   TableViewButton,
 } from "@/components/ui";
+import { PercentBadge } from "@/components/PercentBadge";
 import { Contract, InvestmentWork, InvestmentWorkStatus, PaginatedResponse, Team, UserRole } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
@@ -62,6 +64,27 @@ function formatDateToDisplay(value: string): string {
   const [year, month, day] = value.split("-");
   if (!year || !month || !day) return value;
   return `${day}/${month}/${year}`;
+}
+
+function isInvestmentWorkOverdue(expectedEndDate: string, today = formatDateForInput(new Date())): boolean {
+  return Boolean(expectedEndDate && today > expectedEndDate);
+}
+
+function DeadlineCell({ startDate, expectedEndDate }: { startDate: string; expectedEndDate: string }): JSX.Element {
+  const overdue = isInvestmentWorkOverdue(expectedEndDate);
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5 }}>
+      <Chip
+        size="small"
+        color={overdue ? "error" : "success"}
+        variant="outlined"
+        label={`${formatDateToDisplay(startDate)} - ${formatDateToDisplay(expectedEndDate)}`}
+      />
+      <Typography variant="caption" color={overdue ? "error.main" : "success.main"} fontWeight={700}>
+        {overdue ? "Atrasado" : "No prazo"}
+      </Typography>
+    </Box>
+  );
 }
 
 const statusLabel: Record<InvestmentWorkStatus, string> = {
@@ -269,19 +292,20 @@ export const InvestmentWorksPage = (): JSX.Element => {
               <TableCell>Status</TableCell>
               <TableCell>Ativa</TableCell>
               <TableCell>Prazo</TableCell>
+              <TableCell align="center">Média</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   Nenhuma obra encontrada.
                 </TableCell>
               </TableRow>
@@ -294,7 +318,14 @@ export const InvestmentWorksPage = (): JSX.Element => {
                   <TableCell>{statusLabel[item.status]}</TableCell>
                   <TableCell>{item.active ? "Sim" : "Não"}</TableCell>
                   <TableCell>
-                    {formatDateToDisplay(item.startDate)} - {formatDateToDisplay(item.expectedEndDate)}
+                    <DeadlineCell startDate={item.startDate} expectedEndDate={item.expectedEndDate} />
+                  </TableCell>
+                  <TableCell align="center">
+                    {typeof item.averageScorePercent === "number" ? (
+                      <PercentBadge percent={Number(item.averageScorePercent.toFixed(2))} size="small" />
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableActionsCell>
                     <TableActionsGroup>
