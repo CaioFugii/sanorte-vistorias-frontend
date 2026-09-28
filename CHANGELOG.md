@@ -42,6 +42,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Detalhe da vistoria de Obras de Investimento: ADMIN e GESTOR podem alterar o tipo Campo ou Pós-obra
 - Obras de Investimento: a listagem mostra a média das vistorias e pinta o prazo em verde ou vermelho conforme o dia atual
 - Dados de Qualidade: não conformidades da equipe selecionada aparecem separadas por checklist
 - Gestão: dois painéis de Qualidade e Segurança (últimos 4 meses), só com filtro de contrato (padrão: todos)

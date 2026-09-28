@@ -18,14 +18,17 @@ import {
   TableRow,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { Edit, PictureAsPdf, ArrowBack, CheckCircle, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { Inspection, InspectionItem } from '@/domain';
-import { ChecklistAnswer, InspectionStatus, ModuleType, UserRole } from '@/domain/enums';
+import { ChecklistAnswer, InspectionStatus, InvestmentWorkEvaluationModule, ModuleType, UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
@@ -193,6 +196,7 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [paralyzeLoading, setParalyzeLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [savingEvaluationModule, setSavingEvaluationModule] = useState(false);
   const user = useAuthStore((state) => state.user);
   const fromState = (location.state as { from?: string } | null)?.from;
   const backTarget = fromState?.startsWith('/') ? fromState : '/inspections';
@@ -224,6 +228,9 @@ export const InspectionDetailPage = (): JSX.Element => {
     user?.role === UserRole.ADMIN ||
     user?.role === UserRole.GESTOR ||
     inspection?.status === InspectionStatus.RASCUNHO;
+  const canEditEvaluationModule =
+    inspection?.module === ModuleType.OBRAS_INVESTIMENTO &&
+    (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR);
   const canParalyzeInspection =
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
     inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
@@ -344,6 +351,25 @@ export const InspectionDetailPage = (): JSX.Element => {
   };
 
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleEvaluationModuleChange = async (
+    value: InvestmentWorkEvaluationModule,
+  ) => {
+    if (!inspection || savingEvaluationModule) return;
+    if (value === inspection.evaluationModule) return;
+    setSavingEvaluationModule(true);
+    try {
+      await appRepository.updateInspectionOnline(inspection.externalId, {
+        evaluationModule: value,
+      });
+      await loadInspection();
+      toast.success('Tipo da vistoria atualizado.');
+    } catch {
+      // O interceptor da API já exibe o erro.
+    } finally {
+      setSavingEvaluationModule(false);
+    }
+  };
 
   const handleDeleteInspection = async () => {
     if (!inspection || deleteLoading || !canDeleteInspection) return;
@@ -497,10 +523,37 @@ export const InspectionDetailPage = (): JSX.Element => {
             <Typography variant="body2" gutterBottom>
               <strong>Módulo:</strong> {getModuleLabel(inspection.module)}
             </Typography>
-            {inspection.module === ModuleType.OBRAS_INVESTIMENTO && inspection.evaluationModule && (
-              <Typography variant="body2" gutterBottom>
-                <strong>Tipo:</strong> {getInvestmentWorkEvaluationModuleLabel(inspection.evaluationModule)}
-              </Typography>
+            {canEditEvaluationModule ? (
+              <Box sx={{ my: 1 }}>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Tipo:</strong>
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  color="primary"
+                  disabled={savingEvaluationModule}
+                  aria-label="Tipo da vistoria"
+                  value={inspection.evaluationModule ?? InvestmentWorkEvaluationModule.CAMPO}
+                  onChange={(_, value: InvestmentWorkEvaluationModule | null) => {
+                    if (value) void handleEvaluationModuleChange(value);
+                  }}
+                >
+                  <ToggleButton value={InvestmentWorkEvaluationModule.CAMPO}>
+                    Vistoria em Campo
+                  </ToggleButton>
+                  <ToggleButton value={InvestmentWorkEvaluationModule.POS_OBRA}>
+                    Vistoria Pós Obra
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            ) : (
+              inspection.module === ModuleType.OBRAS_INVESTIMENTO &&
+              inspection.evaluationModule && (
+                <Typography variant="body2" gutterBottom>
+                  <strong>Tipo:</strong> {getInvestmentWorkEvaluationModuleLabel(inspection.evaluationModule)}
+                </Typography>
+              )
             )}
             {inspection.checklist && (
               <Typography variant="body2" gutterBottom>

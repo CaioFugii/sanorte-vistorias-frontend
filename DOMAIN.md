@@ -40,7 +40,7 @@ Módulo operacional da vistoria.
 
 ### `InvestmentWorkEvaluationModule`
 
-`CAMPO` | `POS_OBRA` — classifica a vistoria de Obras de Investimento no ranking de Qualidade.
+`CAMPO` | `POS_OBRA` — classifica a vistoria de Obras de Investimento no ranking de Qualidade. ADMIN e GESTOR alteram o tipo na tela de detalhes, em qualquer status.
 
 ### `UserRole`
 
