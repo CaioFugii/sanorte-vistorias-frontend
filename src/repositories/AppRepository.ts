@@ -599,10 +599,6 @@ export class AppRepository implements IAppRepository {
       inspectionsCount: number;
       averagePercent: number;
     };
-    investmentWorks: {
-      inspectionsCount: number;
-      averagePercent: number;
-    };
   }> {
     return this.apiRepository.getDashboardQualitySummary(params);
   }

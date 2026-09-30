@@ -351,10 +351,6 @@ export interface IAppRepository {
       inspectionsCount: number;
       averagePercent: number;
     };
-    investmentWorks: {
-      inspectionsCount: number;
-      averagePercent: number;
-    };
   }>;
   getDashboardSafetyWorkSummary(params?: {
     from?: string;

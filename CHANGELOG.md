@@ -37,11 +37,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Removed
 
+- Card **Obras de investimento** na faixa de Dados de Qualidade
 - Aba **Colaboradores** em Dados de Segurança do Trabalho
 - Cards de Faturamento Total, Despesa Total e Cronograma na Gestão (ainda sem dado real)
 
 ### Changed
 
+- Dados de Qualidade: cards de Campo e Pós-obra incluem vistorias de Obras de Investimento conforme o tipo da avaliação
 - Detalhe da vistoria de Obras de Investimento: ADMIN e GESTOR podem alterar o tipo Campo ou Pós-obra
 - Obras de Investimento: a listagem mostra a média das vistorias e pinta o prazo em verde ou vermelho conforme o dia atual
 - Dados de Qualidade: não conformidades da equipe selecionada aparecem separadas por checklist

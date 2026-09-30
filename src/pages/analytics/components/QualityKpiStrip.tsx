@@ -18,10 +18,6 @@ type QualityKpiStripProps = {
       inspectionsCount: number;
       averagePercent: number;
     };
-    investmentWorks: {
-      inspectionsCount: number;
-      averagePercent: number;
-    };
   };
 };
 
@@ -55,7 +51,6 @@ export function QualityKpiStrip({
     { title: "Campo", key: "field" as const },
     { title: "Pós-obra", key: "postWork" as const },
     { title: "Remoto", key: "remote" as const },
-    { title: "Obras de investimento", key: "investmentWorks" as const },
   ];
 
   return (
@@ -106,7 +101,7 @@ export function QualityKpiStrip({
           const moduleData = qualitySummary[card.key];
           const scoreHighlight = getKpiScoreHighlight(moduleData.averagePercent);
           return (
-            <Grid key={card.title} item xs={12} sm={6} md={3}>
+            <Grid key={card.title} item xs={12} sm={4} md={4}>
               <Paper sx={{ p: 2, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
                 <Typography variant="caption" color="text.secondary">
                   {card.title}

@@ -932,10 +932,6 @@ export class ApiRepository {
       inspectionsCount: number;
       averagePercent: number;
     };
-    investmentWorks: {
-      inspectionsCount: number;
-      averagePercent: number;
-    };
   }> {
     const response = await apiClient.get<{
       averagePercent: number;
@@ -950,10 +946,6 @@ export class ApiRepository {
         averagePercent: number;
       };
       remote: {
-        inspectionsCount: number;
-        averagePercent: number;
-      };
-      investmentWorks: {
         inspectionsCount: number;
         averagePercent: number;
       };

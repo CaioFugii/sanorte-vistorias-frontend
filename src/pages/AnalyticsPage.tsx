@@ -63,8 +63,8 @@ function QualityKpiStripSkeleton(): JSX.Element {
         ))}
       </Grid>
       <Grid container spacing={2} sx={{ mt: 0.5 }}>
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Grid key={`quality-kpi-module-skeleton-${index}`} item xs={12} sm={6} md={3}>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Grid key={`quality-kpi-module-skeleton-${index}`} item xs={12} sm={4} md={4}>
             <Paper sx={{ p: 2, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
               <Skeleton variant="text" width="55%" height={16} />
               <Skeleton variant="text" width="65%" height={24} sx={{ mt: 0.75 }} />
