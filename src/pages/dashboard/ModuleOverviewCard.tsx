@@ -24,6 +24,25 @@ function monthLabel(yyyyMM: string): string {
     .toUpperCase();
 }
 
+function lighten(hex: string, amount: number): string {
+  const normalized = hex.replace("#", "");
+  const channel = (start: number) => parseInt(normalized.slice(start, start + 2), 16);
+  const mix = (value: number) => Math.round(value + (255 - value) * amount);
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${toHex(mix(channel(0)))}${toHex(mix(channel(2)))}${toHex(mix(channel(4)))}`;
+}
+
+function currentMonthKey(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  return `${year}-${month}`;
+}
+
 function Donut({ percent, color }: { percent: number; color: string }): JSX.Element {
   const size = 78;
   const stroke = 8;
@@ -75,12 +94,13 @@ function Donut({ percent, color }: { percent: number; color: string }): JSX.Elem
 
 export function ModuleOverviewCard({
   title,
-  subtitle = "VISTORIAS GERAIS",
+  subtitle = "NOTAS MENSAIS",
   color,
   data,
   onClick,
 }: ModuleOverviewCardProps): JSX.Element {
   const barMax = Math.max(...data.months.map((month) => month.averagePercent), 100);
+  const currentMonth = currentMonthKey();
 
   return (
     <Paper
@@ -118,9 +138,12 @@ export function ModuleOverviewCard({
       >
         {data.months.map((month) => {
           const heightPercent = (month.averagePercent / barMax) * 100;
+          const isCurrentMonth = month.month === currentMonth;
+          const barColor = isCurrentMonth ? lighten(color, 0.45) : color;
+          const labelColor = isCurrentMonth ? color : "#0B1F5B";
           return (
             <Box key={month.month} sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 0 }}>
-              <Typography variant="caption" fontWeight={700} sx={{ color: "#0B1F5B", mb: 0.75 }}>
+              <Typography variant="caption" fontWeight={700} sx={{ color: labelColor, mb: 0.75 }}>
                 {formatPercent(month.averagePercent)}
               </Typography>
               <Box
@@ -140,7 +163,7 @@ export function ModuleOverviewCard({
                     width: "100%",
                     height: `${heightPercent}%`,
                     minHeight: month.inspectionsCount > 0 ? 8 : 0,
-                    bgcolor: color,
+                    bgcolor: barColor,
                     borderRadius: 1.5,
                   }}
                 />
@@ -148,9 +171,23 @@ export function ModuleOverviewCard({
               <Typography
                 variant="caption"
                 fontWeight={700}
-                sx={{ mt: 1, color: "#0B1F5B", textAlign: "center", lineHeight: 1.15 }}
+                sx={{ mt: 1, color: labelColor, textAlign: "center", lineHeight: 1.15 }}
               >
                 {monthLabel(month.month)}
+              </Typography>
+              <Typography
+                variant="caption"
+                fontWeight={700}
+                sx={{
+                  mt: 0.25,
+                  minHeight: "1.15em",
+                  color: color,
+                  textAlign: "center",
+                  lineHeight: 1.15,
+                  visibility: isCurrentMonth ? "visible" : "hidden",
+                }}
+              >
+                Mês Vigente
               </Typography>
             </Box>
           );
@@ -169,7 +206,10 @@ export function ModuleOverviewCard({
             key={`${month.month}-count`}
             variant="subtitle2"
             fontWeight={800}
-            sx={{ color: "#0B1F5B", textAlign: "center" }}
+            sx={{
+              color: month.month === currentMonth ? color : "#0B1F5B",
+              textAlign: "center",
+            }}
           >
             {formatCount(month.inspectionsCount)}
           </Typography>

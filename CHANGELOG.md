@@ -44,6 +44,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 ### Changed
 
 - Dados de Qualidade: o card Média Geral usa a média simples de Campo, Remoto e Pós-obra; módulo sem vistoria não entra como 0%
+- Gestão: o mês vigente usa uma tonalidade mais clara da mesma cor, com o subtítulo "Mês Vigente", nos gráficos de Qualidade e Segurança do Trabalho
 - Dados de Qualidade: cards de Campo e Pós-obra incluem vistorias de Obras de Investimento conforme o tipo da avaliação
 - Detalhe da vistoria de Obras de Investimento: ADMIN e GESTOR podem alterar o tipo Campo ou Pós-obra
 - Obras de Investimento: a listagem mostra a média das vistorias e pinta o prazo em verde ou vermelho conforme o dia atual
