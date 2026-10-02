@@ -80,7 +80,6 @@ export const NewInspectionPage = (): JSX.Element => {
   const investmentWorkSearchRequestRef = useRef(0);
 
   const MIN_OS_SEARCH_LENGTH = 4;
-  const INITIAL_OS_OPTIONS_LIMIT = 4;
   const MIN_TEAM_SEARCH_LENGTH = 4;
   const MIN_COLLABORATOR_SEARCH_LENGTH = 4;
   const MIN_INVESTMENT_WORK_SEARCH_LENGTH = 3;
@@ -188,12 +187,18 @@ export const NewInspectionPage = (): JSX.Element => {
     }
 
     const trimmed = osNumberInput.trim();
-    if (trimmed.length > 0 && trimmed.length < MIN_OS_SEARCH_LENGTH) {
+    if (trimmed.length < MIN_OS_SEARCH_LENGTH) {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
       }
+      osSearchRequestRef.current += 1;
       setOsSearchLoading(false);
+      setServiceOrderOptions(
+        selectedServiceOrder && trimmed === selectedServiceOrder.osNumber.trim()
+          ? [selectedServiceOrder]
+          : []
+      );
       return;
     }
 
@@ -203,19 +208,17 @@ export const NewInspectionPage = (): JSX.Element => {
       setOsSearchLoading(true);
       try {
         const params: {
-          osNumber?: string;
+          osNumber: string;
           page: number;
           limit: number;
           field?: boolean;
           remote?: boolean;
           postWork?: boolean;
         } = {
+          osNumber: trimmed,
           page: 1,
-          limit: trimmed.length >= MIN_OS_SEARCH_LENGTH ? 20 : INITIAL_OS_OPTIONS_LIMIT,
+          limit: 20,
         };
-        if (trimmed.length >= MIN_OS_SEARCH_LENGTH) {
-          params.osNumber = trimmed;
-        }
         if (module === ModuleType.CAMPO) params.field = false;
         else if (module === ModuleType.REMOTO) params.remote = false;
         else if (module === ModuleType.POS_OBRA) params.postWork = false;
@@ -614,11 +617,9 @@ export const NewInspectionPage = (): JSX.Element => {
                   )}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
                   noOptionsText={
-                    osNumberInput.trim().length === 0
-                      ? "Nenhuma OS disponível para este módulo"
-                      : osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
-                        ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres`
-                        : "Nenhuma OS encontrada"
+                    osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
+                      ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres`
+                      : "Nenhuma OS encontrada"
                   }
                   renderInput={(params) => (
                     <TextField
