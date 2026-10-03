@@ -17,14 +17,31 @@ import { Delete, PauseCircleOutline, PlayCircleOutline, Save } from "@mui/icons-
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
-import { Checklist, Evidence, Inspection, InspectionItem, Signature } from "@/domain";
+import { Checklist, Evidence, Inspection, InspectionItem, Signature, Team } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 import { appRepository } from "@/repositories/AppRepository";
 import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
 import { useAuthStore } from "@/stores/authStore";
-import { useReferenceStore } from "@/stores/referenceStore";
-import { Team } from "@/domain";
+
+const TEAM_PAGE_SIZE = 100;
+const MAX_TEAM_PAGES = 50;
+
+async function loadAllTeams(): Promise<Team[]> {
+  const collected: Team[] = [];
+  let page = 1;
+  let hasNext = true;
+
+  while (hasNext) {
+    const result = await appRepository.getTeams({ page, limit: TEAM_PAGE_SIZE });
+    collected.push(...result.data);
+    hasNext = Boolean(result.meta?.hasNext);
+    page += 1;
+    if (page > MAX_TEAM_PAGES) break;
+  }
+
+  return collected.sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+}
 
 export const ManageInspectionPage = (): JSX.Element => {
   const { externalId = "" } = useParams();
@@ -33,7 +50,7 @@ export const ManageInspectionPage = (): JSX.Element => {
   const fromState = (location.state as { from?: string } | null)?.from;
   const detailBackTarget = fromState?.startsWith("/") ? fromState : "/inspections";
   const user = useAuthStore((state) => state.user);
-  const { loadCache, teams } = useReferenceStore();
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingEvidenceId, setDeletingEvidenceId] = useState<string | null>(null);
@@ -64,8 +81,11 @@ export const ManageInspectionPage = (): JSX.Element => {
       }
       setLoading(true);
       try {
-        await loadCache();
-        const data = await appRepository.getInspection(externalId, true);
+        const [data, loadedTeams] = await Promise.all([
+          appRepository.getInspection(externalId, true),
+          loadAllTeams().catch(() => [] as Team[]),
+        ]);
+        setTeams(loadedTeams);
         if (!data) {
           navigate("/inspections");
           return;
@@ -89,7 +109,7 @@ export const ManageInspectionPage = (): JSX.Element => {
       }
     };
     run();
-  }, [externalId, isAllowed, loadCache, navigate]);
+  }, [externalId, isAllowed, navigate]);
 
   const loadInspection = async () => {
     if (!externalId || !isAllowed) return;

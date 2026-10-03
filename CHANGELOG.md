@@ -60,6 +60,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Fixed
 
+- Editar vistoria: o seletor de equipe carregava só a primeira página (100). Gestor com muitos contratos, e portanto mais de 100 equipes, não via o restante para corrigir a equipe
 - Combo de equipes vazio ao filtrar por contrato (Qualidade, vistorias e pendências): a API já filtra por `contractId` e o cliente descartava o resultado porque `GET /teams` não hidrata `contracts`
 - Datas dos relatórios de engenharia no PDF sem atraso de um dia (fuso UTC)
 - Seletor de linhas por página nas listagens com filtros persistidos na URL
