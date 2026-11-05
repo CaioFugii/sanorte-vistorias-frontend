@@ -1034,6 +1034,7 @@ export class AppRepository implements IAppRepository {
     from: string;
     to: string;
     contractId?: string;
+    module?: ModuleType;
   }): Promise<{
     from: string;
     to: string;

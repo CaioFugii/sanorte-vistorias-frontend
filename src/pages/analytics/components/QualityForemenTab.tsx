@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { ReactNode } from "react";
+import { getKpiScoreHighlight } from "./kpiScoreHighlight";
 import { ForemenRankingData } from "./models";
 
 const CHART_HEADER_SX = {
@@ -74,6 +75,53 @@ export function QualityForemenTab({
             <Typography color="text.secondary">
               Nenhum resultado de encarregado encontrado para o período selecionado.
             </Typography>
+          </Paper>
+        )}
+
+        {!loading && !error && foremen.length > 0 && (
+          <Paper sx={{ p: 2, mb: 2.5, border: "1px solid #e2e8f0" }}>
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
+              Nota média
+            </Typography>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+              {foremen.map((foreman) => {
+                const barColor = getKpiScoreHighlight(foreman.averagePercent).textColor;
+                const width = Math.min(100, Math.max(0, foreman.averagePercent));
+                return (
+                  <Box key={foreman.foremanId} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Typography
+                      variant="caption"
+                      fontWeight={800}
+                      title={foreman.foremanName}
+                      sx={{
+                        width: { xs: 120, sm: 220 },
+                        flexShrink: 0,
+                        textTransform: "uppercase",
+                        lineHeight: 1.2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {foreman.foremanName}
+                    </Typography>
+                    <Box sx={{ flex: 1, height: 22, bgcolor: "#e2e8f0", borderRadius: 1, overflow: "hidden" }}>
+                      <Box
+                        sx={{
+                          width: `${width}%`,
+                          height: "100%",
+                          bgcolor: barColor,
+                          borderRadius: 1,
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="body2" fontWeight={800} sx={{ width: 72, flexShrink: 0, textAlign: "right" }}>
+                      {formatPercent(foreman.averagePercent)}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Box>
           </Paper>
         )}
 

@@ -55,6 +55,11 @@ const QUALITY_MODULES: ModuleType[] = [
   ModuleType.POS_OBRA,
   ModuleType.OBRAS_INVESTIMENTO,
 ];
+const QUALITY_FISCAL_MODULES: Array<{ value: ModuleType; label: string }> = [
+  { value: ModuleType.CAMPO, label: "Campo" },
+  { value: ModuleType.REMOTO, label: "Remoto" },
+  { value: ModuleType.POS_OBRA, label: "Pós-Obra" },
+];
 
 function QualityKpiStripSkeleton(): JSX.Element {
   return (
@@ -357,6 +362,9 @@ export function AnalyticsPage(): JSX.Element {
   const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
   const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
   const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
+  const [inspectorsModule, setInspectorsModule] = useState<ModuleType>(ModuleType.REMOTO);
+  const [inspectorsLoading, setInspectorsLoading] = useState(false);
+  const [inspectorsError, setInspectorsError] = useState<string | null>(null);
   const [foremenRanking, setForemenRanking] = useState<ForemenRankingData | null>(null);
   const [teamRankingQuality, setTeamRankingQuality] = useState<
     Array<{
@@ -465,13 +473,8 @@ export function AnalyticsPage(): JSX.Element {
           limitPerChecklist: 5,
         }),
       ]);
-      const [teamRanking, inspectorsProductionResult, foremenRankingResult] = await Promise.all([
+      const [teamRanking, foremenRankingResult] = await Promise.all([
         appRepository.getDashboardTeamRanking({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardQualityInspectorsProduction({
           from: period.from,
           to: period.to,
           contractId: contractId || undefined,
@@ -490,7 +493,6 @@ export function AnalyticsPage(): JSX.Element {
       setCurrentMonthByService(currentResponse ?? null);
       setQualitySummaryFromApi(summaryResponse);
       setNonConformitiesByChecklist(nonConformitiesChecklistResponse ?? null);
-      setInspectorsProduction(inspectorsProductionResult);
       setForemenRanking(foremenRankingResult);
       setTeamRankingQuality(
         teamRanking.map((item) => ({
@@ -581,6 +583,35 @@ export function AnalyticsPage(): JSX.Element {
     if (!canAccessAnalytics) return;
     void loadAnalyticsData(selectedContractId || undefined, globalPeriod);
   }, [canAccessAnalytics, globalPeriod, selectedContractId]);
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    let cancelled = false;
+    setInspectorsLoading(true);
+    setInspectorsError(null);
+    void appRepository
+      .getDashboardQualityInspectorsProduction({
+        from: globalPeriod.from,
+        to: globalPeriod.to,
+        contractId: selectedContractId || undefined,
+        module: inspectorsModule,
+      })
+      .then((result) => {
+        if (!cancelled) setInspectorsProduction(result);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInspectorsProduction(null);
+          setInspectorsError("Falha ao carregar a produção dos fiscais.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInspectorsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessAnalytics, globalPeriod, inspectorsModule, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -1053,10 +1084,15 @@ export function AnalyticsPage(): JSX.Element {
               {activeTabKey === "fiscais" && (
                 <SafetyFiscaisTab
                   data={inspectorsProduction}
-                  loading={loading}
-                  error={error}
+                  loading={inspectorsLoading}
+                  error={inspectorsError}
                   areaLabel="Qualidade"
                   emptyMessage="Nenhuma vistoria de Qualidade encontrada para o período selecionado."
+                  chart="columns"
+                  moduleOptions={QUALITY_FISCAL_MODULES}
+                  selectedModule={inspectorsModule}
+                  onModuleChange={(module) => setInspectorsModule(module as ModuleType)}
+                  selectionResetKey={inspectorsModule}
                   dateFilterHint={
                     <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
                   }

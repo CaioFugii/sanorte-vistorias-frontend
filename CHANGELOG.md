@@ -46,6 +46,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Aba **Fiscais** de Qualidade: gráfico de colunas, seleção dos fiscais e filtro de tipo (Campo, Remoto ou Pós-Obra). O padrão é Remoto, com todos os fiscais selecionados
+- Aba **Encarregados** de Qualidade: gráfico de barras da nota média
 - Gestão: o anel de Qualidade e de Segurança do Trabalho usa a média simples das notas mensais; mês sem vistoria não entra como 0%
 - Dados de Qualidade: o card Média Geral usa a média simples de Campo, Remoto e Pós-obra; módulo sem vistoria não entra como 0%
 - Gestão: o mês vigente usa uma tonalidade mais clara da mesma cor, com o subtítulo "Mês Vigente", nos gráficos de Qualidade e Segurança do Trabalho

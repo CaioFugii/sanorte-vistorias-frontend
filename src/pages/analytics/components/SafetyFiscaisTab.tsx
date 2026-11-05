@@ -1,5 +1,6 @@
 import {
   Box,
+  Chip,
   CircularProgress,
   Grid,
   Paper,
@@ -8,9 +9,12 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { InspectorsDailyColumnChart } from "./InspectorsDailyColumnChart";
 import { InspectorsDailyLineChart } from "./InspectorsDailyLineChart";
 import { getInspectorColor } from "./inspectorColors";
 import { InspectorsProductionData } from "./models";
@@ -31,6 +35,11 @@ type SafetyFiscaisTabProps = {
   dateFilterHint: ReactNode;
   areaLabel?: string;
   emptyMessage?: string;
+  chart?: "line" | "columns";
+  moduleOptions?: Array<{ value: string; label: string }>;
+  selectedModule?: string;
+  onModuleChange?: (module: string) => void;
+  selectionResetKey?: string;
 };
 
 function parseDateOnly(value: string): Date {
@@ -64,10 +73,24 @@ export function SafetyFiscaisTab({
   dateFilterHint,
   areaLabel = "Segurança do Trabalho",
   emptyMessage = "Nenhuma vistoria de Segurança do Trabalho encontrada para o período selecionado.",
+  chart = "line",
+  moduleOptions,
+  selectedModule,
+  onModuleChange,
+  selectionResetKey,
 }: SafetyFiscaisTabProps): JSX.Element {
   const today = todayDateKey();
   const inspectors = data?.inspectors ?? [];
   const days = data?.days ?? [];
+  const inspectorKey = inspectors.map((inspector) => inspector.userId).join("|");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSelectedIds(inspectorKey ? inspectorKey.split("|") : []);
+  }, [inspectorKey, selectionResetKey]);
+
+  const selectedInspectors = inspectors.filter((inspector) => selectedIds.includes(inspector.userId));
+  const allSelected = inspectors.length > 0 && selectedInspectors.length === inspectors.length;
 
   return (
     <Paper sx={{ p: 0, overflow: "hidden" }}>
@@ -80,6 +103,23 @@ export function SafetyFiscaisTab({
             <Typography variant="subtitle2" fontWeight={700}>
               {areaLabel}
             </Typography>
+            {moduleOptions && moduleOptions.length > 0 && (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={selectedModule}
+                onChange={(_, value: string | null) => {
+                  if (value) onModuleChange?.(value);
+                }}
+                sx={{ mt: 1.25 }}
+              >
+                {moduleOptions.map((option) => (
+                  <ToggleButton key={option.value} value={option.value} sx={{ px: 1.75, textTransform: "none" }}>
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            )}
           </Box>
           {dateFilterHint}
         </Box>
@@ -254,7 +294,59 @@ export function SafetyFiscaisTab({
               <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
                 Acompanhamento de vistorias
               </Typography>
-              <InspectorsDailyLineChart days={days} inspectors={inspectors} />
+              {chart === "columns" && (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                  <Chip
+                    label="Todos"
+                    size="small"
+                    clickable
+                    color={allSelected ? "primary" : "default"}
+                    variant={allSelected ? "filled" : "outlined"}
+                    onClick={() => setSelectedIds(inspectors.map((inspector) => inspector.userId))}
+                  />
+                  {inspectors.map((inspector, index) => {
+                    const selected = selectedIds.includes(inspector.userId);
+                    const color = getInspectorColor(index);
+                    return (
+                      <Chip
+                        key={inspector.userId}
+                        label={inspector.userName}
+                        size="small"
+                        clickable
+                        variant={selected ? "filled" : "outlined"}
+                        onClick={() =>
+                          setSelectedIds((current) =>
+                            current.includes(inspector.userId)
+                              ? current.filter((id) => id !== inspector.userId)
+                              : [...current, inspector.userId]
+                          )
+                        }
+                        sx={{
+                          borderColor: color,
+                          color: selected ? "#fff" : color,
+                          bgcolor: selected ? color : "transparent",
+                          "&:hover": { bgcolor: selected ? color : "rgba(15, 23, 42, 0.04)" },
+                        }}
+                      />
+                    );
+                  })}
+                </Box>
+              )}
+              {chart === "columns" && selectedInspectors.length === 0 ? (
+                <Typography color="text.secondary">Selecione ao menos um fiscal para ver o gráfico.</Typography>
+              ) : chart === "columns" ? (
+                <InspectorsDailyColumnChart
+                  days={days}
+                  series={selectedInspectors.map((inspector) => ({
+                    userId: inspector.userId,
+                    userName: inspector.userName,
+                    color: getInspectorColor(inspectors.findIndex((item) => item.userId === inspector.userId)),
+                    dailyCounts: inspector.dailyCounts,
+                  }))}
+                />
+              ) : (
+                <InspectorsDailyLineChart days={days} inspectors={inspectors} />
+              )}
             </Paper>
           </>
         )}
