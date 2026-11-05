@@ -129,6 +129,23 @@ export type InspectorsProductionData = {
   inspectors: InspectorProductionRow[];
 };
 
+export type ForemanRankingRow = {
+  foremanId: string;
+  foremanName: string;
+  teams: Array<{ id: string; name: string }>;
+  averagePercent: number;
+  inspectionsCount: number;
+  nonConformitiesCount: number;
+  pendingAdjustmentsCount: number;
+  resolvedCount: number;
+};
+
+export type ForemenRankingData = {
+  from: string;
+  to: string;
+  foremen: ForemanRankingRow[];
+};
+
 export type TeamRankingInspectionsMeta = {
   teamId: string;
   teamName: string;

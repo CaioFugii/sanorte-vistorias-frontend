@@ -13,21 +13,42 @@ function formatDayLabel(value: string): string {
   return `${day}/${month}`;
 }
 
+function buildYAxis(rawMax: number): { yMax: number; ticks: number[] } {
+  const max = Math.max(1, rawMax);
+  if (max <= 5) {
+    return {
+      yMax: max,
+      ticks: Array.from({ length: max + 1 }, (_, index) => index),
+    };
+  }
+
+  const rough = max / 5;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const residual = rough / magnitude;
+  const nice = residual <= 1 ? 1 : residual <= 2 ? 2 : residual <= 5 ? 5 : 10;
+  const step = nice * magnitude;
+  const yMax = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let value = 0; value <= yMax; value += step) {
+    ticks.push(value);
+  }
+  return { yMax, ticks };
+}
+
 export function InspectorsDailyLineChart({
   days,
   inspectors,
 }: InspectorsDailyLineChartProps): JSX.Element {
   const width = 920;
-  const height = 280;
-  const padding = { top: 18, right: 16, bottom: 36, left: 36 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
+  const height = 300;
   const rawMax = Math.max(
     ...inspectors.flatMap((inspector) => inspector.dailyCounts.map((item) => item.count)),
     0
   );
-  const yMax = Math.max(1, rawMax);
-  const yTicks = Array.from({ length: yMax + 1 }, (_, index) => index);
+  const { yMax, ticks: yTicks } = buildYAxis(rawMax);
+  const padding = { top: 16, right: 16, bottom: 36, left: yMax >= 100 ? 48 : 40 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
   const labelStep = days.length > 16 ? Math.ceil(days.length / 12) : 1;
 
   const xForIndex = (index: number): number => {

@@ -93,6 +93,7 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       items: [
         { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
         { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
+        { path: "/foremen", label: "Encarregados", icon: <Groups fontSize="small" /> },
         { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" /> },
         { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
         { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" /> },

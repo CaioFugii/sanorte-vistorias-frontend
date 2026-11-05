@@ -6,6 +6,7 @@ import {
   Collaborator,
   Contract,
   DashboardOverview,
+  Foreman,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
@@ -259,6 +260,7 @@ export class ApiRepository {
     collaboratorIds?: string[];
     contractIds: string[];
     sectorIds?: string[];
+    foremanId?: string | null;
   }): Promise<Team> {
     const response = await apiClient.post<Team>("/teams", input);
     return response.data;
@@ -266,7 +268,7 @@ export class ApiRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[]; foremanId: string | null }>
   ): Promise<Team> {
     const response = await apiClient.put<Team>(`/teams/${teamId}`, input);
     return response.data;
@@ -360,6 +362,33 @@ export class ApiRepository {
 
   async deleteCollaborator(collaboratorId: string): Promise<void> {
     await apiClient.delete(`/collaborators/${collaboratorId}`);
+  }
+
+  async getForemen(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Foreman>> {
+    const response = await apiClient.get<PaginatedResponse<Foreman>>("/foremen", { params });
+    return response.data;
+  }
+
+  async createForeman(input: { name: string; active?: boolean }): Promise<Foreman> {
+    const response = await apiClient.post<Foreman>("/foremen", input);
+    return response.data;
+  }
+
+  async updateForeman(
+    foremanId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Foreman> {
+    const response = await apiClient.put<Foreman>(`/foremen/${foremanId}`, input);
+    return response.data;
+  }
+
+  async deleteForeman(foremanId: string): Promise<void> {
+    await apiClient.delete(`/foremen/${foremanId}`);
   }
 
   async getChecklist(checklistId: string): Promise<Checklist> {
@@ -1620,6 +1649,49 @@ export class ApiRepository {
         bestScorePercent: number;
       }>;
     }>("/dashboards/safety-work/low-score-collaborators", { params });
+    return response.data;
+  }
+
+  async getDashboardQualityInspectorsProduction(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    days: string[];
+    inspectors: Array<{
+      userId: string;
+      userName: string;
+      inspectionsCount: number;
+      daysWithInspections: number;
+      dailyAverage: number;
+      dailyCounts: Array<{ date: string; count: number }>;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/quality/inspectors-production", { params });
+    return response.data;
+  }
+
+  async getDashboardQualityForemenRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    foremen: Array<{
+      foremanId: string;
+      foremanName: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/quality/foremen-ranking", { params });
     return response.data;
   }
 

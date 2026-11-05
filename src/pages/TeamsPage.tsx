@@ -24,7 +24,7 @@ import {
 import { Add } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
-import { Collaborator, Contract, PaginatedResponse, Sector, Team } from '@/domain';
+import { Collaborator, Contract, Foreman, PaginatedResponse, Sector, Team } from '@/domain';
 import { UserRole } from '@/domain/enums';
 import { appRepository } from '@/repositories/AppRepository';
 import { useAuthStore } from '@/stores/authStore';
@@ -71,6 +71,8 @@ export const TeamsPage = (): JSX.Element => {
   const [contractOptions, setContractOptions] = useState<Contract[]>([]);
   const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
   const [selectedSectorIds, setSelectedSectorIds] = useState<string[]>([]);
+  const [foremanOptions, setForemanOptions] = useState<Foreman[]>([]);
+  const [selectedForemanId, setSelectedForemanId] = useState<string | null>(null);
   const [filterContractId, setFilterContractId] = useState("");
   const [filterSectorId, setFilterSectorId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -108,12 +110,14 @@ export const TeamsPage = (): JSX.Element => {
 
   useEffect(() => {
     const run = async () => {
-      const [collaboratorsResponse, contractsResponse] = await Promise.all([
+      const [collaboratorsResponse, contractsResponse, foremenResponse] = await Promise.all([
         appRepository.getCollaborators({ page: 1, limit: 100 }),
         appRepository.getContracts({ page: 1, limit: 100 }),
+        appRepository.getForemen({ page: 1, limit: 100, active: true }),
       ]);
       setCollaborators(collaboratorsResponse.data.filter((c) => c.active));
       setContractOptions(contractsResponse.data);
+      setForemanOptions(foremenResponse.data);
     };
     void run();
   }, []);
@@ -127,6 +131,9 @@ export const TeamsPage = (): JSX.Element => {
   const sectorOptions = sectors.filter(
     (sector) => sector.active || selectedSectorIds.includes(sector.id)
   );
+  const foremanSelectOptions = foremanOptions.some((foreman) => foreman.id === selectedForemanId) || !editingTeam?.foreman
+    ? foremanOptions
+    : [...foremanOptions, { ...editingTeam.foreman, active: editingTeam.foreman.active ?? false, teams: [] }];
 
   if (loading && !result) {
     return (
@@ -155,6 +162,7 @@ export const TeamsPage = (): JSX.Element => {
                 setSelectedCollaboratorIds([]);
                 setSelectedContractIds([]);
                 setSelectedSectorIds([]);
+                setSelectedForemanId(null);
                 setFormError(null);
                 setDialogOpen(true);
               }}
@@ -212,6 +220,7 @@ export const TeamsPage = (): JSX.Element => {
               <TableCell>Tipo</TableCell>
               <TableCell>Setores</TableCell>
               <TableCell>Colaboradores</TableCell>
+              <TableCell>Encarregado</TableCell>
               <TableCell>Status</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
@@ -219,13 +228,13 @@ export const TeamsPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : teams.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   Nenhuma equipe encontrada.
                 </TableCell>
               </TableRow>
@@ -238,6 +247,7 @@ export const TeamsPage = (): JSX.Element => {
                 <TableCell>
                   {(team.collaboratorCount ?? team.collaboratorIds?.length ?? team.collaborators?.length ?? 0)}
                 </TableCell>
+                <TableCell>{team.foreman?.name ?? "—"}</TableCell>
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
@@ -266,6 +276,7 @@ export const TeamsPage = (): JSX.Element => {
                               fullTeam.sectors?.map((sector) => sector.id) ??
                               []
                           );
+                          setSelectedForemanId(fullTeam.foreman?.id ?? fullTeam.foremanId ?? null);
                           setDialogOpen(true);
                         } catch {
                           setFormError("Não foi possível carregar a equipe.");
@@ -354,6 +365,22 @@ export const TeamsPage = (): JSX.Element => {
           </Box>
           <Box sx={{ mt: 2 }}>
             <Autocomplete
+              options={foremanSelectOptions}
+              value={foremanSelectOptions.find((foreman) => foreman.id === selectedForemanId) ?? null}
+              onChange={(_, selected) => setSelectedForemanId(selected?.id ?? null)}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Encarregado"
+                  placeholder="Sem encarregado"
+                />
+              )}
+            />
+          </Box>
+          <Box sx={{ mt: 2 }}>
+            <Autocomplete
               multiple
               options={sectorOptions}
               value={sectorOptions.filter((sector) => selectedSectorIds.includes(sector.id))}
@@ -407,6 +434,7 @@ export const TeamsPage = (): JSX.Element => {
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                     contractIds: selectedContractIds,
                     sectorIds: selectedSectorIds,
+                    foremanId: selectedForemanId,
                   });
                 } else {
                   await appRepository.createTeam({
@@ -416,6 +444,7 @@ export const TeamsPage = (): JSX.Element => {
                     collaboratorIds: isContractor ? [] : selectedCollaboratorIds,
                     contractIds: selectedContractIds,
                     sectorIds: selectedSectorIds,
+                    foremanId: selectedForemanId,
                   });
                 }
                 setDialogOpen(false);

@@ -29,6 +29,8 @@ type SafetyFiscaisTabProps = {
   loading: boolean;
   error: string | null;
   dateFilterHint: ReactNode;
+  areaLabel?: string;
+  emptyMessage?: string;
 };
 
 function parseDateOnly(value: string): Date {
@@ -60,6 +62,8 @@ export function SafetyFiscaisTab({
   loading,
   error,
   dateFilterHint,
+  areaLabel = "Segurança do Trabalho",
+  emptyMessage = "Nenhuma vistoria de Segurança do Trabalho encontrada para o período selecionado.",
 }: SafetyFiscaisTabProps): JSX.Element {
   const today = todayDateKey();
   const inspectors = data?.inspectors ?? [];
@@ -74,7 +78,7 @@ export function SafetyFiscaisTab({
               Produção diária dos fiscais
             </Typography>
             <Typography variant="subtitle2" fontWeight={700}>
-              Segurança do Trabalho
+              {areaLabel}
             </Typography>
           </Box>
           {dateFilterHint}
@@ -98,9 +102,7 @@ export function SafetyFiscaisTab({
 
         {!loading && !error && inspectors.length === 0 && (
           <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-            <Typography color="text.secondary">
-              Nenhuma vistoria de Segurança do Trabalho encontrada para o período selecionado.
-            </Typography>
+            <Typography color="text.secondary">{emptyMessage}</Typography>
           </Paper>
         )}
 

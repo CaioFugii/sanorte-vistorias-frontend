@@ -24,11 +24,22 @@ export interface AuthLoginResponse {
   user: User;
 }
 
+export interface Foreman {
+  id: string;
+  name: string;
+  active: boolean;
+  teams?: Array<Pick<Team, "id" | "name">>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Team {
   id: string;
   name: string;
   active: boolean;
   isContractor: boolean;
+  foremanId?: string | null;
+  foreman?: Pick<Foreman, "id" | "name" | "active"> | null;
   contracts?: Pick<Contract, "id" | "name">[];
   contractIds?: string[];
   sectors?: Pick<Sector, "id" | "name">[];

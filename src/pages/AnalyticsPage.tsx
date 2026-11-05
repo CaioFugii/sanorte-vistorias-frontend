@@ -29,8 +29,15 @@ import { QualityServicesTab } from "@/pages/analytics/components/QualityServices
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
 import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
+import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
+import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
-import { TeamRankingInspectionItem, TeamRankingOrderBy } from "@/pages/analytics/components/models";
+import {
+  ForemenRankingData,
+  InspectorsProductionData,
+  TeamRankingInspectionItem,
+  TeamRankingOrderBy,
+} from "@/pages/analytics/components/models";
 import { downloadBlob } from "@/utils/downloadBlob";
 
 type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardQualityByService>>;
@@ -92,6 +99,8 @@ const QUALITY_TAB_KEYS = [
   "overview",
   "services",
   "teams",
+  "fiscais",
+  "encarregados",
   "nonconformities",
   "vistorias",
 ] as const;
@@ -103,6 +112,8 @@ const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
   overview: "Visão Geral",
   services: "Serviços",
   teams: "Equipes",
+  fiscais: "Fiscais",
+  encarregados: "Encarregados",
   nonconformities: "Não conformidades",
   vistorias: "Vistorias",
 };
@@ -345,6 +356,8 @@ export function AnalyticsPage(): JSX.Element {
   const [nonConformitiesTeamId, setNonConformitiesTeamId] = useState("");
   const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
   const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
+  const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
+  const [foremenRanking, setForemenRanking] = useState<ForemenRankingData | null>(null);
   const [teamRankingQuality, setTeamRankingQuality] = useState<
     Array<{
       teamId: string;
@@ -452,11 +465,23 @@ export function AnalyticsPage(): JSX.Element {
           limitPerChecklist: 5,
         }),
       ]);
-      const teamRanking = await appRepository.getDashboardTeamRanking({
-        from: period.from,
-        to: period.to,
-        contractId: contractId || undefined,
-      });
+      const [teamRanking, inspectorsProductionResult, foremenRankingResult] = await Promise.all([
+        appRepository.getDashboardTeamRanking({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardQualityInspectorsProduction({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardQualityForemenRanking({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+      ]);
       const qualityRes =
         qualityResponses.length > 1
           ? mergeQualityByServiceResponses(qualityResponses)
@@ -465,6 +490,8 @@ export function AnalyticsPage(): JSX.Element {
       setCurrentMonthByService(currentResponse ?? null);
       setQualitySummaryFromApi(summaryResponse);
       setNonConformitiesByChecklist(nonConformitiesChecklistResponse ?? null);
+      setInspectorsProduction(inspectorsProductionResult);
+      setForemenRanking(foremenRankingResult);
       setTeamRankingQuality(
         teamRanking.map((item) => ({
           teamId: item.teamId,
@@ -1017,6 +1044,30 @@ export function AnalyticsPage(): JSX.Element {
                     setTeamPerformanceByTeams(null);
                     setTeamPerformanceError("Selecione ao menos uma equipe para buscar.");
                   }}
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
+
+              {activeTabKey === "fiscais" && (
+                <SafetyFiscaisTab
+                  data={inspectorsProduction}
+                  loading={loading}
+                  error={error}
+                  areaLabel="Qualidade"
+                  emptyMessage="Nenhuma vistoria de Qualidade encontrada para o período selecionado."
+                  dateFilterHint={
+                    <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
+                  }
+                />
+              )}
+
+              {activeTabKey === "encarregados" && (
+                <QualityForemenTab
+                  data={foremenRanking}
+                  loading={loading}
+                  error={error}
                   dateFilterHint={
                     <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
                   }

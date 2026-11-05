@@ -6,6 +6,7 @@ import {
   Contract,
   DashboardOverview,
   Evidence,
+  Foreman,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
@@ -91,6 +92,19 @@ export interface IAppRepository {
   ): Promise<Collaborator>;
   deleteCollaborator(collaboratorId: string): Promise<void>;
 
+  getForemen(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Foreman>>;
+  createForeman(input: { name: string; active?: boolean }): Promise<Foreman>;
+  updateForeman(
+    foremanId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Foreman>;
+  deleteForeman(foremanId: string): Promise<void>;
+
   createSector(input: { name: string; active: boolean }): Promise<Sector>;
   updateSector(
     sectorId: string,
@@ -105,6 +119,7 @@ export interface IAppRepository {
     collaboratorIds?: string[];
     contractIds: string[];
     sectorIds?: string[];
+    foremanId?: string | null;
   }): Promise<Team>;
   updateTeam(
     teamId: string,
@@ -115,6 +130,7 @@ export interface IAppRepository {
       collaboratorIds?: string[];
       contractIds: string[];
       sectorIds?: string[];
+      foremanId: string | null;
     }>
   ): Promise<Team>;
   deleteTeam(teamId: string): Promise<void>;
@@ -706,6 +722,41 @@ export interface IAppRepository {
       averagePercent: number;
       worstScorePercent: number;
       bestScorePercent: number;
+    }>;
+  }>;
+  getDashboardQualityInspectorsProduction(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    days: string[];
+    inspectors: Array<{
+      userId: string;
+      userName: string;
+      inspectionsCount: number;
+      daysWithInspections: number;
+      dailyAverage: number;
+      dailyCounts: Array<{ date: string; count: number }>;
+    }>;
+  }>;
+  getDashboardQualityForemenRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    foremen: Array<{
+      foremanId: string;
+      foremanName: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
     }>;
   }>;
   getDashboardSafetyWorkInspectorsProduction(params: {

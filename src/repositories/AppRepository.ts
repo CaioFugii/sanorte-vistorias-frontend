@@ -7,6 +7,7 @@ import {
   Collaborator,
   Contract,
   DashboardOverview,
+  Foreman,
   Evidence,
   InvestmentWork,
   InvestmentWorkStatus,
@@ -229,6 +230,30 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.deleteCollaborator(collaboratorId);
   }
 
+  async getForemen(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Foreman>> {
+    return this.apiRepository.getForemen(params);
+  }
+
+  async createForeman(input: { name: string; active?: boolean }): Promise<Foreman> {
+    return this.apiRepository.createForeman(input);
+  }
+
+  async updateForeman(
+    foremanId: string,
+    input: Partial<{ name: string; active: boolean }>
+  ): Promise<Foreman> {
+    return this.apiRepository.updateForeman(foremanId, input);
+  }
+
+  async deleteForeman(foremanId: string): Promise<void> {
+    return this.apiRepository.deleteForeman(foremanId);
+  }
+
   async createSector(input: { name: string; active: boolean }): Promise<Sector> {
     const sector = await this.apiRepository.createSector(input);
     await this.loadSectors(true);
@@ -256,6 +281,7 @@ export class AppRepository implements IAppRepository {
     collaboratorIds?: string[];
     contractIds: string[];
     sectorIds?: string[];
+    foremanId?: string | null;
   }): Promise<Team> {
     const team = await this.apiRepository.createTeam(input);
     await this.loadTeams(true);
@@ -264,7 +290,7 @@ export class AppRepository implements IAppRepository {
 
   async updateTeam(
     teamId: string,
-    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[] }>
+    input: Partial<{ name: string; active: boolean; isContractor: boolean; collaboratorIds?: string[]; contractIds: string[]; sectorIds?: string[]; foremanId: string | null }>
   ): Promise<Team> {
     const team = await this.apiRepository.updateTeam(teamId, input);
     await this.loadTeams(true);
@@ -1002,6 +1028,47 @@ export class AppRepository implements IAppRepository {
     }>;
   }> {
     return this.apiRepository.getDashboardSafetyWorkLowScoreCollaborators(params);
+  }
+
+  async getDashboardQualityInspectorsProduction(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    days: string[];
+    inspectors: Array<{
+      userId: string;
+      userName: string;
+      inspectionsCount: number;
+      daysWithInspections: number;
+      dailyAverage: number;
+      dailyCounts: Array<{ date: string; count: number }>;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardQualityInspectorsProduction(params);
+  }
+
+  async getDashboardQualityForemenRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    foremen: Array<{
+      foremanId: string;
+      foremanName: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardQualityForemenRanking(params);
   }
 
   async getDashboardSafetyWorkInspectorsProduction(params: {

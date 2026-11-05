@@ -21,6 +21,7 @@ import {
   SectorsPage,
   ServiceOrdersPage,
   TeamsPage,
+  ForemenPage,
   UsersPage,
 } from "@/pages";
 import { useAuthStore } from "@/stores/authStore";
@@ -118,6 +119,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireRoles allowedRoles={[UserRole.ADMIN]}>
             <TeamsPage />
+          </RequireRoles>
+        ),
+      },
+      {
+        path: "/foremen",
+        element: (
+          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+            <ForemenPage />
           </RequireRoles>
         ),
       },
