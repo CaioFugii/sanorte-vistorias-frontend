@@ -2,7 +2,6 @@ import { CssBaseline, ThemeProvider } from "@mui/material";
 import { RouterProvider } from "react-router-dom";
 import { useEffect } from "react";
 import { router } from "./router";
-import { InspectionNoticeHost } from "@/components/InspectionNoticeHost";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { useAuthStore } from "@/stores/authStore";
 import { API_ERROR_EVENT } from "@/api/apiClient";
@@ -47,7 +46,6 @@ function App(): JSX.Element {
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
       <RouterProvider router={router} />
-      <InspectionNoticeHost />
       <ToastContainer
         position="top-right"
         autoClose={5000}

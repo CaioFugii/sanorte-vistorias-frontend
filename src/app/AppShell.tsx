@@ -39,6 +39,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { UserRole } from "@/domain/enums";
+import { InspectionNoticeHost } from "@/components/InspectionNoticeHost";
 import { useAuthStore } from "@/stores/authStore";
 
 interface AppShellProps {
@@ -462,7 +463,8 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
               sx={{ mr: 1, bgcolor: "rgba(255,255,255,0.1)", color: "#fff" }}
             />
           )}
-          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />}>
+          <InspectionNoticeHost />
+          <Button color="inherit" onClick={handleLogout} startIcon={<Logout />} sx={{ ml: 0.5 }}>
             Sair
           </Button>
         </Toolbar>

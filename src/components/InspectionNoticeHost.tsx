@@ -82,13 +82,7 @@ export function InspectionNoticeHost(): JSX.Element | null {
         color="inherit"
         aria-label="Avisos de pendência"
         onClick={(event) => setAnchorEl(event.currentTarget)}
-        sx={{
-          position: "fixed",
-          top: 12,
-          right: 108,
-          zIndex: (theme) => theme.zIndex.appBar + 1,
-          color: "#fff",
-        }}
+        sx={{ color: "#fff" }}
       >
         <Badge badgeContent={notices.length} color="error">
           <Notifications />
