@@ -4,6 +4,8 @@ export { QualityAnalyticsPage } from './QualityAnalyticsPage';
 export { SafetyAnalyticsPage } from './SafetyAnalyticsPage';
 export { TeamsPage } from './TeamsPage';
 export { ForemenPage } from './ForemenPage';
+export { CoordinatorsPage } from './CoordinatorsPage';
+export { FieldSupervisorsPage } from './FieldSupervisorsPage';
 export { ContractsPage } from './ContractsPage';
 export { SectorsPage } from './SectorsPage';
 export { CollaboratorsPage } from './CollaboratorsPage';

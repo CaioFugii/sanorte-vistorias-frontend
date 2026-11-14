@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -42,9 +43,15 @@ function readApiMessage(error: unknown): string {
   return "Não foi possível concluir a operação.";
 }
 
+type SupervisorOption = { id: string; name: string };
+
 function formatTeams(foreman: Foreman): string {
   const names = foreman.teams?.map((team) => team.name).filter(Boolean) ?? [];
   return names.length > 0 ? names.join(", ") : "—";
+}
+
+function formatSupervisor(foreman: Foreman): string {
+  return foreman.fieldSupervisor?.name?.trim() || "—";
 }
 
 export const ForemenPage = (): JSX.Element => {
@@ -61,6 +68,8 @@ export const ForemenPage = (): JSX.Element => {
   const [deleting, setDeleting] = useState(false);
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
+  const [supervisorOptions, setSupervisorOptions] = useState<SupervisorOption[]>([]);
+  const [selectedFieldSupervisorId, setSelectedFieldSupervisorId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +88,22 @@ export const ForemenPage = (): JSX.Element => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const response = await appRepository.getFieldSupervisors({
+          page: 1,
+          limit: 100,
+          active: true,
+        });
+        setSupervisorOptions(response.data);
+      } catch {
+        setSupervisorOptions([]);
+      }
+    };
+    void run();
+  }, []);
+
   const foremen = result?.data ?? [];
   const meta = result?.meta;
 
@@ -86,6 +111,7 @@ export const ForemenPage = (): JSX.Element => {
     setEditing(null);
     setName("");
     setActive(true);
+    setSelectedFieldSupervisorId(null);
     setFormError(null);
     setDialogOpen(true);
   };
@@ -94,9 +120,18 @@ export const ForemenPage = (): JSX.Element => {
     setEditing(foreman);
     setName(foreman.name);
     setActive(foreman.active);
+    setSelectedFieldSupervisorId(foreman.fieldSupervisorId ?? foreman.fieldSupervisor?.id ?? null);
     setFormError(null);
     setDialogOpen(true);
   };
+
+  const currentSupervisor = editing?.fieldSupervisor;
+  const supervisorSelectOptions: SupervisorOption[] =
+    currentSupervisor &&
+    selectedFieldSupervisorId === currentSupervisor.id &&
+    !supervisorOptions.some((option) => option.id === currentSupervisor.id)
+      ? [...supervisorOptions, { id: currentSupervisor.id, name: currentSupervisor.name }]
+      : supervisorOptions;
 
   if (loading && !result) {
     return (
@@ -130,6 +165,7 @@ export const ForemenPage = (): JSX.Element => {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
+              <TableCell>Supervisor</TableCell>
               <TableCell>Equipes</TableCell>
               <TableCell>Status</TableCell>
               <TableActionsHeaderCell />
@@ -138,13 +174,13 @@ export const ForemenPage = (): JSX.Element => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : foremen.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   Nenhum encarregado encontrado.
                 </TableCell>
               </TableRow>
@@ -152,6 +188,7 @@ export const ForemenPage = (): JSX.Element => {
               foremen.map((foreman) => (
                 <TableRow key={foreman.id}>
                   <TableCell>{foreman.name}</TableCell>
+                  <TableCell>{formatSupervisor(foreman)}</TableCell>
                   <TableCell>{formatTeams(foreman)}</TableCell>
                   <TableCell>{foreman.active ? "Ativo" : "Inativo"}</TableCell>
                   <TableActionsCell>
@@ -189,6 +226,16 @@ export const ForemenPage = (): JSX.Element => {
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
+          <Autocomplete
+            options={supervisorSelectOptions}
+            value={supervisorSelectOptions.find((option) => option.id === selectedFieldSupervisorId) ?? null}
+            onChange={(_, selected) => setSelectedFieldSupervisorId(selected?.id ?? null)}
+            getOptionLabel={(option) => option.name}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            renderInput={(params) => (
+              <TextField {...params} margin="normal" label="Supervisor" placeholder="Sem supervisor" />
+            )}
+          />
           <FormControlLabel
             control={<Switch checked={active} onChange={(event) => setActive(event.target.checked)} />}
             label="Ativo"
@@ -214,9 +261,17 @@ export const ForemenPage = (): JSX.Element => {
               setFormError(null);
               try {
                 if (editing) {
-                  await appRepository.updateForeman(editing.id, { name: name.trim(), active });
+                  await appRepository.updateForeman(editing.id, {
+                    name: name.trim(),
+                    active,
+                    fieldSupervisorId: selectedFieldSupervisorId,
+                  });
                 } else {
-                  await appRepository.createForeman({ name: name.trim(), active });
+                  await appRepository.createForeman({
+                    name: name.trim(),
+                    active,
+                    fieldSupervisorId: selectedFieldSupervisorId,
+                  });
                 }
                 setDialogOpen(false);
                 await load();

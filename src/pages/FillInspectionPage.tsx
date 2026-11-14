@@ -2,11 +2,13 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Paper,
   TextField,
   Typography,
@@ -26,8 +28,7 @@ import {
   PhotoUploader,
 } from "@/components/PhotoUploader";
 import { SignaturePad } from "@/components/SignaturePad";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { InspectionStatus, ModuleType, UserRole } from "@/domain/enums";
+import { InspectionStatus, InvestmentWorkEvaluationModule, ModuleType, UserRole } from "@/domain/enums";
 import { Checklist, InspectionItem } from "@/domain";
 import { useAuthStore } from "@/stores/authStore";
 import { generateInspectionPdf } from "@/utils/inspectionPdf";
@@ -60,6 +61,7 @@ export const FillInspectionPage = (): JSX.Element => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signatureDirty, setSignatureDirty] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [generatePending, setGeneratePending] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
   const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
@@ -328,7 +330,14 @@ export const FillInspectionPage = (): JSX.Element => {
       }
       await saveItems();
       const inspectionId = currentInspection.serverId ?? currentInspection.externalId;
-      await appRepository.finalizeInspection(inspectionId);
+      const effectiveCampo =
+        currentInspection.module === ModuleType.CAMPO ||
+        (currentInspection.module === ModuleType.OBRAS_INVESTIMENTO &&
+          currentInspection.evaluationModule === InvestmentWorkEvaluationModule.CAMPO);
+      await appRepository.finalizeInspectionWithOptions(
+        inspectionId,
+        effectiveCampo ? { generatePending } : {},
+      );
       navigate(`/inspections/${currentInspection.externalId}`, {
         state: { from: detailBackTarget },
       });
@@ -367,6 +376,10 @@ export const FillInspectionPage = (): JSX.Element => {
     currentInspection.hasParalysisPenalty !== true &&
     (currentInspection.module === ModuleType.CAMPO || currentInspection.module === ModuleType.SEGURANCA_TRABALHO);
 
+  const isEffectiveCampo =
+    currentInspection.module === ModuleType.CAMPO ||
+    (currentInspection.module === ModuleType.OBRAS_INVESTIMENTO &&
+      currentInspection.evaluationModule === InvestmentWorkEvaluationModule.CAMPO);
   const isRemotoModule = currentInspection.module === ModuleType.REMOTO;
   const isPostWorkModule = currentInspection.module === ModuleType.POS_OBRA;
   const isWorkSafetyModule = currentInspection.module === ModuleType.SEGURANCA_TRABALHO;
@@ -506,21 +519,47 @@ export const FillInspectionPage = (): JSX.Element => {
           variant="contained"
           startIcon={<CheckCircle />}
           disabled={!canFinalize || finalizing}
-          onClick={() => setFinalizeOpen(true)}
+          onClick={() => {
+            setGeneratePending(true);
+            setFinalizeOpen(true);
+          }}
         >
           Finalizar
         </Button>
       </Box>
 
-      <ConfirmDialog
+      <Dialog
         open={finalizeOpen}
-        onClose={() => setFinalizeOpen(false)}
-        onConfirm={handleFinalize}
-        title="Finalizar vistoria"
-        description="Confirma a finalização da vistoria?"
-        confirmLabel="Finalizar"
-        loading={finalizing}
-      />
+        onClose={finalizing ? undefined : () => setFinalizeOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Finalizar vistoria</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Confirma a finalização da vistoria?</Typography>
+          {isEffectiveCampo && (
+            <FormControlLabel
+              sx={{ mt: 1, display: "flex" }}
+              control={
+                <Checkbox
+                  checked={generatePending}
+                  onChange={(event) => setGeneratePending(event.target.checked)}
+                  disabled={finalizing}
+                />
+              }
+              label="Gerar pendência"
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFinalizeOpen(false)} disabled={finalizing}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={() => void handleFinalize()} disabled={finalizing}>
+            {finalizing ? <CircularProgress size={18} color="inherit" /> : "Finalizar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={paralyzeDialogOpen} onClose={closeParalyzeDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Registrar paralisação</DialogTitle>
@@ -536,7 +575,7 @@ export const FillInspectionPage = (): JSX.Element => {
             required
             error={!!paralyzeError}
             helperText={
-              paralyzeError ?? "Esta ação aplica penalidade persistente de 25% na nota."
+              paralyzeError ?? "Esta ação aplica penalidade persistente de 35% na nota."
             }
           />
         </DialogContent>

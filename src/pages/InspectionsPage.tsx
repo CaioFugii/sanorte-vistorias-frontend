@@ -51,6 +51,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 const STATUS_FILTER_OPTIONS: Array<{ value: InspectionStatus; label: string }> = [
   { value: InspectionStatus.FINALIZADA, label: "Finalizada" },
   { value: InspectionStatus.PENDENTE_AJUSTE, label: "Pendente Ajuste" },
+  { value: InspectionStatus.AGUARDANDO_APROVACAO, label: "Aguardando aprovação" },
   { value: InspectionStatus.RESOLVIDA, label: "Resolvida" },
 ];
 
@@ -444,7 +445,16 @@ export const InspectionsPage = ({
                   <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                     <StatusChip status={inspection.status} />
                     {inspection.hasParalysisPenalty && (
-                      <Chip size="small" label="Penalizada" color="warning" variant="outlined" />
+                      <Chip
+                        size="small"
+                        label={
+                          inspection.paralysisPenaltyPercent != null
+                            ? `Penalizada (${inspection.paralysisPenaltyPercent}%)`
+                            : "Penalizada"
+                        }
+                        color="warning"
+                        variant="outlined"
+                      />
                     )}
                   </Box>
                 </TableCell>

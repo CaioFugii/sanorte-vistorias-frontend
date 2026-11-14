@@ -140,7 +140,7 @@ nota_base = (conformes / itens_avaliados) × 100
 - Se nenhum item avaliado → retorna **100**
 - Arredondamento: `Math.round` (inteiro)
 
-A penalidade de paralisação (25%) é aplicada **no backend** sobre `scorePercent`. O frontend usa `calculateScore` apenas para preview; o valor persistido vem da API.
+A penalidade de paralisação é aplicada **no backend** sobre `scorePercent`, com a taxa gravada na vistoria (35% nas paralisações novas, 25% nas antigas). O frontend usa `calculateScore` apenas para preview; o valor persistido vem da API.
 
 ### Finalização — `validateFinalize`
 
@@ -186,7 +186,7 @@ Exceções por módulo:
 ### Paralisação
 
 - Motivo obrigatório ao paralisar
-- Penalidade persistente de **25%** na nota (`scorePercent × 0.75`)
+- Penalidade nova de **35%** na nota. Vistorias já paralisadas permanecem em **25%** (`paralysisPenaltyPercent`)
 - Removível via `unparalyze` (GESTOR, SUPERVISOR, ADMIN)
 
 ### Pendências

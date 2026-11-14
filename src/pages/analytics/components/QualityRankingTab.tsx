@@ -13,6 +13,8 @@ import {
   TableHead,
   TableRow,
   TableSortLabel,
+  Tab,
+  Tabs,
   Tooltip,
   Typography,
   CircularProgress,
@@ -29,7 +31,11 @@ import {
   TableViewButton,
 } from "@/components/ui";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
-import { Dispatch, ReactNode, SetStateAction } from "react";
+import { Dispatch, ReactNode, SetStateAction, useEffect, useState } from "react";
+import {
+  QualityNonConformitiesList,
+  QualityNonConformitiesListData,
+} from "./QualityNonConformitiesList";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   TeamRankingInspectionItem,
@@ -70,6 +76,9 @@ type QualityRankingTabProps = {
   dateFilterHint: ReactNode;
   onExportRanking: () => Promise<void>;
   exportDisabled?: boolean;
+  teamNonConformities: QualityNonConformitiesListData | null;
+  teamNonConformitiesLoading: boolean;
+  teamNonConformitiesError: string | null;
 };
 
 export function QualityRankingTab({
@@ -91,10 +100,20 @@ export function QualityRankingTab({
   dateFilterHint,
   onExportRanking,
   exportDisabled = false,
+  teamNonConformities,
+  teamNonConformitiesLoading,
+  teamNonConformitiesError,
 }: QualityRankingTabProps): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
+  const [dialogTab, setDialogTab] = useState(0);
+
+  useEffect(() => {
+    if (rankingInspectionsOpen) {
+      setDialogTab(0);
+    }
+  }, [rankingInspectionsOpen, rankingInspectionsMeta.teamId]);
 
   return (
     <>
@@ -253,17 +272,25 @@ export function QualityRankingTab({
           </IconButton>
         </DialogTitle>
         <DialogContent>
-          {rankingInspectionsLoading && (
+          <Tabs
+            value={dialogTab}
+            onChange={(_, value: number) => setDialogTab(value)}
+            sx={{ mb: 2 }}
+          >
+            <Tab label="Vistorias" />
+            <Tab label="Não conformidades" />
+          </Tabs>
+          {dialogTab === 0 && rankingInspectionsLoading && (
             <Box display="flex" justifyContent="center" p={4}>
               <CircularProgress />
             </Box>
           )}
-          {rankingInspectionsError && !rankingInspectionsLoading && (
+          {dialogTab === 0 && rankingInspectionsError && !rankingInspectionsLoading && (
             <Typography color="text.secondary" sx={{ py: 2 }}>
               {rankingInspectionsError}
             </Typography>
           )}
-          {!rankingInspectionsLoading && !rankingInspectionsError && (
+          {dialogTab === 0 && !rankingInspectionsLoading && !rankingInspectionsError && (
             <>
               <Table size="small">
                 <TableHead>
@@ -348,6 +375,16 @@ export function QualityRankingTab({
                 />
               )}
             </>
+          )}
+          {dialogTab === 1 && (
+            <QualityNonConformitiesList
+              data={teamNonConformities}
+              loading={teamNonConformitiesLoading}
+              error={teamNonConformitiesError}
+              showHeading={false}
+              showTeamFilter={false}
+              emptyMessage="Nenhuma não conformidade encontrada para esta equipe no período selecionado."
+            />
           )}
         </DialogContent>
       </Dialog>

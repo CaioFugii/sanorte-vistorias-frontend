@@ -3,6 +3,7 @@ import {
   InvestmentWorkEvaluationModule,
   InvestmentWorkStatus,
   InspectionScope,
+  InspectionNoticeType,
   InspectionStatus,
   ModuleType,
   UserRole,
@@ -24,11 +25,33 @@ export interface AuthLoginResponse {
   user: User;
 }
 
+export interface Coordinator {
+  id: string;
+  name: string;
+  active: boolean;
+  contracts?: Array<Pick<Contract, "id" | "name">>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FieldSupervisor {
+  id: string;
+  name: string;
+  active: boolean;
+  coordinatorId: string;
+  coordinator?: Pick<Coordinator, "id" | "name"> | null;
+  contracts?: Array<Pick<Contract, "id" | "name">>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Foreman {
   id: string;
   name: string;
   active: boolean;
   teams?: Array<Pick<Team, "id" | "name">>;
+  fieldSupervisorId?: string | null;
+  fieldSupervisor?: Pick<FieldSupervisor, "id" | "name"> | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -200,10 +223,13 @@ export interface InspectionListItem {
   status: InspectionStatus;
   scorePercent?: number | null;
   hasParalysisPenalty?: boolean;
+  paralysisPenaltyPercent?: number | null;
   /** Quantidade de itens não conformes pendentes de ajuste (payload de listagem). */
   pendingItemsCount?: number;
   /** Prévia com títulos dos itens pendentes (payload de listagem). */
   pendingItemsPreview?: string[];
+  resolutionRejectionReason?: string | null;
+  resolutionSubmittedByUserId?: string | null;
   finalizedAt?: string | null;
   createdAt: string;
   /** API pode retornar payload enxuto da OS nas listagens. */
@@ -233,6 +259,12 @@ export interface Inspection extends InspectionListItem {
   paralyzedBy?: User | null;
   pendingResolutionNotes?: string;
   pendingResolutionEvidenceId?: string;
+  generatePending?: boolean | null;
+  resolutionSubmittedAt?: string | null;
+  resolutionSubmittedBy?: { name: string } | null;
+  resolutionRejectedAt?: string | null;
+  resolutionRejectedByUserId?: string | null;
+  resolutionRejectedBy?: { name: string } | null;
   /** Itens (resposta enxuta sem `checklistItem` aninhado — usar checklist em cache). */
   items?: InspectionItem[];
   evidences?: Evidence[];
@@ -241,6 +273,16 @@ export interface Inspection extends InspectionListItem {
   checklist?: Pick<Checklist, "name"> | Checklist;
   createdBy?: User;
   collaborators?: Collaborator[];
+}
+
+export interface InspectionNotice {
+  id: string;
+  recipientUserId: string;
+  inspectionId: string;
+  type: InspectionNoticeType;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
 }
 
 export interface InspectionItem {

@@ -27,6 +27,7 @@ function formatDate(value?: string | null): string {
 
 function formatStatus(value: string): string {
   if (value === "PENDENTE_AJUSTE") return "PENDENTE DE AJUSTE";
+  if (value === "AGUARDANDO_APROVACAO") return "AGUARDANDO APROVAÇÃO";
   return value.replace(/_/g, " ");
 }
 
@@ -264,7 +265,11 @@ function drawInfoTable(doc: jsPDF, inspection: Inspection, y: number, margin: nu
       leftValue:
         inspection.team?.name || "-",
       rightLabel: "Penalidade:",
-      rightValue: inspection.hasParalysisPenalty ? "APLICADA PENALIDADE (25%)" : "NAO APLICADA",
+      rightValue: inspection.hasParalysisPenalty
+        ? inspection.paralysisPenaltyPercent != null
+          ? `APLICADA PENALIDADE (${inspection.paralysisPenaltyPercent}%)`
+          : "APLICADA PENALIDADE"
+        : "NAO APLICADA",
     },
     {
       leftLabel: "Checklist:",

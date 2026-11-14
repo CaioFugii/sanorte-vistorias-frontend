@@ -520,7 +520,7 @@ export const ManageInspectionPage = (): JSX.Element => {
         <DialogTitle>Remover penalidade de paralisação</DialogTitle>
         <DialogContent>
           <Typography>
-            Remove a penalidade de 25% aplicada por paralisação e recalcula a nota.
+            Remove a penalidade de paralisação aplicada nesta vistoria e recalcula a nota.
             Esta ação é usada para correção de erro de registro.
           </Typography>
         </DialogContent>
@@ -552,7 +552,7 @@ export const ManageInspectionPage = (): JSX.Element => {
             required
             error={!!paralyzeError}
             helperText={
-              paralyzeError ?? "Esta ação aplica penalidade persistente de 25% na nota."
+              paralyzeError ?? "Esta ação aplica penalidade persistente de 35% na nota."
             }
           />
         </DialogContent>

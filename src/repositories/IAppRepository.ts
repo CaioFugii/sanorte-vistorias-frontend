@@ -6,10 +6,13 @@ import {
   Contract,
   DashboardOverview,
   Evidence,
+  Coordinator,
+  FieldSupervisor,
   Foreman,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionNotice,
   InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
@@ -98,12 +101,56 @@ export interface IAppRepository {
     name?: string;
     active?: boolean;
   }): Promise<PaginatedResponse<Foreman>>;
-  createForeman(input: { name: string; active?: boolean }): Promise<Foreman>;
+  createForeman(input: {
+    name: string;
+    active?: boolean;
+    fieldSupervisorId?: string | null;
+  }): Promise<Foreman>;
   updateForeman(
     foremanId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; active: boolean; fieldSupervisorId: string | null }>
   ): Promise<Foreman>;
   deleteForeman(foremanId: string): Promise<void>;
+
+  getCoordinators(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Coordinator>>;
+  createCoordinator(input: {
+    name: string;
+    active?: boolean;
+    contractIds: string[];
+  }): Promise<Coordinator>;
+  updateCoordinator(
+    coordinatorId: string,
+    input: { name?: string; active?: boolean; contractIds: string[] }
+  ): Promise<Coordinator>;
+  deleteCoordinator(coordinatorId: string): Promise<void>;
+
+  getFieldSupervisors(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<FieldSupervisor>>;
+  createFieldSupervisor(input: {
+    name: string;
+    active?: boolean;
+    coordinatorId: string;
+    contractIds: string[];
+  }): Promise<FieldSupervisor>;
+  updateFieldSupervisor(
+    fieldSupervisorId: string,
+    input: {
+      name?: string;
+      active?: boolean;
+      coordinatorId: string;
+      contractIds: string[];
+    }
+  ): Promise<FieldSupervisor>;
+  deleteFieldSupervisor(fieldSupervisorId: string): Promise<void>;
 
   createSector(input: { name: string; active: boolean }): Promise<Sector>;
   updateSector(
@@ -915,4 +962,44 @@ export interface IAppRepository {
 
   getReportTypes(): Promise<ReportType[]>;
   getReportTypeFields(code: string): Promise<ReportTypeField[]>;
+
+  getDashboardQualityNonConformitiesList(params: {
+    from: string;
+    to: string;
+    teamId?: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId?: string;
+    limitPerChecklist: number;
+    modules: Array<{
+      module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO";
+      sectors: Array<{
+        sectorName: string;
+        checklists: Array<{
+          checklistId: string;
+          checklistName: string;
+          totalNonConformities: number;
+          questions: Array<{
+            checklistItemId: string;
+            checklistItemTitle: string;
+            nonConformitiesCount: number;
+            answersCount: number;
+            nonConformityRatePercent: number;
+          }>;
+        }>;
+      }>;
+    }>;
+  }>;
+
+  finalizeInspectionWithOptions(
+    inspectionId: string,
+    body?: { generatePending?: boolean },
+  ): Promise<Inspection>;
+  approveInspectionResolution(inspectionId: string): Promise<Inspection>;
+  rejectInspectionResolution(inspectionId: string, reason: string): Promise<Inspection>;
+  listInspectionNotices(): Promise<InspectionNotice[]>;
+  markInspectionNoticeRead(id: string): Promise<void>;
 }

@@ -5,11 +5,14 @@ import {
   ChecklistSection,
   Collaborator,
   Contract,
+  Coordinator,
   DashboardOverview,
+  FieldSupervisor,
   Foreman,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionNotice,
   InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
@@ -374,14 +377,18 @@ export class ApiRepository {
     return response.data;
   }
 
-  async createForeman(input: { name: string; active?: boolean }): Promise<Foreman> {
+  async createForeman(input: {
+    name: string;
+    active?: boolean;
+    fieldSupervisorId?: string | null;
+  }): Promise<Foreman> {
     const response = await apiClient.post<Foreman>("/foremen", input);
     return response.data;
   }
 
   async updateForeman(
     foremanId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; active: boolean; fieldSupervisorId: string | null }>
   ): Promise<Foreman> {
     const response = await apiClient.put<Foreman>(`/foremen/${foremanId}`, input);
     return response.data;
@@ -389,6 +396,79 @@ export class ApiRepository {
 
   async deleteForeman(foremanId: string): Promise<void> {
     await apiClient.delete(`/foremen/${foremanId}`);
+  }
+
+  async getCoordinators(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Coordinator>> {
+    const response = await apiClient.get<PaginatedResponse<Coordinator>>("/coordinators", { params });
+    return response.data;
+  }
+
+  async createCoordinator(input: {
+    name: string;
+    active?: boolean;
+    contractIds: string[];
+  }): Promise<Coordinator> {
+    const response = await apiClient.post<Coordinator>("/coordinators", input);
+    return response.data;
+  }
+
+  async updateCoordinator(
+    coordinatorId: string,
+    input: { name?: string; active?: boolean; contractIds: string[] }
+  ): Promise<Coordinator> {
+    const response = await apiClient.put<Coordinator>(`/coordinators/${coordinatorId}`, input);
+    return response.data;
+  }
+
+  async deleteCoordinator(coordinatorId: string): Promise<void> {
+    await apiClient.delete(`/coordinators/${coordinatorId}`);
+  }
+
+  async getFieldSupervisors(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<FieldSupervisor>> {
+    const response = await apiClient.get<PaginatedResponse<FieldSupervisor>>("/field-supervisors", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createFieldSupervisor(input: {
+    name: string;
+    active?: boolean;
+    coordinatorId: string;
+    contractIds: string[];
+  }): Promise<FieldSupervisor> {
+    const response = await apiClient.post<FieldSupervisor>("/field-supervisors", input);
+    return response.data;
+  }
+
+  async updateFieldSupervisor(
+    fieldSupervisorId: string,
+    input: {
+      name?: string;
+      active?: boolean;
+      coordinatorId: string;
+      contractIds: string[];
+    }
+  ): Promise<FieldSupervisor> {
+    const response = await apiClient.put<FieldSupervisor>(
+      `/field-supervisors/${fieldSupervisorId}`,
+      input
+    );
+    return response.data;
+  }
+
+  async deleteFieldSupervisor(fieldSupervisorId: string): Promise<void> {
+    await apiClient.delete(`/field-supervisors/${fieldSupervisorId}`);
   }
 
   async getChecklist(checklistId: string): Promise<Checklist> {
@@ -1881,5 +1961,100 @@ export class ApiRepository {
   async deleteFromCloudinary(publicId: string): Promise<void> {
     const encoded = encodeURIComponent(publicId);
     await apiClient.delete(`/uploads/${encoded}`);
+  }
+
+  async getDashboardQualityNonConformitiesList(params: {
+    from: string;
+    to: string;
+    teamId?: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId?: string;
+    limitPerChecklist: number;
+    modules: Array<{
+      module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO";
+      sectors: Array<{
+        sectorName: string;
+        checklists: Array<{
+          checklistId: string;
+          checklistName: string;
+          totalNonConformities: number;
+          questions: Array<{
+            checklistItemId: string;
+            checklistItemTitle: string;
+            nonConformitiesCount: number;
+            answersCount: number;
+            nonConformityRatePercent: number;
+          }>;
+        }>;
+      }>;
+    }>;
+  }> {
+    const response = await apiClient.get<{
+      from: string;
+      to: string;
+      teamId?: string;
+      limitPerChecklist: number;
+      modules: Array<{
+        module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO";
+        sectors: Array<{
+          sectorName: string;
+          checklists: Array<{
+            checklistId: string;
+            checklistName: string;
+            totalNonConformities: number;
+            questions: Array<{
+              checklistItemId: string;
+              checklistItemTitle: string;
+              nonConformitiesCount: number;
+              answersCount: number;
+              nonConformityRatePercent: number;
+            }>;
+          }>;
+        }>;
+      }>;
+    }>("/dashboards/quality/non-conformities/list", { params });
+    return response.data;
+  }
+
+  async finalizeInspectionWithOptions(
+    inspectionId: string,
+    body?: { generatePending?: boolean },
+  ): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(
+      `/inspections/${inspectionId}/finalize`,
+      body ?? {},
+    );
+    return response.data;
+  }
+
+  async approveInspectionResolution(inspectionId: string): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(
+      `/inspections/${inspectionId}/approve-resolution`,
+    );
+    return response.data;
+  }
+
+  async rejectInspectionResolution(
+    inspectionId: string,
+    reason: string,
+  ): Promise<Inspection> {
+    const response = await apiClient.post<Inspection>(
+      `/inspections/${inspectionId}/reject-resolution`,
+      { reason },
+    );
+    return response.data;
+  }
+
+  async listInspectionNotices(): Promise<InspectionNotice[]> {
+    const response = await apiClient.get<InspectionNotice[]>("/inspection-notices");
+    return response.data;
+  }
+
+  async markInspectionNoticeRead(id: string): Promise<void> {
+    await apiClient.post(`/inspection-notices/${id}/read`);
   }
 }

@@ -17,6 +17,11 @@ const statusConfig: Record<
   [InspectionStatus.RASCUNHO]: { label: 'Rascunho', color: 'default', variant: 'outlined' },
   [InspectionStatus.FINALIZADA]: { label: 'Finalizada', color: 'success', variant: 'filled' },
   [InspectionStatus.PENDENTE_AJUSTE]: { label: 'Pendente Ajuste', color: 'warning', variant: 'filled' },
+  [InspectionStatus.AGUARDANDO_APROVACAO]: {
+    label: 'Aguardando aprovação',
+    color: 'info',
+    variant: 'filled',
+  },
   [InspectionStatus.RESOLVIDA]: { label: 'Resolvida', color: 'info', variant: 'filled' },
 };
 

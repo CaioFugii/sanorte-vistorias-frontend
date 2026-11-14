@@ -139,7 +139,7 @@ Guards de rota em `router.tsx` **complementam** o menu em `AppShell.tsx` — amb
 1. **FISCAL** só edita vistoria em `RASCUNHO`.
 2. **Finalização** — validação em `domain/rules/validateFinalize.ts`: assinatura (exceto REMOTO, ST, POS_OBRA); evidência para `NAO_CONFORME` com `requiresPhotoOnNonConformity`.
 3. **SEGURANCA_TRABALHO** — `teamId` opcional; não gera pendência na UI/backend.
-4. **Paralisação** — penalidade de 25% na nota (valor vem da API).
+4. **Paralisação** — ação nova aplica 35%; a nota usa o percentual gravado na vistoria (25% nas antigas). O valor vem da API.
 5. **Pendências** — resolução item a item; vistoria → `RESOLVIDA` quando todos resolvidos.
 6. **Limites de foto** — `domain/photoLimits.ts` (2 por item, 5 gerais).
 7. **Identificadores** — rota usa `externalId`; `serverId` é o id interno da API.

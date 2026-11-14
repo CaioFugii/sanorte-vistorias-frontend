@@ -6,12 +6,15 @@ import {
   ChecklistSection,
   Collaborator,
   Contract,
+  Coordinator,
   DashboardOverview,
+  FieldSupervisor,
   Foreman,
   Evidence,
   InvestmentWork,
   InvestmentWorkStatus,
   Inspection,
+  InspectionNotice,
   InspectionExcelLayout,
   InspectionListItem,
   InspectionScope,
@@ -70,8 +73,11 @@ function normalizeInspectionListItem(
     status: inspection.status as InspectionStatus,
     scorePercent: inspection.scorePercent,
     hasParalysisPenalty: inspection.hasParalysisPenalty,
+    paralysisPenaltyPercent: inspection.paralysisPenaltyPercent ?? null,
     pendingItemsCount: inspection.pendingItemsCount,
     pendingItemsPreview: inspection.pendingItemsPreview,
+    resolutionRejectionReason: inspection.resolutionRejectionReason ?? null,
+    resolutionSubmittedByUserId: inspection.resolutionSubmittedByUserId ?? null,
     finalizedAt: inspection.finalizedAt,
     createdAt: inspection.createdAt ?? "",
     serviceOrder: inspection.serviceOrder ?? null,
@@ -239,19 +245,85 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getForemen(params);
   }
 
-  async createForeman(input: { name: string; active?: boolean }): Promise<Foreman> {
+  async createForeman(input: {
+    name: string;
+    active?: boolean;
+    fieldSupervisorId?: string | null;
+  }): Promise<Foreman> {
     return this.apiRepository.createForeman(input);
   }
 
   async updateForeman(
     foremanId: string,
-    input: Partial<{ name: string; active: boolean }>
+    input: Partial<{ name: string; active: boolean; fieldSupervisorId: string | null }>
   ): Promise<Foreman> {
     return this.apiRepository.updateForeman(foremanId, input);
   }
 
   async deleteForeman(foremanId: string): Promise<void> {
     return this.apiRepository.deleteForeman(foremanId);
+  }
+
+  async getCoordinators(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<Coordinator>> {
+    return this.apiRepository.getCoordinators(params);
+  }
+
+  async createCoordinator(input: {
+    name: string;
+    active?: boolean;
+    contractIds: string[];
+  }): Promise<Coordinator> {
+    return this.apiRepository.createCoordinator(input);
+  }
+
+  async updateCoordinator(
+    coordinatorId: string,
+    input: { name?: string; active?: boolean; contractIds: string[] }
+  ): Promise<Coordinator> {
+    return this.apiRepository.updateCoordinator(coordinatorId, input);
+  }
+
+  async deleteCoordinator(coordinatorId: string): Promise<void> {
+    return this.apiRepository.deleteCoordinator(coordinatorId);
+  }
+
+  async getFieldSupervisors(params?: {
+    page?: number;
+    limit?: number;
+    name?: string;
+    active?: boolean;
+  }): Promise<PaginatedResponse<FieldSupervisor>> {
+    return this.apiRepository.getFieldSupervisors(params);
+  }
+
+  async createFieldSupervisor(input: {
+    name: string;
+    active?: boolean;
+    coordinatorId: string;
+    contractIds: string[];
+  }): Promise<FieldSupervisor> {
+    return this.apiRepository.createFieldSupervisor(input);
+  }
+
+  async updateFieldSupervisor(
+    fieldSupervisorId: string,
+    input: {
+      name?: string;
+      active?: boolean;
+      coordinatorId: string;
+      contractIds: string[];
+    }
+  ): Promise<FieldSupervisor> {
+    return this.apiRepository.updateFieldSupervisor(fieldSupervisorId, input);
+  }
+
+  async deleteFieldSupervisor(fieldSupervisorId: string): Promise<void> {
+    return this.apiRepository.deleteFieldSupervisor(fieldSupervisorId);
   }
 
   async createSector(input: { name: string; active: boolean }): Promise<Sector> {
@@ -1517,6 +1589,80 @@ export class AppRepository implements IAppRepository {
 
   async getReportTypeFields(code: string): Promise<ReportTypeField[]> {
     return this.apiRepository.getReportTypeFields(code);
+  }
+
+  async getDashboardQualityNonConformitiesList(params: {
+    from: string;
+    to: string;
+    teamId?: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId?: string;
+    limitPerChecklist: number;
+    modules: Array<{
+      module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO";
+      sectors: Array<{
+        sectorName: string;
+        checklists: Array<{
+          checklistId: string;
+          checklistName: string;
+          totalNonConformities: number;
+          questions: Array<{
+            checklistItemId: string;
+            checklistItemTitle: string;
+            nonConformitiesCount: number;
+            answersCount: number;
+            nonConformityRatePercent: number;
+          }>;
+        }>;
+      }>;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardQualityNonConformitiesList(params);
+  }
+
+  async finalizeInspectionWithOptions(
+    inspectionId: string,
+    body?: { generatePending?: boolean },
+  ): Promise<Inspection> {
+    const inspection = await this.apiRepository.finalizeInspectionWithOptions(
+      inspectionId,
+      body,
+    );
+    const withId = inspection as Partial<Inspection> & { id?: string };
+    const routeId = withId.externalId ?? withId.id ?? inspectionId;
+    return normalizeInspectionFromApi(withId, routeId);
+  }
+
+  async approveInspectionResolution(inspectionId: string): Promise<Inspection> {
+    const inspection = await this.apiRepository.approveInspectionResolution(inspectionId);
+    const withId = inspection as Partial<Inspection> & { id?: string };
+    const routeId = withId.externalId ?? withId.id ?? inspectionId;
+    return normalizeInspectionFromApi(withId, routeId);
+  }
+
+  async rejectInspectionResolution(
+    inspectionId: string,
+    reason: string,
+  ): Promise<Inspection> {
+    const inspection = await this.apiRepository.rejectInspectionResolution(
+      inspectionId,
+      reason,
+    );
+    const withId = inspection as Partial<Inspection> & { id?: string };
+    const routeId = withId.externalId ?? withId.id ?? inspectionId;
+    return normalizeInspectionFromApi(withId, routeId);
+  }
+
+  async listInspectionNotices(): Promise<InspectionNotice[]> {
+    return this.apiRepository.listInspectionNotices();
+  }
+
+  async markInspectionNoticeRead(id: string): Promise<void> {
+    return this.apiRepository.markInspectionNoticeRead(id);
   }
 }
 

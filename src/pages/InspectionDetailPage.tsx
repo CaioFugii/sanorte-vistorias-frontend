@@ -189,6 +189,10 @@ export const InspectionDetailPage = (): JSX.Element => {
   const [resolutionEvidence, setResolutionEvidence] = useState<PhotoFile[]>([]);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [checklistTab, setChecklistTab] = useState(0);
   const [paralyzeDialogOpen, setParalyzeDialogOpen] = useState(false);
   const [paralyzeReason, setParalyzeReason] = useState('');
@@ -223,7 +227,15 @@ export const InspectionDetailPage = (): JSX.Element => {
   const nonConformItems = inspection ? getNonConformItems(inspection.items) : [];
   const resolvedCount = inspection ? getResolvedCount(inspection.items) : 0;
   const allResolved = nonConformItems.length > 0 && resolvedCount === nonConformItems.length;
-  const canResolveInspection = inspection?.status === InspectionStatus.PENDENTE_AJUSTE && allResolved;
+  const canLaunchResolution =
+    inspection?.status === InspectionStatus.PENDENTE_AJUSTE &&
+    (user?.role === UserRole.SUPERVISOR ||
+      (user?.role === UserRole.FISCAL &&
+        inspection.module === ModuleType.OBRAS_INVESTIMENTO));
+  const canResolveInspection = Boolean(canLaunchResolution && allResolved);
+  const canReviewResolution =
+    inspection?.status === InspectionStatus.AGUARDANDO_APROVACAO &&
+    (user?.role === UserRole.GESTOR || user?.role === UserRole.ADMIN);
   const canEditInspection =
     user?.role === UserRole.ADMIN ||
     user?.role === UserRole.GESTOR ||
@@ -315,6 +327,44 @@ export const InspectionDetailPage = (): JSX.Element => {
       setInspection(resolved);
     } finally {
       setResolving(false);
+    }
+  };
+
+  const handleApproveResolution = async () => {
+    if (!inspection?.serverId) return;
+    setReviewing(true);
+    try {
+      const approved = await appRepository.approveInspectionResolution(inspection.serverId);
+      setInspection(approved);
+      toast.success('Resolução aprovada.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Não foi possível aprovar a resolução.');
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  const handleRejectResolution = async () => {
+    if (!inspection?.serverId) return;
+    if (!rejectReason.trim()) {
+      setRejectError('Informe o motivo da reprovação.');
+      return;
+    }
+    setReviewing(true);
+    setRejectError(null);
+    try {
+      const rejected = await appRepository.rejectInspectionResolution(
+        inspection.serverId,
+        rejectReason.trim(),
+      );
+      setInspection(rejected);
+      setRejectDialogOpen(false);
+      setRejectReason('');
+      toast.success('Resolução reprovada. A pendência voltou para quem lançou.');
+    } catch (e) {
+      setRejectError(e instanceof Error ? e.message : 'Não foi possível reprovar a resolução.');
+    } finally {
+      setReviewing(false);
     }
   };
 
@@ -496,7 +546,15 @@ export const InspectionDetailPage = (): JSX.Element => {
             <Typography variant="body2" gutterBottom>
               <strong>Penalidade de paralisação:</strong>{' '}
               {inspection.hasParalysisPenalty ? (
-                <Chip label="Aplicada (25%)" color="warning" size="small" />
+                <Chip
+                  label={
+                    inspection.paralysisPenaltyPercent != null
+                      ? `Aplicada (${inspection.paralysisPenaltyPercent}%)`
+                      : "Aplicada"
+                  }
+                  color="warning"
+                  size="small"
+                />
               ) : (
                 'Não aplicada'
               )}
@@ -817,11 +875,32 @@ export const InspectionDetailPage = (): JSX.Element => {
         );
       })()}
 
-      {inspection.status === InspectionStatus.PENDENTE_AJUSTE && nonConformItems.length > 0 && (
+      {(inspection.status === InspectionStatus.PENDENTE_AJUSTE ||
+        inspection.status === InspectionStatus.AGUARDANDO_APROVACAO) &&
+        nonConformItems.length > 0 && (
         <Paper sx={{ p: 3, mt: 3 }}>
           <Typography variant="h6" gutterBottom>
             Itens não conformes
           </Typography>
+          {inspection.status === InspectionStatus.PENDENTE_AJUSTE &&
+            inspection.resolutionRejectionReason && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Devolvida
+                {inspection.resolutionSubmittedBy?.name
+                  ? ` para ${inspection.resolutionSubmittedBy.name}`
+                  : ''}
+                . Motivo: {inspection.resolutionRejectionReason}
+              </Alert>
+            )}
+          {inspection.status === InspectionStatus.AGUARDANDO_APROVACAO && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Resolução enviada para aprovação
+              {inspection.resolutionSubmittedBy?.name
+                ? ` por ${inspection.resolutionSubmittedBy.name}`
+                : ''}
+              .
+            </Alert>
+          )}
           <Typography variant="body2" color="text.secondary" gutterBottom>
             {resolvedCount} de {nonConformItems.length} itens resolvidos
           </Typography>
@@ -914,7 +993,7 @@ export const InspectionDetailPage = (): JSX.Element => {
                       </Box>
                     )}
                   </Box>
-                  {!isResolved && (
+                  {!isResolved && canLaunchResolution && (
                     <Button
                       size="small"
                       variant="contained"
@@ -930,29 +1009,43 @@ export const InspectionDetailPage = (): JSX.Element => {
           </Box>
           {canResolveInspection && (
             <Box sx={{ mt: 2 }}>
-              <Tooltip
-                title={
-                  allResolved
-                    ? 'Marcar vistoria como resolvida (opcional; já está resolvida ao resolver o último item).'
-                    : 'Resolva todos os itens não conformes antes.'
-                }
+              <Button
+                variant="outlined"
+                color="success"
+                onClick={handleResolveInspection}
+                disabled={resolving}
               >
-                <span>
-                  <Button
-                    variant="outlined"
-                    color="success"
-                    onClick={handleResolveInspection}
-                    disabled={resolving}
-                  >
-                    Resolver vistoria
-                  </Button>
-                </span>
-              </Tooltip>
+                Enviar para aprovação
+              </Button>
             </Box>
           )}
-          {!allResolved && nonConformItems.length > 0 && (
+          {canReviewResolution && (
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => void handleApproveResolution()}
+                disabled={reviewing}
+              >
+                Aprovar
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => {
+                  setRejectReason('');
+                  setRejectError(null);
+                  setRejectDialogOpen(true);
+                }}
+                disabled={reviewing}
+              >
+                Reprovar
+              </Button>
+            </Box>
+          )}
+          {canLaunchResolution && !allResolved && nonConformItems.length > 0 && (
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              Resolva todos os itens acima para que a vistoria possa ser marcada como resolvida.
+              Resolva todos os itens acima para enviar a resolução para aprovação.
             </Typography>
           )}
         </Paper>
@@ -983,7 +1076,7 @@ export const InspectionDetailPage = (): JSX.Element => {
             margin="normal"
             required
             error={!!paralyzeError}
-            helperText={paralyzeError ?? 'Esta ação aplica penalidade persistente de 25% na nota.'}
+            helperText={paralyzeError ?? 'Esta ação aplica penalidade persistente de 35% na nota.'}
           />
         </DialogContent>
         <DialogActions>
@@ -1013,6 +1106,42 @@ export const InspectionDetailPage = (): JSX.Element => {
         }}
         onConfirm={handleDeleteInspection}
       />
+
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={reviewing ? undefined : () => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reprovar resolução</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Motivo"
+            multiline
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            margin="normal"
+            required
+            error={!!rejectError}
+            helperText={rejectError}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={reviewing}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => void handleRejectResolution()}
+            disabled={reviewing || !rejectReason.trim()}
+          >
+            {reviewing ? 'Salvando...' : 'Reprovar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={resolveModalOpen} onClose={closeResolveModal} maxWidth="sm" fullWidth>
         <DialogTitle>Resolver item não conforme</DialogTitle>

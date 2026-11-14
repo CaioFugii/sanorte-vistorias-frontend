@@ -27,7 +27,7 @@ import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverview
 import { QualityRankingTab } from "@/pages/analytics/components/QualityRankingTab";
 import { QualityServicesTab } from "@/pages/analytics/components/QualityServicesTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
-import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { QualityNonConformitiesList } from "@/pages/analytics/components/QualityNonConformitiesList";
 import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
 import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
@@ -44,10 +44,9 @@ type QualityByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashb
 type CurrentMonthByServiceResponse = Awaited<ReturnType<typeof appRepository.getDashboardCurrentMonthByService>>;
 type TeamPerformanceByTeamsResponse = Awaited<ReturnType<typeof appRepository.getDashboardTeamPerformanceByTeams>>;
 type QualitySummaryFromApi = Awaited<ReturnType<typeof appRepository.getDashboardQualitySummary>>;
-type NonConformitiesByChecklistResponse = Awaited<
-  ReturnType<typeof appRepository.getDashboardNonConformitiesByChecklist>
+type QualityNonConformitiesListResponse = Awaited<
+  ReturnType<typeof appRepository.getDashboardQualityNonConformitiesList>
 >;
-type NonConformitiesByTeamResponse = Awaited<ReturnType<typeof appRepository.getDashboardNonConformitiesByTeam>>;
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
 const QUALITY_MODULES: ModuleType[] = [
   ModuleType.CAMPO,
@@ -331,7 +330,7 @@ function mergeQualityByServiceResponses(
 }
 
 export function AnalyticsPage(): JSX.Element {
-  const { hasAnyRole, user } = useAuthStore();
+  const { hasAnyRole, user, isAuthenticated } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
@@ -355,12 +354,15 @@ export function AnalyticsPage(): JSX.Element {
   const [teamPerformanceByTeams, setTeamPerformanceByTeams] = useState<TeamPerformanceByTeamsResponse | null>(null);
   const [teamPerformanceLoading, setTeamPerformanceLoading] = useState(false);
   const [teamPerformanceError, setTeamPerformanceError] = useState<string | null>(null);
-  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] =
-    useState<NonConformitiesByChecklistResponse | null>(null);
-  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<NonConformitiesByTeamResponse | null>(null);
+  const [qualityNonConformities, setQualityNonConformities] =
+    useState<QualityNonConformitiesListResponse | null>(null);
+  const [qualityNonConformitiesLoading, setQualityNonConformitiesLoading] = useState(false);
+  const [qualityNonConformitiesError, setQualityNonConformitiesError] = useState<string | null>(null);
   const [nonConformitiesTeamId, setNonConformitiesTeamId] = useState("");
-  const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
-  const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
+  const [rankingNonConformities, setRankingNonConformities] =
+    useState<QualityNonConformitiesListResponse | null>(null);
+  const [rankingNonConformitiesLoading, setRankingNonConformitiesLoading] = useState(false);
+  const [rankingNonConformitiesError, setRankingNonConformitiesError] = useState<string | null>(null);
   const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
   const [inspectorsModule, setInspectorsModule] = useState<ModuleType>(ModuleType.REMOTO);
   const [inspectorsLoading, setInspectorsLoading] = useState(false);
@@ -406,9 +408,15 @@ export function AnalyticsPage(): JSX.Element {
   const rankingRequestKeyRef = useRef<string | null>(null);
   const rankingDialogFromUrl = useMemo(() => parseRankingDialogParams(searchParams), [searchParams]);
   const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const canSeeNonConformitiesTab = user?.role === UserRole.SUPERVISOR;
   const visibleTabs = useMemo(
-    () => QUALITY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
-    [canSeeInspectionsTab]
+    () =>
+      QUALITY_TAB_KEYS.filter((key) => {
+        if (key === "vistorias") return canSeeInspectionsTab;
+        if (key === "nonconformities") return canSeeNonConformitiesTab;
+        return true;
+      }),
+    [canSeeInspectionsTab, canSeeNonConformitiesTab]
   );
   const activeTab = useMemo(() => {
     const tabParam = searchParams.get("tab");
@@ -448,7 +456,7 @@ export function AnalyticsPage(): JSX.Element {
     setError(null);
     try {
       const qualityRange = getFixedQualityRange();
-      const [qualityResponses, currentResponse, summaryResponse, nonConformitiesChecklistResponse] = await Promise.all([
+      const [qualityResponses, currentResponse, summaryResponse] = await Promise.all([
         Promise.all(
           QUALITY_MODULES.map((module) =>
             appRepository.getDashboardQualityByService({
@@ -465,12 +473,6 @@ export function AnalyticsPage(): JSX.Element {
           from: period.from,
           to: period.to,
           contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardNonConformitiesByChecklist({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-          limitPerChecklist: 5,
         }),
       ]);
       const [teamRanking, foremenRankingResult] = await Promise.all([
@@ -492,7 +494,6 @@ export function AnalyticsPage(): JSX.Element {
       setQualityByService(qualityRes ?? null);
       setCurrentMonthByService(currentResponse ?? null);
       setQualitySummaryFromApi(summaryResponse);
-      setNonConformitiesByChecklist(nonConformitiesChecklistResponse ?? null);
       setForemenRanking(foremenRankingResult);
       setTeamRankingQuality(
         teamRanking.map((item) => ({
@@ -635,35 +636,81 @@ export function AnalyticsPage(): JSX.Element {
   }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod]);
 
   useEffect(() => {
-    if (!canAccessAnalytics) return;
-    if (!nonConformitiesTeamId) {
-      setNonConformitiesByTeam(null);
-      setNonConformitiesByTeamError(null);
-      return;
-    }
-
-    const loadNonConformitiesByTeam = async () => {
-      setNonConformitiesByTeamLoading(true);
-      setNonConformitiesByTeamError(null);
+    if (!canAccessAnalytics || !canSeeNonConformitiesTab) return;
+    let cancelled = false;
+    const loadQualityNonConformities = async () => {
+      setQualityNonConformitiesLoading(true);
+      setQualityNonConformitiesError(null);
       try {
-        const response = await appRepository.getDashboardNonConformitiesByTeam({
+        const response = await appRepository.getDashboardQualityNonConformitiesList({
           from: globalPeriod.from,
           to: globalPeriod.to,
-          teamId: nonConformitiesTeamId,
           contractId: selectedContractId || undefined,
-          limit: 5,
+          limitPerChecklist: 5,
+          ...(nonConformitiesTeamId ? { teamId: nonConformitiesTeamId } : {}),
         });
-        setNonConformitiesByTeam(response);
+        if (!cancelled) setQualityNonConformities(response);
       } catch {
-        setNonConformitiesByTeam(null);
-        setNonConformitiesByTeamError("Falha ao carregar o top de não conformidades da equipe.");
+        if (!cancelled) {
+          setQualityNonConformities(null);
+          setQualityNonConformitiesError("Falha ao carregar as não conformidades.");
+        }
       } finally {
-        setNonConformitiesByTeamLoading(false);
+        if (!cancelled) setQualityNonConformitiesLoading(false);
       }
     };
+    void loadQualityNonConformities();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canAccessAnalytics,
+    canSeeNonConformitiesTab,
+    globalPeriod,
+    nonConformitiesTeamId,
+    selectedContractId,
+  ]);
 
-    void loadNonConformitiesByTeam();
-  }, [canAccessAnalytics, globalPeriod, nonConformitiesTeamId, selectedContractId]);
+  useEffect(() => {
+    if (!canAccessAnalytics || !rankingInspectionsOpen || !rankingInspectionsMeta.teamId) {
+      setRankingNonConformities(null);
+      setRankingNonConformitiesError(null);
+      setRankingNonConformitiesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const loadRankingNonConformities = async () => {
+      setRankingNonConformitiesLoading(true);
+      setRankingNonConformitiesError(null);
+      try {
+        const response = await appRepository.getDashboardQualityNonConformitiesList({
+          from: globalPeriod.from,
+          to: globalPeriod.to,
+          teamId: rankingInspectionsMeta.teamId,
+          contractId: selectedContractId || undefined,
+          limitPerChecklist: 5,
+        });
+        if (!cancelled) setRankingNonConformities(response);
+      } catch {
+        if (!cancelled) {
+          setRankingNonConformities(null);
+          setRankingNonConformitiesError("Falha ao carregar as não conformidades da equipe.");
+        }
+      } finally {
+        if (!cancelled) setRankingNonConformitiesLoading(false);
+      }
+    };
+    void loadRankingNonConformities();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canAccessAnalytics,
+    globalPeriod,
+    rankingInspectionsMeta.teamId,
+    rankingInspectionsOpen,
+    selectedContractId,
+  ]);
 
   const chartMonths = useMemo(
     () =>
@@ -845,6 +892,10 @@ export function AnalyticsPage(): JSX.Element {
     selectedContractId,
   ]);
 
+  if (isAuthenticated && !user) {
+    return null;
+  }
+
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
   }
@@ -1020,6 +1071,9 @@ export function AnalyticsPage(): JSX.Element {
                   }
                   onExportRanking={handleExportRanking}
                   exportDisabled={loading}
+                  teamNonConformities={rankingNonConformities}
+                  teamNonConformitiesLoading={rankingNonConformitiesLoading}
+                  teamNonConformitiesError={rankingNonConformitiesError}
                 />
               )}
 
@@ -1111,14 +1165,14 @@ export function AnalyticsPage(): JSX.Element {
               )}
 
               {activeTabKey === "nonconformities" && (
-                <QualityNonConformitiesTab
-                  byChecklist={nonConformitiesByChecklist}
-                  byTeam={nonConformitiesByTeam}
+                <QualityNonConformitiesList
+                  data={qualityNonConformities}
+                  loading={qualityNonConformitiesLoading}
+                  error={qualityNonConformitiesError}
+                  showTeamFilter
                   teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
                   selectedTeamId={nonConformitiesTeamId}
                   onSelectedTeamIdChange={setNonConformitiesTeamId}
-                  byTeamLoading={nonConformitiesByTeamLoading}
-                  byTeamError={nonConformitiesByTeamError}
                   dateFilterHint={
                     <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
                   }

@@ -1,6 +1,18 @@
 import { Box, Grid, Paper, Typography } from "@mui/material";
 import { getKpiScoreHighlight } from "@/pages/analytics/components/kpiScoreHighlight";
 
+type ApprovalRateHighlight = {
+  textColor: string;
+  borderColor: string;
+  backgroundColor: string;
+};
+
+type PostWorkKpi = {
+  inspectionsCount: number;
+  averagePercent: number;
+  approvalRatePercent: number | null;
+};
+
 type QualityKpiStripProps = {
   qualitySummary: {
     averagePercent: number;
@@ -13,6 +25,7 @@ type QualityKpiStripProps = {
     postWork: {
       inspectionsCount: number;
       averagePercent: number;
+      approvalRatePercent?: number | null;
     };
     remote: {
       inspectionsCount: number;
@@ -23,6 +36,37 @@ type QualityKpiStripProps = {
 
 function formatPercent(value: number): string {
   return `${value.toFixed(1).replace(".", ",")}%`;
+}
+
+function formatApprovalPercent(value: number): string {
+  return `${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}%`;
+}
+
+function getApprovalRateHighlight(percent: number): ApprovalRateHighlight {
+  if (percent <= 50) {
+    return {
+      textColor: "#8f2d36",
+      borderColor: "#f3b7be",
+      backgroundColor: "#fdecee",
+    };
+  }
+
+  if (percent < 80) {
+    return {
+      textColor: "#7a5b12",
+      borderColor: "#f3dd9a",
+      backgroundColor: "#fff6d8",
+    };
+  }
+
+  return {
+    textColor: "#0f5f58",
+    borderColor: "#9edfd6",
+    backgroundColor: "#dff6f3",
+  };
 }
 
 export function QualityKpiStrip({
@@ -100,6 +144,18 @@ export function QualityKpiStrip({
         {moduleCards.map((card) => {
           const moduleData = qualitySummary[card.key];
           const scoreHighlight = getKpiScoreHighlight(moduleData.averagePercent);
+          const postWork: PostWorkKpi | null =
+            card.key === "postWork"
+              ? {
+                  inspectionsCount: qualitySummary.postWork.inspectionsCount,
+                  averagePercent: qualitySummary.postWork.averagePercent,
+                  approvalRatePercent:
+                    qualitySummary.postWork.approvalRatePercent ?? null,
+                }
+              : null;
+          const approvalRate = postWork?.approvalRatePercent ?? null;
+          const approvalHighlight =
+            approvalRate != null ? getApprovalRateHighlight(approvalRate) : null;
           return (
             <Grid key={card.title} item xs={12} sm={4} md={4}>
               <Paper sx={{ p: 2, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
@@ -129,6 +185,31 @@ export function QualityKpiStrip({
                       {formatPercent(moduleData.averagePercent)}
                     </Box>
                   </Typography>
+                  {card.key === "postWork" && (
+                    <Typography variant="body2" color="text.secondary">
+                      % aprovação:{" "}
+                      {approvalRate != null && approvalHighlight ? (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            px: 0.75,
+                            py: 0.15,
+                            borderRadius: 1,
+                            fontWeight: 700,
+                            color: approvalHighlight.textColor,
+                            bgcolor: approvalHighlight.backgroundColor,
+                            border: `1px solid ${approvalHighlight.borderColor}`,
+                          }}
+                        >
+                          {formatApprovalPercent(approvalRate)}
+                        </Box>
+                      ) : (
+                        "—"
+                      )}
+                    </Typography>
+                  )}
                 </Box>
               </Paper>
             </Grid>

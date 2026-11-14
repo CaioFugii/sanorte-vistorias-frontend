@@ -8,11 +8,13 @@ import {
   MenuItem,
   Popover,
   Select,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tabs,
   Typography,
   TextField,
   Tooltip,
@@ -69,6 +71,13 @@ export const PendingsPage = (): JSX.Element => {
   const detailFrom = `${location.pathname}${location.search}`;
   const { user } = useAuthStore();
   const isAdmin = user?.role === UserRole.ADMIN;
+  const canReviewResolutions =
+    user?.role === UserRole.GESTOR || user?.role === UserRole.ADMIN;
+  const [pendingTab, setPendingTab] = useState<"ativas" | "resolvidas">("ativas");
+  const listStatus =
+    canReviewResolutions && pendingTab === "resolvidas"
+      ? InspectionStatus.AGUARDANDO_APROVACAO
+      : InspectionStatus.PENDENTE_AJUSTE;
   const availableContracts = user?.contracts ?? [];
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
@@ -119,7 +128,7 @@ export const PendingsPage = (): JSX.Element => {
   const loadPendings = async () => {
     setLoading(true);
     const res = await appRepository.getInspections({
-      status: InspectionStatus.PENDENTE_AJUSTE,
+      status: listStatus,
       module: selectedModule || undefined,
       contractId: selectedContractId || undefined,
       teamId: selectedTeamId || undefined,
@@ -139,7 +148,7 @@ export const PendingsPage = (): JSX.Element => {
 
   const handleExportPendings = async () => {
     const { blob, filename } = await appRepository.exportInspectionsExcel({
-      status: InspectionStatus.PENDENTE_AJUSTE,
+      status: listStatus,
       module: selectedModule || undefined,
       contractId: selectedContractId || undefined,
       teamId: selectedTeamId || undefined,
@@ -259,6 +268,7 @@ export const PendingsPage = (): JSX.Element => {
     executionTo,
     inspectionFrom,
     inspectionTo,
+    listStatus,
   ]);
 
   const handleClearFilters = () => {
@@ -434,7 +444,21 @@ export const PendingsPage = (): JSX.Element => {
         <ExportExcelButton onExport={handleExportPendings} disabled={loading} />
       </Box>
 
-      <SectionTable title="Pendências ativas">
+      {canReviewResolutions && (
+        <Tabs
+          value={pendingTab}
+          onChange={(_event, value: "ativas" | "resolvidas") => {
+            setPendingTab(value);
+            setPage(1);
+          }}
+          sx={{ mb: 2 }}
+        >
+          <Tab value="ativas" label="Pendências ativas" />
+          <Tab value="resolvidas" label="Pendências Resolvidas" />
+        </Tabs>
+      )}
+
+      <SectionTable title={pendingTab === "resolvidas" && canReviewResolutions ? "Pendências Resolvidas" : "Pendências ativas"}>
         <Table>
           <TableHead>
             <TableRow>
@@ -448,22 +472,25 @@ export const PendingsPage = (): JSX.Element => {
               <TableCell>Status</TableCell>
               <TableCell>Percentual</TableCell>
               <TableCell>Data da vistoria</TableCell>
+              <TableCell>Motivo da devolução</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={32} />
                 </TableCell>
               </TableRow>
             ) : inspections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                   {hasActiveFilters
                     ? "Nenhuma pendência encontrada para os filtros informados."
-                    : "Nenhuma pendência de ajuste."}
+                    : listStatus === InspectionStatus.AGUARDANDO_APROVACAO
+                      ? "Nenhuma pendência aguardando aprovação."
+                      : "Nenhuma pendência de ajuste."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -535,10 +562,17 @@ export const PendingsPage = (): JSX.Element => {
                         ? new Date(inspection.finalizedAt).toLocaleDateString("pt-BR")
                         : "-"}
                     </TableCell>
+                    <TableCell>{inspection.resolutionRejectionReason || "-"}</TableCell>
                     <TableActionsCell>
                       <TableActionsGroup>
                         <TableViewButton
-                          label="Ver e resolver"
+                          label={
+                            pendingTab === "resolvidas" && canReviewResolutions
+                              ? "Ver retorno"
+                              : user?.role === UserRole.SUPERVISOR
+                                ? "Ver e resolver"
+                                : "Ver"
+                          }
                           onClick={() =>
                             navigate(`/inspections/${inspection.externalId}`, {
                               state: { from: detailFrom },
