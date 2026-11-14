@@ -3,51 +3,79 @@ import { Checklist, Sector, ServiceOrder, Team } from "@/domain";
 import { ModuleType } from "@/domain/enums";
 import { create } from "zustand";
 
+const SECTORS_LOAD_ERROR = "Não foi possível carregar os setores.";
+
 interface ReferenceState {
   teams: Team[];
   sectors: Sector[];
   checklists: Checklist[];
   serviceOrders: ServiceOrder[];
   loading: boolean;
+  sectorsLoading: boolean;
+  sectorsLoaded: boolean;
+  sectorsError: string | null;
   serviceOrdersLoading: boolean;
   loadCache: () => Promise<void>;
   refreshFromApi: () => Promise<void>;
+  reloadSectors: () => Promise<void>;
   loadServiceOrders: (sectorId?: string, module?: ModuleType) => Promise<void>;
 }
 
-export const useReferenceStore = create<ReferenceState>((set) => ({
+async function loadReferences(
+  set: (
+    partial:
+      | Partial<ReferenceState>
+      | ((state: ReferenceState) => Partial<ReferenceState>)
+  ) => void,
+  get: () => ReferenceState
+): Promise<void> {
+  set({ loading: true });
+  try {
+    await Promise.allSettled([
+      appRepository.loadTeams().then((teams) => set({ teams })),
+      appRepository
+        .loadSectors()
+        .then((sectors) => set({ sectors, sectorsError: null, sectorsLoaded: true }))
+        .catch(() => {
+          set({
+            sectorsError: get().sectors.length === 0 ? SECTORS_LOAD_ERROR : null,
+            sectorsLoaded: true,
+          });
+        }),
+      appRepository.loadChecklists().then((checklists) => set({ checklists })),
+    ]);
+  } finally {
+    set({ loading: false });
+  }
+}
+
+export const useReferenceStore = create<ReferenceState>((set, get) => ({
   teams: [],
   sectors: [],
   checklists: [],
   serviceOrders: [],
   loading: false,
+  sectorsLoading: false,
+  sectorsLoaded: false,
+  sectorsError: null,
   serviceOrdersLoading: false,
 
-  loadCache: async () => {
-    set({ loading: true });
-    try {
-      const [teams, sectors, checklists] = await Promise.all([
-        appRepository.loadTeams(),
-        appRepository.loadSectors(),
-        appRepository.loadChecklists(),
-      ]);
-      set({ teams, sectors, checklists });
-    } finally {
-      set({ loading: false });
-    }
-  },
+  loadCache: () => loadReferences(set, get),
 
-  refreshFromApi: async () => {
-    set({ loading: true });
+  refreshFromApi: () => loadReferences(set, get),
+
+  reloadSectors: async () => {
+    set({ sectorsLoading: true, sectorsError: null });
     try {
-      const [teams, sectors, checklists] = await Promise.all([
-        appRepository.loadTeams(),
-        appRepository.loadSectors(),
-        appRepository.loadChecklists(),
-      ]);
-      set({ teams, sectors, checklists });
+      const sectors = await appRepository.loadSectors();
+      set({ sectors, sectorsError: null, sectorsLoaded: true });
+    } catch {
+      set({
+        sectorsError: get().sectors.length === 0 ? SECTORS_LOAD_ERROR : null,
+        sectorsLoaded: true,
+      });
     } finally {
-      set({ loading: false });
+      set({ sectorsLoading: false });
     }
   },
 

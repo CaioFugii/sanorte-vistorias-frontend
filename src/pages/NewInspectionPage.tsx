@@ -20,7 +20,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
@@ -36,10 +36,12 @@ export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const sectors = useReferenceStore((state) => state.sectors);
+  const sectorsLoading = useReferenceStore((state) => state.sectorsLoading);
+  const sectorsLoaded = useReferenceStore((state) => state.sectorsLoaded);
+  const sectorsError = useReferenceStore((state) => state.sectorsError);
+  const reloadSectors = useReferenceStore((state) => state.reloadSectors);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [checklistLoading, setChecklistLoading] = useState(false);
   const [osSearchLoading, setOsSearchLoading] = useState(false);
-  const loading = submitLoading || checklistLoading || osSearchLoading;
   const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
   const [evaluationModule, setEvaluationModule] = useState<InvestmentWorkEvaluationModule>(
     InvestmentWorkEvaluationModule.CAMPO
@@ -78,6 +80,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const collaboratorSearchRequestRef = useRef(0);
   const investmentWorkSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const investmentWorkSearchRequestRef = useRef(0);
+  const sectorRetryAttemptedRef = useRef(false);
 
   const MIN_OS_SEARCH_LENGTH = 4;
   const MIN_TEAM_SEARCH_LENGTH = 4;
@@ -402,6 +405,7 @@ export const NewInspectionPage = (): JSX.Element => {
   const osNumberError = Boolean(
     serviceOrderRequired && osNumberInput.trim().length >= MIN_OS_SEARCH_LENGTH && !osSearchLoading && !selectedServiceOrder
   );
+  const sectorsPending = !sectorsLoaded || sectorsLoading;
   const sectorSelectHelperText = useMemo(() => {
     if (selectedServiceOrder) {
       return "Setor definido automaticamente pela OS selecionada.";
@@ -409,11 +413,32 @@ export const NewInspectionPage = (): JSX.Element => {
     if (!isInvestmentWorkModule) {
       return "Neste módulo, o setor é definido pela OS.";
     }
+    if (sectorsPending) {
+      return "Carregando setores...";
+    }
+    if (sectorsError && activeSectorsCount === 0) {
+      return sectorsError;
+    }
     if (activeSectorsCount === 0) {
       return "Nenhum setor ativo disponível para seleção.";
     }
     return undefined;
-  }, [selectedServiceOrder, isInvestmentWorkModule, activeSectorsCount]);
+  }, [selectedServiceOrder, isInvestmentWorkModule, sectorsPending, sectorsError, activeSectorsCount]);
+
+  useEffect(() => {
+    if (!isInvestmentWorkModule || selectedServiceOrder || sectorRetryAttemptedRef.current) return;
+    if (sectorsPending || activeSectorsCount > 0 || !sectorsError) return;
+    sectorRetryAttemptedRef.current = true;
+    void reloadSectors();
+  }, [
+    isInvestmentWorkModule,
+    selectedServiceOrder,
+    sectorsPending,
+    activeSectorsCount,
+    sectorsError,
+    reloadSectors,
+  ]);
+
   const isRemoteModule = module === ModuleType.REMOTO;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -483,10 +508,6 @@ export const NewInspectionPage = (): JSX.Element => {
     }
   };
 
-  const handleChecklistLoadingChange = useCallback((value: boolean) => {
-    setChecklistLoading(value);
-  }, []);
-
   const formatOsValue = (value?: string | number | null): string => {
     if (value === null || value === undefined) return "Não informado";
     const normalized = String(value).trim();
@@ -502,7 +523,7 @@ export const NewInspectionPage = (): JSX.Element => {
 
   return (
     <Box>
-      <Backdrop open={loading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <Backdrop open={submitLoading} sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <CircularProgress color="inherit" />
       </Backdrop>
       <Typography variant="h4" gutterBottom>
@@ -760,9 +781,22 @@ export const NewInspectionPage = (): JSX.Element => {
                   }}
                   label={selectedServiceOrder ? "Setor (definido pela OS)" : "Setor"}
                   required
-                  disabled={Boolean(selectedServiceOrder) || !isInvestmentWorkModule}
+                  disabled={Boolean(selectedServiceOrder) || !isInvestmentWorkModule || sectorsPending}
                   helperText={sectorSelectHelperText}
+                  error={isInvestmentWorkModule && !selectedServiceOrder && !sectorsPending && Boolean(sectorsError) && activeSectorsCount === 0}
                 />
+                {isInvestmentWorkModule && !selectedServiceOrder && !sectorsPending && Boolean(sectorsError) && activeSectorsCount === 0 && (
+                  <Button
+                    type="button"
+                    size="small"
+                    sx={{ mt: 1 }}
+                    onClick={() => {
+                      void reloadSectors();
+                    }}
+                  >
+                    Tentar carregar setores novamente
+                  </Button>
+                )}
               </Box>
             )}
             {isWorkSafetyModule && (
@@ -807,8 +841,16 @@ export const NewInspectionPage = (): JSX.Element => {
                 inspectionScope={inspectionScope}
                 sectorId={sectorId}
                 disabled={!sectorId && module !== ModuleType.SEGURANCA_TRABALHO}
+                helperText={
+                  !sectorId && module !== ModuleType.SEGURANCA_TRABALHO
+                    ? isInvestmentWorkModule && sectorsPending
+                      ? "O checklist libera quando os setores terminarem de carregar."
+                      : isInvestmentWorkModule && sectorsError
+                        ? "O checklist libera depois que os setores forem carregados."
+                        : "Selecione um setor para liberar o checklist."
+                    : undefined
+                }
                 required
-                onLoadingChange={handleChecklistLoadingChange}
               />
             </Box>
             {!(isWorkSafetyModule && isCollaboratorScope) && (
@@ -986,7 +1028,7 @@ export const NewInspectionPage = (): JSX.Element => {
               <Button variant="outlined" onClick={() => navigate("/inspections/mine")}>
                 Cancelar
               </Button>
-              <Button type="submit" variant="contained" disabled={loading}>
+              <Button type="submit" variant="contained" disabled={submitLoading}>
                 {submitLoading ? <CircularProgress size={20} /> : "Criar"}
               </Button>
             </Box>

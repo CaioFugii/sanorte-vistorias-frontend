@@ -11,6 +11,7 @@ interface SectorSelectProps {
   onlyActive?: boolean;
   options?: Sector[];
   helperText?: string;
+  error?: boolean;
 }
 
 export const SectorSelect = ({
@@ -22,6 +23,7 @@ export const SectorSelect = ({
   onlyActive = true,
   options,
   helperText,
+  error = false,
 }: SectorSelectProps): JSX.Element => {
   const cachedSectors = useReferenceStore((state) => state.sectors);
   const sectors = options ?? cachedSectors;
@@ -34,7 +36,7 @@ export const SectorSelect = ({
   };
 
   return (
-    <FormControl fullWidth required={required} disabled={effectiveDisabled}>
+    <FormControl fullWidth required={required} disabled={effectiveDisabled} error={error}>
       <InputLabel>{label}</InputLabel>
       <Select value={value} onChange={handleChange} label={label}>
         {filtered.map((sector) => (
@@ -44,7 +46,7 @@ export const SectorSelect = ({
         ))}
       </Select>
       {(helperText || hasNoOptions) && (
-        <FormHelperText>{helperText ?? "Nenhum setor ativo disponível."}</FormHelperText>
+        <FormHelperText error={error}>{helperText ?? "Nenhum setor ativo disponível."}</FormHelperText>
       )}
     </FormControl>
   );
