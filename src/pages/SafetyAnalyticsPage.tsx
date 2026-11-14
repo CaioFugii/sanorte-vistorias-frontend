@@ -759,7 +759,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   ]);
 
   if (isAuthenticated && !user) {
-    return null;
+    return <></>;
   }
 
   if (!canAccessAnalytics) {

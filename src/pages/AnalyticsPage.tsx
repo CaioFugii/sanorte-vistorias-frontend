@@ -893,7 +893,7 @@ export function AnalyticsPage(): JSX.Element {
   ]);
 
   if (isAuthenticated && !user) {
-    return null;
+    return <></>;
   }
 
   if (!canAccessAnalytics) {
