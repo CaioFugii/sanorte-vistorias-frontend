@@ -25,6 +25,7 @@ type QualityForemenTabProps = {
   loading: boolean;
   error: string | null;
   dateFilterHint: ReactNode;
+  areaLabel?: string;
 };
 
 function formatPercent(value: number): string {
@@ -36,6 +37,7 @@ export function QualityForemenTab({
   loading,
   error,
   dateFilterHint,
+  areaLabel = "Qualidade",
 }: QualityForemenTabProps): JSX.Element {
   const foremen = data?.foremen ?? [];
 
@@ -48,7 +50,7 @@ export function QualityForemenTab({
               Resultado por encarregados
             </Typography>
             <Typography variant="subtitle2" fontWeight={700}>
-              Qualidade
+              {areaLabel}
             </Typography>
           </Box>
           {dateFilterHint}

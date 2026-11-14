@@ -807,6 +807,24 @@ export interface IAppRepository {
       resolvedCount: number;
     }>;
   }>;
+  getDashboardSafetyWorkForemenRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    foremen: Array<{
+      foremanId: string;
+      foremanName: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }>;
   getDashboardSafetyWorkInspectorsProduction(params: {
     from: string;
     to: string;

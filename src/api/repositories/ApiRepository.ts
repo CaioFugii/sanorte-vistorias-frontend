@@ -1776,6 +1776,28 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkForemenRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    foremen: Array<{
+      foremanId: string;
+      foremanName: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/safety-work/foremen-ranking", { params });
+    return response.data;
+  }
+
   async getDashboardSafetyWorkInspectorsProduction(params: {
     from: string;
     to: string;

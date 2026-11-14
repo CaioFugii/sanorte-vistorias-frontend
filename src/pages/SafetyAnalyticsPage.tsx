@@ -47,8 +47,10 @@ import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab"
 import { SafetyInspectionsTab } from "@/pages/analytics/components/SafetyInspectionsTab";
 import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
 import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import {
+  ForemenRankingData,
   InspectorsProductionData,
   QualityByServiceData,
   TeamPerformanceFilters,
@@ -60,6 +62,7 @@ const SAFETY_TAB_KEYS = [
   "ranking",
   "teams",
   "fiscais",
+  "encarregados",
   "overview",
   "nonconformities",
   "vistorias",
@@ -71,6 +74,7 @@ const SAFETY_TAB_LABELS: Record<SafetyTabKey, string> = {
   ranking: "Ranking",
   teams: "Equipes",
   fiscais: "Fiscais",
+  encarregados: "Encarregados",
   overview: "Visão Geral",
   nonconformities: "Não Conformidades",
   vistorias: "Vistorias",
@@ -236,7 +240,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
-  const { hasAnyRole, user } = useAuthStore();
+  const { hasAnyRole, user, isAuthenticated } = useAuthStore();
   const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
@@ -272,6 +276,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     }>
   >([]);
   const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
+  const [foremenRanking, setForemenRanking] = useState<ForemenRankingData | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceData | null>(null);
   const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<Awaited<
     ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByChecklist>
@@ -368,7 +373,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setError(null);
     try {
       const overviewRange = getFixedSafetyOverviewRange();
-      const [summaryResult, rankingResult, inspectorsResult, overviewResult, nonConformitiesResult] =
+      const [summaryResult, rankingResult, inspectorsResult, foremenResult, overviewResult, nonConformitiesResult] =
         await Promise.all([
           appRepository.getDashboardSafetyWorkSummary({
             from: period.from,
@@ -381,6 +386,11 @@ export function SafetyAnalyticsPage(): JSX.Element {
             contractId: contractId || undefined,
           }),
           appRepository.getDashboardSafetyWorkInspectorsProduction({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkForemenRanking({
             from: period.from,
             to: period.to,
             contractId: contractId || undefined,
@@ -399,6 +409,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
         ]);
       setSummary(summaryResult);
       setInspectorsProduction(inspectorsResult);
+      setForemenRanking(foremenResult);
       setQualityByService(overviewResult);
       setNonConformitiesByChecklist(nonConformitiesResult);
       setTeamRanking(
@@ -747,6 +758,10 @@ export function SafetyAnalyticsPage(): JSX.Element {
     openChecklistInspections,
   ]);
 
+  if (isAuthenticated && !user) {
+    return null;
+  }
+
   if (!canAccessAnalytics) {
     return <Navigate to="/inspections/mine" replace />;
   }
@@ -913,6 +928,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
           data={inspectorsProduction}
           loading={loading}
           error={error}
+          dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
+        />
+      )}
+
+      {activeTabKey === "encarregados" && (
+        <QualityForemenTab
+          data={foremenRanking}
+          loading={loading}
+          error={error}
+          areaLabel="Segurança do Trabalho"
           dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
         />
       )}
