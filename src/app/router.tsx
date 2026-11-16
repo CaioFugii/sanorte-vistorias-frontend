@@ -21,9 +21,7 @@ import {
   SectorsPage,
   ServiceOrdersPage,
   TeamsPage,
-  ForemenPage,
-  CoordinatorsPage,
-  FieldSupervisorsPage,
+  FieldHierarchyPage,
   UsersPage,
 } from "@/pages";
 import { useAuthStore } from "@/stores/authStore";
@@ -125,28 +123,24 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "/foremen",
+        path: "/field-hierarchy",
         element: (
           <RequireRoles allowedRoles={[UserRole.ADMIN]}>
-            <ForemenPage />
+            <FieldHierarchyPage />
           </RequireRoles>
         ),
+      },
+      {
+        path: "/foremen",
+        element: <Navigate to="/field-hierarchy?tab=encarregados" replace />,
       },
       {
         path: "/coordinators",
-        element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
-            <CoordinatorsPage />
-          </RequireRoles>
-        ),
+        element: <Navigate to="/field-hierarchy?tab=coordenadores" replace />,
       },
       {
         path: "/field-supervisors",
-        element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
-            <FieldSupervisorsPage />
-          </RequireRoles>
-        ),
+        element: <Navigate to="/field-hierarchy?tab=supervisores" replace />,
       },
       {
         path: "/contracts",

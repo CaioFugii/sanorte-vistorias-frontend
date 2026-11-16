@@ -29,6 +29,8 @@ import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
+import { MonthFilter } from "@/components/MonthFilter";
+import { coerceMonthRange, monthKeyToRange } from "@/domain/rules/monthPeriod";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
@@ -92,6 +94,36 @@ export const PendingsPage = (): JSX.Element => {
   const executionTo = values.executionTo;
   const inspectionFrom = values.inspectionFrom;
   const inspectionTo = values.inspectionTo;
+  const executionRange = useMemo(
+    () => coerceMonthRange(executionFrom, executionTo),
+    [executionFrom, executionTo]
+  );
+  const inspectionRange = useMemo(
+    () => coerceMonthRange(inspectionFrom, inspectionTo),
+    [inspectionFrom, inspectionTo]
+  );
+
+  useEffect(() => {
+    if (!executionFrom && !executionTo) return;
+    if (!executionRange) {
+      setValues({ executionFrom: "", executionTo: "" });
+      return;
+    }
+    if (executionRange.from !== executionFrom || executionRange.to !== executionTo) {
+      setValues({ executionFrom: executionRange.from, executionTo: executionRange.to });
+    }
+  }, [executionFrom, executionTo, executionRange, setValues]);
+
+  useEffect(() => {
+    if (!inspectionFrom && !inspectionTo) return;
+    if (!inspectionRange) {
+      setValues({ inspectionFrom: "", inspectionTo: "" });
+      return;
+    }
+    if (inspectionRange.from !== inspectionFrom || inspectionRange.to !== inspectionTo) {
+      setValues({ inspectionFrom: inspectionRange.from, inspectionTo: inspectionRange.to });
+    }
+  }, [inspectionFrom, inspectionTo, inspectionRange, setValues]);
   const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [inspections, setInspections] = useState<InspectionListItem[]>([]);
   const [meta, setMeta] = useState<{
@@ -134,10 +166,10 @@ export const PendingsPage = (): JSX.Element => {
       teamId: selectedTeamId || undefined,
       osNumber: osNumber.trim() || undefined,
       service: service.trim() || undefined,
-      executionFrom: executionFrom || undefined,
-      executionTo: executionTo || undefined,
-      inspectionFrom: inspectionFrom || undefined,
-      inspectionTo: inspectionTo || undefined,
+      executionFrom: executionRange?.from,
+      executionTo: executionRange?.to,
+      inspectionFrom: inspectionRange?.from,
+      inspectionTo: inspectionRange?.to,
       page,
       limit,
     });
@@ -154,10 +186,10 @@ export const PendingsPage = (): JSX.Element => {
       teamId: selectedTeamId || undefined,
       osNumber: osNumber.trim() || undefined,
       service: service.trim() || undefined,
-      executionFrom: executionFrom || undefined,
-      executionTo: executionTo || undefined,
-      inspectionFrom: inspectionFrom || undefined,
-      inspectionTo: inspectionTo || undefined,
+      executionFrom: executionRange?.from,
+      executionTo: executionRange?.to,
+      inspectionFrom: inspectionRange?.from,
+      inspectionTo: inspectionRange?.to,
       layout: InspectionExcelLayout.PENDENCIAS,
     });
     downloadBlob(blob, filename);
@@ -369,69 +401,31 @@ export const PendingsPage = (): JSX.Element => {
             ))}
           </Select>
         </FormControl>
-        <TextField
-          size="small"
-          label="Execução de"
-          type="date"
-          value={executionFrom}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value && executionTo && value > executionTo) {
-              setValues({ executionFrom: value, executionTo: value, page: "1" });
+        <MonthFilter
+          label="Execução"
+          allowEmpty
+          value={executionRange?.from.slice(0, 7) ?? null}
+          onChange={(month) => {
+            if (!month) {
+              setValues({ executionFrom: "", executionTo: "", page: "1" });
               return;
             }
-            setFilter("executionFrom", value);
+            const range = monthKeyToRange(month);
+            setValues({ executionFrom: range.from, executionTo: range.to, page: "1" });
           }}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ max: executionTo || undefined }}
         />
-        <TextField
-          size="small"
-          label="Execução até"
-          type="date"
-          value={executionTo}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value && executionFrom && value < executionFrom) {
-              setValues({ executionFrom: value, executionTo: value, page: "1" });
+        <MonthFilter
+          label="Vistoria"
+          allowEmpty
+          value={inspectionRange?.from.slice(0, 7) ?? null}
+          onChange={(month) => {
+            if (!month) {
+              setValues({ inspectionFrom: "", inspectionTo: "", page: "1" });
               return;
             }
-            setFilter("executionTo", value);
+            const range = monthKeyToRange(month);
+            setValues({ inspectionFrom: range.from, inspectionTo: range.to, page: "1" });
           }}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ min: executionFrom || undefined }}
-        />
-        <TextField
-          size="small"
-          label="Vistoria de"
-          type="date"
-          value={inspectionFrom}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value && inspectionTo && value > inspectionTo) {
-              setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
-              return;
-            }
-            setFilter("inspectionFrom", value);
-          }}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ max: inspectionTo || undefined }}
-        />
-        <TextField
-          size="small"
-          label="Vistoria até"
-          type="date"
-          value={inspectionTo}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (value && inspectionFrom && value < inspectionFrom) {
-              setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
-              return;
-            }
-            setFilter("inspectionTo", value);
-          }}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ min: inspectionFrom || undefined }}
         />
         <Button
           variant="outlined"

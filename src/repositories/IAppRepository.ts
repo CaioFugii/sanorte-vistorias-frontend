@@ -23,6 +23,11 @@ import {
   PaginatedResponse,
   Sector,
   ServiceOrder,
+  ServiceOrderImportDetail,
+  ServiceOrderImportLine,
+  ServiceOrderImportResult,
+  ServiceOrderImportSummary,
+  ServiceOrderStageSummary,
   Signature,
   Team,
   User,
@@ -263,11 +268,22 @@ export interface IAppRepository {
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;
+    postWorkEligible?: boolean;
     from?: string;
     to?: string;
     equipe?: string;
     resultado?: string;
   }): Promise<PaginatedResponse<ServiceOrder>>;
+  getServiceOrderSummary(params?: {
+    osNumber?: string;
+    sectorId?: string;
+    contractId?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
+    equipe?: string;
+    resultado?: string;
+  }): Promise<ServiceOrderStageSummary>;
   getInvestmentWorks(params?: {
     page?: number;
     limit?: number;
@@ -310,12 +326,18 @@ export interface IAppRepository {
     }>
   ): Promise<InvestmentWork>;
   deleteInvestmentWork(investmentWorkId: string): Promise<void>;
-  importServiceOrders(file: File, contractId: string): Promise<{
-    inserted: number;
-    skipped: number;
-    deleted: number;
-    errors: string[];
-  }>;
+  importServiceOrders(file: File, contractId: string): Promise<ServiceOrderImportResult>;
+  getServiceOrderImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<ServiceOrderImportSummary>>;
+  getServiceOrderImport(importId: string): Promise<ServiceOrderImportDetail>;
+  downloadServiceOrderImport(importId: string): Promise<{ blob: Blob; filename: string }>;
+  reprocessServiceOrderImportLine(
+    importId: string,
+    lineId: string,
+    row: Record<string, string>
+  ): Promise<ServiceOrderImportLine>;
   exportServiceOrdersExcel(params?: {
     osNumber?: string;
     sectorId?: string;
@@ -329,6 +351,7 @@ export interface IAppRepository {
     resultado?: string;
   }): Promise<{ blob: Blob; filename: string }>;
   deleteServiceOrder(serviceOrderId: string): Promise<void>;
+  deleteServiceOrders(ids: string[]): Promise<void>;
 
   getInspections(params?: {
     periodFrom?: string;
@@ -917,6 +940,7 @@ export interface IAppRepository {
   }): Promise<Inspection>;
   getInspection(externalId: string, forceApi?: boolean): Promise<Inspection | null>;
   deleteInspection(externalId: string): Promise<void>;
+  changeInspectionsTeam(inspectionIds: string[], teamId: string): Promise<void>;
   listInspections(): Promise<InspectionListItem[]>;
   listInspectionsByUser(userId: string): Promise<InspectionListItem[]>;
   /** Lista para perfil FISCAL: online = API + local (rascunhos); offline = só local. */

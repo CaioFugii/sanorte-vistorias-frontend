@@ -50,7 +50,7 @@ function formatContracts(contracts?: NamedOption[]): string {
   return names.length > 0 ? names.join(", ") : "—";
 }
 
-export const FieldSupervisorsPage = (): JSX.Element => {
+export const FieldSupervisorsPage = ({ embedded = false }: { embedded?: boolean }): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export const FieldSupervisorsPage = (): JSX.Element => {
     setDialogOpen(true);
   };
 
-  if (loading && !result) {
+  if (!embedded && loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -149,16 +149,24 @@ export const FieldSupervisorsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <PageHeader
-        eyebrow="Administração"
-        title="Supervisores"
-        subtitle="Cadastre supervisores de campo vinculados a um coordenador. Este cadastro não cria usuário nem senha."
-        actions={
+      {embedded ? (
+        <Box display="flex" justifyContent="flex-end" mb={2}>
           <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
             Novo supervisor
           </Button>
-        }
-      />
+        </Box>
+      ) : (
+        <PageHeader
+          eyebrow="Administração"
+          title="Supervisores"
+          subtitle="Cadastre supervisores de campo vinculados a um coordenador. Este cadastro não cria usuário nem senha."
+          actions={
+            <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+              Novo supervisor
+            </Button>
+          }
+        />
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

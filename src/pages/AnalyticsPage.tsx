@@ -11,13 +11,14 @@ import {
   Skeleton,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from "@mui/material";
 import { Clear } from "@mui/icons-material";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui";
+import { MonthFilter } from "@/components/MonthFilter";
+import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, Team, UserRole, ModuleType } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
@@ -142,10 +143,6 @@ function isRankingDialogMetric(value: string | null): value is DashboardTeamRank
   return !!value && RANKING_DIALOG_METRICS.includes(value as DashboardTeamRankingMetric);
 }
 
-function parseIsoDateParam(value: string | null): string | null {
-  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
-}
-
 function parseRankingDialogParams(searchParams: URLSearchParams): RankingDialogParams | null {
   const teamId = searchParams.get("rankingTeam")?.trim() ?? "";
   const metric = searchParams.get("rankingMetric");
@@ -159,13 +156,6 @@ function parseRankingDialogParams(searchParams: URLSearchParams): RankingDialogP
     page: Number.isFinite(page) && page > 0 ? Math.floor(page) : 1,
     limit: Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 100) : 20,
   };
-}
-
-function parsePeriodParams(searchParams: URLSearchParams): { from: string; to: string } | null {
-  const from = parseIsoDateParam(searchParams.get("from"));
-  const to = parseIsoDateParam(searchParams.get("to"));
-  if (!from || !to) return null;
-  return { from, to };
 }
 
 function applyRankingDialogParams(
@@ -201,22 +191,6 @@ function getDefaultQualityRange(): { from: string; to: string } {
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
-  };
-}
-
-function formatDateForInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getInitialGlobalPeriod(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date(to.getFullYear(), to.getMonth(), 1);
-  return {
-    from: formatDateForInput(from),
-    to: formatDateForInput(to),
   };
 }
 
@@ -338,7 +312,8 @@ export function AnalyticsPage(): JSX.Element {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState(() => searchParams.get("contract") ?? "");
-  const [globalPeriod, setGlobalPeriod] = useState(() => parsePeriodParams(searchParams) ?? getInitialGlobalPeriod());
+  const [monthKey, setMonthKey] = useState(() => resolveMonthKey(searchParams));
+  const globalPeriod = useMemo(() => monthKeyToRange(monthKey), [monthKey]);
   const initialTeamPerformanceFilters = useMemo(() => {
     return {
       teamIds: [] as string[],
@@ -579,6 +554,20 @@ export function AnalyticsPage(): JSX.Element {
       setTeamPerformanceLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!canAccessAnalytics) return;
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("month", monthKey);
+        next.set("from", globalPeriod.from);
+        next.set("to", globalPeriod.to);
+        return next.toString() === current.toString() ? current : next;
+      },
+      { replace: true }
+    );
+  }, [canAccessAnalytics, monthKey, globalPeriod.from, globalPeriod.to, setSearchParams]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -902,7 +891,7 @@ export function AnalyticsPage(): JSX.Element {
 
   const handleClearFilters = () => {
     setSelectedContractId("");
-    setGlobalPeriod(getInitialGlobalPeriod());
+    setMonthKey(currentMonthKey());
   };
   const handleTabChange = (_: unknown, nextTab: number) => {
     const key = visibleTabs[nextTab];
@@ -960,38 +949,10 @@ export function AnalyticsPage(): JSX.Element {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Período inicial"
-              value={globalPeriod.from}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: globalPeriod.to }}
-              onChange={(event) => {
-                const from = event.target.value;
-                setGlobalPeriod((prev) => ({
-                  from,
-                  to: from > prev.to ? from : prev.to,
-                }));
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Período final"
-              value={globalPeriod.to}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: globalPeriod.from }}
-              onChange={(event) => {
-                const to = event.target.value;
-                setGlobalPeriod((prev) => ({
-                  to,
-                  from: to < prev.from ? to : prev.from,
-                }));
-              }}
+          <Grid item xs={12} md="auto" display="flex" alignItems="center">
+            <MonthFilter
+              value={monthKey}
+              onChange={(value) => setMonthKey(value && value <= currentMonthKey() ? value : currentMonthKey())}
             />
           </Grid>
           <Grid item xs={12} md={2} display="flex" alignItems="stretch">

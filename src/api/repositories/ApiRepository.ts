@@ -23,6 +23,11 @@ import {
   PaginatedResponse,
   Sector,
   ServiceOrder,
+  ServiceOrderImportDetail,
+  ServiceOrderImportLine,
+  ServiceOrderImportResult,
+  ServiceOrderImportSummary,
+  ServiceOrderStageSummary,
   Team,
   User,
   ReportType,
@@ -45,6 +50,8 @@ export interface ServiceOrdersParams {
   remote?: boolean;
   /** Filtra OS já usadas em vistoria POS_OBRA */
   postWork?: boolean;
+  /** Só OS cujo resultado exige vistoria de pós-obra */
+  postWorkEligible?: boolean;
   /** Busca parcial na equipe PDA */
   equipe?: string;
   /** Busca parcial no resultado da OS */
@@ -622,6 +629,16 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getServiceOrderSummary(
+    params?: Omit<ServiceOrdersParams, "page" | "limit" | "from" | "to" | "periodFrom" | "periodTo" | "postWorkEligible">
+  ): Promise<ServiceOrderStageSummary> {
+    const response = await apiClient.get<ServiceOrderStageSummary>(
+      "/service-orders/summary",
+      { params }
+    );
+    return response.data;
+  }
+
   async getInvestmentWorks(
     params?: InvestmentWorksParams
   ): Promise<PaginatedResponse<InvestmentWork>> {
@@ -681,26 +698,62 @@ export class ApiRepository {
     await apiClient.delete(`/investment-works/${investmentWorkId}`);
   }
 
-  async importServiceOrders(file: File, contractId: string): Promise<{
-    inserted: number;
-    skipped: number;
-    deleted: number;
-    errors: string[];
-  }> {
+  async importServiceOrders(file: File, contractId: string): Promise<ServiceOrderImportResult> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("contractId", contractId);
-    const response = await apiClient.post<{
-      inserted: number;
-      skipped: number;
-      deleted: number;
-      errors: string[];
-    }>("/service-orders/import", formData);
+    const response = await apiClient.post<ServiceOrderImportResult>("/service-orders/import", formData);
+    return response.data;
+  }
+
+  async getServiceOrderImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<ServiceOrderImportSummary>> {
+    const response = await apiClient.get<PaginatedResponse<ServiceOrderImportSummary>>(
+      "/service-orders/imports",
+      { params }
+    );
+    return response.data;
+  }
+
+  async getServiceOrderImport(importId: string): Promise<ServiceOrderImportDetail> {
+    const response = await apiClient.get<ServiceOrderImportDetail>(
+      `/service-orders/imports/${importId}`
+    );
+    return response.data;
+  }
+
+  async downloadServiceOrderImport(
+    importId: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>(`/service-orders/imports/${importId}/file`, {
+      responseType: "blob",
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "ordens-de-servico.xlsx";
+    return { blob: response.data, filename };
+  }
+
+  async reprocessServiceOrderImportLine(
+    importId: string,
+    lineId: string,
+    row: Record<string, string>
+  ): Promise<ServiceOrderImportLine> {
+    const response = await apiClient.post<ServiceOrderImportLine>(
+      `/service-orders/imports/${importId}/lines/${lineId}/reprocess`,
+      { row }
+    );
     return response.data;
   }
 
   async deleteServiceOrder(serviceOrderId: string): Promise<void> {
     await apiClient.delete(`/service-orders/${serviceOrderId}`);
+  }
+
+  async deleteServiceOrders(ids: string[]): Promise<void> {
+    await apiClient.post("/service-orders/bulk-delete", { ids });
   }
 
   async exportServiceOrdersExcel(params?: {
@@ -826,6 +879,10 @@ export class ApiRepository {
 
   async deleteInspection(id: string): Promise<void> {
     await apiClient.delete(`/inspections/${id}`);
+  }
+
+  async changeInspectionsTeam(inspectionIds: string[], teamId: string): Promise<void> {
+    await apiClient.post("/inspections/bulk-team", { inspectionIds, teamId });
   }
 
   async createInspection(input: {

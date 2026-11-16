@@ -25,6 +25,11 @@ import {
   PaginatedResponse,
   Sector,
   ServiceOrder,
+  ServiceOrderImportDetail,
+  ServiceOrderImportLine,
+  ServiceOrderImportResult,
+  ServiceOrderImportSummary,
+  ServiceOrderStageSummary,
   Signature,
   Team,
   User,
@@ -494,10 +499,24 @@ export class AppRepository implements IAppRepository {
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;
+    postWorkEligible?: boolean;
     equipe?: string;
     resultado?: string;
   }): Promise<PaginatedResponse<ServiceOrder>> {
     return this.apiRepository.getServiceOrders(params);
+  }
+
+  async getServiceOrderSummary(params?: {
+    osNumber?: string;
+    sectorId?: string;
+    contractId?: string;
+    field?: boolean;
+    remote?: boolean;
+    postWork?: boolean;
+    equipe?: string;
+    resultado?: string;
+  }): Promise<ServiceOrderStageSummary> {
+    return this.apiRepository.getServiceOrderSummary(params);
   }
 
   async getInvestmentWorks(params?: {
@@ -560,12 +579,41 @@ export class AppRepository implements IAppRepository {
   async importServiceOrders(
     file: File,
     contractId: string
-  ): Promise<{ inserted: number; skipped: number; deleted: number; errors: string[] }> {
+  ): Promise<ServiceOrderImportResult> {
     return this.apiRepository.importServiceOrders(file, contractId);
+  }
+
+  async getServiceOrderImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<ServiceOrderImportSummary>> {
+    return this.apiRepository.getServiceOrderImports(params);
+  }
+
+  async getServiceOrderImport(importId: string): Promise<ServiceOrderImportDetail> {
+    return this.apiRepository.getServiceOrderImport(importId);
+  }
+
+  async downloadServiceOrderImport(
+    importId: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.downloadServiceOrderImport(importId);
+  }
+
+  async reprocessServiceOrderImportLine(
+    importId: string,
+    lineId: string,
+    row: Record<string, string>
+  ): Promise<ServiceOrderImportLine> {
+    return this.apiRepository.reprocessServiceOrderImportLine(importId, lineId, row);
   }
 
   async deleteServiceOrder(serviceOrderId: string): Promise<void> {
     return this.apiRepository.deleteServiceOrder(serviceOrderId);
+  }
+
+  async deleteServiceOrders(ids: string[]): Promise<void> {
+    return this.apiRepository.deleteServiceOrders(ids);
   }
 
   async exportServiceOrdersExcel(params?: {
@@ -1311,6 +1359,10 @@ export class AppRepository implements IAppRepository {
     if (!inspection) throw new Error("Vistoria não encontrada.");
     const inspectionId = inspection.serverId ?? externalId;
     await this.apiRepository.deleteInspection(inspectionId);
+  }
+
+  async changeInspectionsTeam(inspectionIds: string[], teamId: string): Promise<void> {
+    await this.apiRepository.changeInspectionsTeam(inspectionIds, teamId);
   }
 
   async listInspections(): Promise<InspectionListItem[]> {

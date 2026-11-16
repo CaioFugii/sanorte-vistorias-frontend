@@ -49,6 +49,11 @@ export enum InspectionExcelLayout {
   PENDENCIAS = "pendencias",
 }
 
+export enum ServiceOrderImportLineStatus {
+  ENTERED = "entered",
+  NOT_REGISTERED = "not_registered",
+}
+
 export enum InvestmentWorkStatus {
   EM_ANDAMENTO = "EM_ANDAMENTO",
   PARALISADA = "PARALISADA",

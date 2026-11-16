@@ -3,6 +3,7 @@ export { DashboardPage } from './DashboardPage';
 export { QualityAnalyticsPage } from './QualityAnalyticsPage';
 export { SafetyAnalyticsPage } from './SafetyAnalyticsPage';
 export { TeamsPage } from './TeamsPage';
+export { FieldHierarchyPage } from './FieldHierarchyPage';
 export { ForemenPage } from './ForemenPage';
 export { CoordinatorsPage } from './CoordinatorsPage';
 export { FieldSupervisorsPage } from './FieldSupervisorsPage';

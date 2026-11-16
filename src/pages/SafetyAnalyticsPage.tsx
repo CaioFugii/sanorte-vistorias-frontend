@@ -21,7 +21,6 @@ import {
   TableRow,
   TableSortLabel,
   Tabs,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -35,6 +34,8 @@ import {
   TableActionsHeaderCell,
   TableViewButton,
 } from "@/components/ui";
+import { MonthFilter } from "@/components/MonthFilter";
+import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, ModuleType, Team, UserRole } from "@/domain";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
@@ -126,17 +127,6 @@ function formatDateForInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function parseIsoDateParam(value: string | null): string | null {
-  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
-}
-
-function parsePeriodParams(searchParams: URLSearchParams): { from: string; to: string } | null {
-  const from = parseIsoDateParam(searchParams.get("from"));
-  const to = parseIsoDateParam(searchParams.get("to"));
-  if (!from || !to || from > to) return null;
-  return { from, to };
-}
-
 type ChecklistDialogParams = {
   checklistId: string;
   checklistName: string;
@@ -179,15 +169,6 @@ function applyChecklistDialogParams(
     else next.delete("contract");
   }
   return next;
-}
-
-function getInitialSafetyPeriod(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date(to.getFullYear(), to.getMonth(), 1);
-  return {
-    from: formatDateForInput(from),
-    to: formatDateForInput(to),
-  };
 }
 
 function formatDateLabel(value: string): string {
@@ -248,7 +229,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const [selectedContractId, setSelectedContractId] = useState(() => searchParams.get("contract") ?? "");
-  const [globalPeriod, setGlobalPeriod] = useState(() => parsePeriodParams(searchParams) ?? getInitialSafetyPeriod());
+  const [monthKey, setMonthKey] = useState(() => resolveMonthKey(searchParams));
+  const globalPeriod = useMemo(() => monthKeyToRange(monthKey), [monthKey]);
   const initialTeamPerformanceFilters = useMemo<TeamPerformanceFilters>(
     () => ({
       teamIds: [],
@@ -716,6 +698,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
+        next.set("month", monthKey);
         next.set("from", globalPeriod.from);
         next.set("to", globalPeriod.to);
         if (selectedContractId) next.set("contract", selectedContractId);
@@ -724,7 +707,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
       },
       { replace: true }
     );
-  }, [canAccessAnalytics, globalPeriod.from, globalPeriod.to, selectedContractId, setSearchParams]);
+  }, [canAccessAnalytics, monthKey, globalPeriod.from, globalPeriod.to, selectedContractId, setSearchParams]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -767,9 +750,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
   }
 
   const handleClearFilters = () => {
-    const nextPeriod = getInitialSafetyPeriod();
     setSelectedContractId("");
-    setGlobalPeriod(nextPeriod);
+    setMonthKey(currentMonthKey());
     setNonConformitiesTeamId("");
     setTeamPerformanceFilters({ teamIds: [] });
     setTeamPerformanceByTeams(null);
@@ -822,38 +804,10 @@ export function SafetyAnalyticsPage(): JSX.Element {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Período inicial"
-              value={globalPeriod.from}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: globalPeriod.to }}
-              onChange={(event) => {
-                const from = event.target.value;
-                setGlobalPeriod((prev) => ({
-                  from,
-                  to: from > prev.to ? from : prev.to,
-                }));
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Período final"
-              value={globalPeriod.to}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: globalPeriod.from }}
-              onChange={(event) => {
-                const to = event.target.value;
-                setGlobalPeriod((prev) => ({
-                  to,
-                  from: to < prev.from ? to : prev.from,
-                }));
-              }}
+          <Grid item xs={12} md="auto" display="flex" alignItems="center">
+            <MonthFilter
+              value={monthKey}
+              onChange={(value) => setMonthKey(value && value <= currentMonthKey() ? value : currentMonthKey())}
             />
           </Grid>
           <Grid item xs={12} md={2} display="flex" alignItems="stretch">

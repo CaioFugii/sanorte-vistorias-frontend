@@ -246,13 +246,27 @@ export const InspectionDetailPage = (): JSX.Element => {
   const canParalyzeInspection =
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
     inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
-  const canDeleteInspection = inspection?.status === InspectionStatus.RASCUNHO;
+  const canDeleteInspection =
+    user?.role === UserRole.ADMIN ||
+    inspection?.status === InspectionStatus.RASCUNHO;
+  const deletingDraft = inspection?.status === InspectionStatus.RASCUNHO;
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
 
   const openResolveModal = (item: InspectionItem) => {
     setResolveItem(item);
-    setResolutionNotes('');
-    setResolutionEvidence([]);
+    setResolutionNotes(item.resolutionNotes ?? '');
+    setResolutionEvidence(
+      item.resolutionEvidencePath
+        ? [
+            {
+              id: `${item.id}-resolution`,
+              url: item.resolutionEvidencePath,
+              fileName: 'evidencia.jpg',
+              mimeType: 'image/jpeg',
+            },
+          ]
+        : [],
+    );
     setResolveError(null);
     setResolveModalOpen(true);
   };
@@ -491,7 +505,13 @@ export const InspectionDetailPage = (): JSX.Element => {
             </Button>
           )}
           {canDeleteInspection && !isSupervisor && (
-            <Tooltip title="Excluir vistoria em rascunho">
+            <Tooltip
+              title={
+                deletingDraft
+                  ? "Excluir vistoria em rascunho"
+                  : "Excluir vistoria"
+              }
+            >
               <span>
                 <Button
                   variant="outlined"
@@ -977,19 +997,29 @@ export const InspectionDetailPage = (): JSX.Element => {
                             <strong>Notas:</strong> {item.resolutionNotes}
                           </Typography>
                         )}
-                        {item.resolutionEvidencePath && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="success"
-                            href={item.resolutionEvidencePath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{ mt: 1 }}
-                          >
-                            Ver evidência
-                          </Button>
-                        )}
+                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {item.resolutionEvidencePath && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="success"
+                              href={item.resolutionEvidencePath}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Ver evidência
+                            </Button>
+                          )}
+                          {canLaunchResolution && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => openResolveModal(item)}
+                            >
+                              Ajustar
+                            </Button>
+                          )}
+                        </Box>
                       </Box>
                     )}
                   </Box>
@@ -1045,7 +1075,14 @@ export const InspectionDetailPage = (): JSX.Element => {
           )}
           {canLaunchResolution && !allResolved && nonConformItems.length > 0 && (
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              Resolva todos os itens acima para enviar a resolução para aprovação.
+              {inspection.resolutionRejectionReason
+                ? 'A pendência voltou para ajuste. Resolva os itens de novo e envie para aprovação. O ciclo segue até a aprovação.'
+                : 'Resolva todos os itens acima para enviar a resolução para aprovação.'}
+            </Typography>
+          )}
+          {canLaunchResolution && allResolved && inspection.resolutionRejectionReason && (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              Envie de novo para aprovação. A pendência segue nesse ciclo até ser aprovada.
             </Typography>
           )}
         </Paper>
@@ -1096,8 +1133,14 @@ export const InspectionDetailPage = (): JSX.Element => {
 
       <ConfirmDialog
         open={deleteDialogOpen}
-        title="Excluir vistoria em rascunho"
-        description="Deseja excluir esta vistoria em rascunho? Esta ação não pode ser desfeita."
+        title={
+          deletingDraft ? "Excluir vistoria em rascunho" : "Excluir vistoria"
+        }
+        description={
+          deletingDraft
+            ? "Deseja excluir esta vistoria em rascunho? Esta ação não pode ser desfeita."
+            : "Fotos, assinatura, nota e pendências desta vistoria serão apagados. Esta ação não pode ser desfeita."
+        }
         confirmLabel="Excluir"
         loading={deleteLoading}
         onClose={() => {
@@ -1144,7 +1187,9 @@ export const InspectionDetailPage = (): JSX.Element => {
       </Dialog>
 
       <Dialog open={resolveModalOpen} onClose={closeResolveModal} maxWidth="sm" fullWidth>
-        <DialogTitle>Resolver item não conforme</DialogTitle>
+        <DialogTitle>
+          {resolveItem?.resolvedAt ? 'Ajustar resolução' : 'Resolver item não conforme'}
+        </DialogTitle>
         <DialogContent>
           {resolveItem && (
             <Box>
@@ -1189,7 +1234,7 @@ export const InspectionDetailPage = (): JSX.Element => {
             color="success"
             disabled={resolving || !resolutionNotes.trim()}
           >
-            {resolving ? 'Salvando…' : 'Resolver item'}
+            {resolving ? 'Salvando…' : resolveItem?.resolvedAt ? 'Salvar ajuste' : 'Resolver item'}
           </Button>
         </DialogActions>
       </Dialog>

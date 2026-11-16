@@ -54,7 +54,7 @@ function formatSupervisor(foreman: Foreman): string {
   return foreman.fieldSupervisor?.name?.trim() || "—";
 }
 
-export const ForemenPage = (): JSX.Element => {
+export const ForemenPage = ({ embedded = false }: { embedded?: boolean }): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +133,7 @@ export const ForemenPage = (): JSX.Element => {
       ? [...supervisorOptions, { id: currentSupervisor.id, name: currentSupervisor.name }]
       : supervisorOptions;
 
-  if (loading && !result) {
+  if (!embedded && loading && !result) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
         <CircularProgress />
@@ -143,16 +143,24 @@ export const ForemenPage = (): JSX.Element => {
 
   return (
     <Box>
-      <PageHeader
-        eyebrow="Administração"
-        title="Encarregados"
-        subtitle="Cadastre encarregados e acompanhe as equipes vinculadas a cada um."
-        actions={
+      {embedded ? (
+        <Box display="flex" justifyContent="flex-end" mb={2}>
           <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
             Novo encarregado
           </Button>
-        }
-      />
+        </Box>
+      ) : (
+        <PageHeader
+          eyebrow="Administração"
+          title="Encarregados"
+          subtitle="Cadastre encarregados e acompanhe as equipes vinculadas a cada um."
+          actions={
+            <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+              Novo encarregado
+            </Button>
+          }
+        />
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

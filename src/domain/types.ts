@@ -6,6 +6,7 @@ import {
   InspectionNoticeType,
   InspectionStatus,
   ModuleType,
+  ServiceOrderImportLineStatus,
   UserRole,
 } from "./enums";
 
@@ -94,6 +95,48 @@ export interface Collaborator {
   updatedAt?: string;
 }
 
+export interface ServiceOrderImportResult {
+  id?: string;
+  inserted: number;
+  skipped: number;
+  deleted: number;
+  notRegistered: number;
+  errors: string[];
+}
+
+export interface ServiceOrderImportSummary {
+  id: string;
+  createdAt: string;
+  originalFileName: string;
+  insertedCount: number;
+  skippedCount: number;
+  deletedCount: number;
+  notRegisteredCount: number;
+  contract?: { id: string; name: string };
+  user?: { id: string; name: string };
+}
+
+export interface ServiceOrderImportLine {
+  id: string;
+  lineNumber: number;
+  status: ServiceOrderImportLineStatus;
+  osNumber: string | null;
+  sectorName: string | null;
+  resultado: string | null;
+  reason: string | null;
+  rawRow: Record<string, string>;
+  resolvedAt: string | null;
+}
+
+export interface ServiceOrderImportDetail extends ServiceOrderImportSummary {
+  lines: ServiceOrderImportLine[];
+}
+
+export interface ServiceOrderStageSummary {
+  remote: { total: number; done: number };
+  postWork: { total: number; done: number };
+}
+
 export interface ServiceOrder {
   id: string;
   osNumber: string;
@@ -105,6 +148,8 @@ export interface ServiceOrder {
   field?: boolean;
   remote?: boolean;
   postWork?: boolean;
+  postWorkRequired?: boolean;
+  inspectionCount?: number;
   status?: string | null;
   equipe?: string | null;
   tempoExecucaoEfetivo?: string | number | null;

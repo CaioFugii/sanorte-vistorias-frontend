@@ -1,9 +1,15 @@
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -29,6 +35,8 @@ import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
+import { MonthFilter } from "@/components/MonthFilter";
+import { coerceMonthRange, monthKeyToRange } from "@/domain/rules/monthPeriod";
 import { StatusChip } from "@/components/StatusChip";
 import { PercentBadge } from "@/components/PercentBadge";
 import { getInspectionModuleDisplayLabel, getModuleLabel } from "@/utils/moduleLabel";
@@ -55,9 +63,27 @@ const STATUS_FILTER_OPTIONS: Array<{ value: InspectionStatus; label: string }> =
   { value: InspectionStatus.RESOLVIDA, label: "Resolvida" },
 ];
 
+const INSPECTION_TABLE_COLUMNS = 11;
+
 function toSearchParam(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed.length >= MIN_SEARCH_LENGTH ? trimmed : undefined;
+}
+
+function teamChangeDescription(count: number): string {
+  const inspections = count === 1 ? "1 vistoria" : `${count} vistorias`;
+  return `A equipe escolhida passa a valer para ${inspections}. A nota não muda e passa a contar nessa equipe.`;
+}
+
+function errorText(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const message = (error as { response?: { data?: { message?: string | string[] } } }).response
+      ?.data?.message;
+    if (Array.isArray(message)) return message.join(" ");
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -76,6 +102,7 @@ interface InspectionsPageProps {
   embedded?: boolean;
   contractId?: string;
   excelLayout?: InspectionExcelLayout;
+  allowBulkTeamChange?: boolean;
 }
 
 export const InspectionsPage = ({
@@ -85,6 +112,7 @@ export const InspectionsPage = ({
   embedded = false,
   contractId,
   excelLayout = InspectionExcelLayout.AVALIACOES,
+  allowBulkTeamChange = false,
 }: InspectionsPageProps = {}): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,6 +167,36 @@ export const InspectionsPage = ({
   const executionTo = values.executionTo;
   const inspectionFrom = values.inspectionFrom;
   const inspectionTo = values.inspectionTo;
+  const executionRange = useMemo(
+    () => coerceMonthRange(executionFrom, executionTo),
+    [executionFrom, executionTo]
+  );
+  const inspectionRange = useMemo(
+    () => coerceMonthRange(inspectionFrom, inspectionTo),
+    [inspectionFrom, inspectionTo]
+  );
+
+  useEffect(() => {
+    if (!executionFrom && !executionTo) return;
+    if (!executionRange) {
+      setValues({ executionFrom: "", executionTo: "" });
+      return;
+    }
+    if (executionRange.from !== executionFrom || executionRange.to !== executionTo) {
+      setValues({ executionFrom: executionRange.from, executionTo: executionRange.to });
+    }
+  }, [executionFrom, executionTo, executionRange, setValues]);
+
+  useEffect(() => {
+    if (!inspectionFrom && !inspectionTo) return;
+    if (!inspectionRange) {
+      setValues({ inspectionFrom: "", inspectionTo: "" });
+      return;
+    }
+    if (inspectionRange.from !== inspectionFrom || inspectionRange.to !== inspectionTo) {
+      setValues({ inspectionFrom: inspectionRange.from, inspectionTo: inspectionRange.to });
+    }
+  }, [inspectionFrom, inspectionTo, inspectionRange, setValues]);
   const debouncedOsNumber = useDebouncedValue(osNumber, SEARCH_DEBOUNCE_MS);
   const osNumberFilter = toSearchParam(debouncedOsNumber);
   const debouncedService = useDebouncedValue(service, SEARCH_DEBOUNCE_MS);
@@ -162,7 +220,12 @@ export const InspectionsPage = ({
   const [loading, setLoading] = useState(true);
   const [deletingInspection, setDeletingInspection] = useState<InspectionListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const isFiscal = hasRole("FISCAL" as any) && user;
+  const [selectedInspections, setSelectedInspections] = useState<Record<string, true>>({});
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [bulkTeamId, setBulkTeamId] = useState("");
+  const [bulkTeamError, setBulkTeamError] = useState("");
+  const [changingTeam, setChangingTeam] = useState(false);
+  const isFiscal = hasRole(UserRole.FISCAL) && user;
   const inspectionsTitle = useMemo(() => {
     if (location.pathname.startsWith("/safety/inspections")) {
       return "Vistorias - Segurança do Trabalho";
@@ -281,10 +344,10 @@ export const InspectionsPage = ({
           createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
           service: embedded ? serviceFilter : undefined,
           status: embedded ? selectedStatus || undefined : undefined,
-          executionFrom: embedded ? executionFrom || undefined : undefined,
-          executionTo: embedded ? executionTo || undefined : undefined,
-          inspectionFrom: embedded ? inspectionFrom || undefined : undefined,
-          inspectionTo: embedded ? inspectionTo || undefined : undefined,
+          executionFrom: embedded ? executionRange?.from : undefined,
+          executionTo: embedded ? executionRange?.to : undefined,
+          inspectionFrom: embedded ? inspectionRange?.from : undefined,
+          inspectionTo: embedded ? inspectionRange?.to : undefined,
         });
     request
       .then((res) => {
@@ -310,10 +373,8 @@ export const InspectionsPage = ({
     selectedFiscalId,
     serviceFilter,
     selectedStatus,
-    executionFrom,
-    executionTo,
-    inspectionFrom,
-    inspectionTo,
+    executionRange,
+    inspectionRange,
     embedded,
   ]);
 
@@ -346,10 +407,37 @@ export const InspectionsPage = ({
     );
   }
 
+  const isAdmin = user?.role === UserRole.ADMIN;
   const isAdminOrManager =
-    user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+    isAdmin || user?.role === UserRole.GESTOR;
   const canDeleteInspection = (inspection: InspectionListItem): boolean =>
-    inspection.status === InspectionStatus.RASCUNHO;
+    isAdmin || inspection.status === InspectionStatus.RASCUNHO;
+  const showBulkTeam = allowBulkTeamChange && isAdmin;
+  const selectedIds = Object.keys(selectedInspections);
+  const pageIds = inspections.map((inspection) => inspection.externalId);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedInspections[id]);
+  const somePageSelected = pageIds.some((id) => selectedInspections[id]) && !allPageSelected;
+  const bulkTeam = teamOptions.find((team) => team.id === bulkTeamId) ?? null;
+
+  const togglePageSelection = (checked: boolean) => {
+    setSelectedInspections((current) => {
+      const next = { ...current };
+      for (const id of pageIds) {
+        if (checked) next[id] = true;
+        else delete next[id];
+      }
+      return next;
+    });
+  };
+
+  const toggleInspection = (id: string, checked: boolean) => {
+    setSelectedInspections((current) => {
+      const next = { ...current };
+      if (checked) next[id] = true;
+      else delete next[id];
+      return next;
+    });
+  };
 
   const inspectionExportFilters = {
     osNumber: osNumberFilter,
@@ -361,10 +449,10 @@ export const InspectionsPage = ({
     createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
     service: embedded ? serviceFilter : undefined,
     status: embedded ? selectedStatus || undefined : undefined,
-    executionFrom: embedded ? executionFrom || undefined : undefined,
-    executionTo: embedded ? executionTo || undefined : undefined,
-    inspectionFrom: embedded ? inspectionFrom || undefined : undefined,
-    inspectionTo: embedded ? inspectionTo || undefined : undefined,
+    executionFrom: embedded ? executionRange?.from : undefined,
+    executionTo: embedded ? executionRange?.to : undefined,
+    inspectionFrom: embedded ? inspectionRange?.from : undefined,
+    inspectionTo: embedded ? inspectionRange?.to : undefined,
     layout: excelLayout,
   };
 
@@ -387,11 +475,38 @@ export const InspectionsPage = ({
     }
   };
 
+  const handleChangeTeam = async () => {
+    if (!bulkTeamId || changingTeam || selectedIds.length === 0) return;
+    setChangingTeam(true);
+    setBulkTeamError("");
+    try {
+      await appRepository.changeInspectionsTeam(selectedIds, bulkTeamId);
+      setSelectedInspections({});
+      setTeamDialogOpen(false);
+      setBulkTeamId("");
+      setRefreshNonce((current) => current + 1);
+    } catch (error) {
+      setBulkTeamError(errorText(error, "Não foi possível trocar a equipe."));
+    } finally {
+      setChangingTeam(false);
+    }
+  };
+
   const inspectionsTable = (
     <>
       <Table>
         <TableHead>
           <TableRow>
+            {showBulkTeam && (
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={allPageSelected}
+                  indeterminate={somePageSelected}
+                  onChange={(event) => togglePageSelection(event.target.checked)}
+                  inputProps={{ "aria-label": "Selecionar as vistorias desta página" }}
+                />
+              </TableCell>
+            )}
             <TableCell>Módulo</TableCell>
             <TableCell>OS / Obra</TableCell>
             <TableCell>Descrição do serviço</TableCell>
@@ -408,13 +523,21 @@ export const InspectionsPage = ({
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+              <TableCell
+                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0)}
+                align="center"
+                sx={{ py: 4 }}
+              >
                 <CircularProgress size={32} />
               </TableCell>
             </TableRow>
           ) : inspections.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+              <TableCell
+                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0)}
+                align="center"
+                sx={{ py: 4 }}
+              >
                 {osNumberFilter
                   ? "Nenhuma vistoria encontrada para o número da OS informado."
                   : "Nenhuma vistoria encontrada."}
@@ -423,6 +546,17 @@ export const InspectionsPage = ({
           ) : (
             inspections.map((inspection) => (
               <TableRow key={inspection.externalId}>
+                {showBulkTeam && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={Boolean(selectedInspections[inspection.externalId])}
+                      onChange={(event) =>
+                        toggleInspection(inspection.externalId, event.target.checked)
+                      }
+                      inputProps={{ "aria-label": "Selecionar vistoria" }}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>{getInspectionModuleDisplayLabel(inspection.module, inspection.evaluationModule)}</TableCell>
                 <TableCell>
                   {inspection.serviceOrder?.osNumber ??
@@ -500,7 +634,13 @@ export const InspectionsPage = ({
                       />
                     )}
                     {!isSupervisor && canDeleteInspection(inspection) && (
-                      <Tooltip title="Excluir vistoria em rascunho">
+                      <Tooltip
+                        title={
+                          inspection.status === InspectionStatus.RASCUNHO
+                            ? "Excluir vistoria em rascunho"
+                            : "Excluir vistoria"
+                        }
+                      >
                         <IconButton
                           size="small"
                           color="error"
@@ -630,69 +770,31 @@ export const InspectionsPage = ({
                 ))}
               </Select>
             </FormControl>
-            <TextField
-              size="small"
-              label="Execução de"
-              type="date"
-              value={executionFrom}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value && executionTo && value > executionTo) {
-                  setValues({ executionFrom: value, executionTo: value, page: "1" });
+            <MonthFilter
+              label="Execução"
+              allowEmpty
+              value={executionRange?.from.slice(0, 7) ?? null}
+              onChange={(month) => {
+                if (!month) {
+                  setValues({ executionFrom: "", executionTo: "", page: "1" });
                   return;
                 }
-                setFilter("executionFrom", value);
+                const range = monthKeyToRange(month);
+                setValues({ executionFrom: range.from, executionTo: range.to, page: "1" });
               }}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: executionTo || undefined }}
             />
-            <TextField
-              size="small"
-              label="Execução até"
-              type="date"
-              value={executionTo}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value && executionFrom && value < executionFrom) {
-                  setValues({ executionFrom: value, executionTo: value, page: "1" });
+            <MonthFilter
+              label="Vistoria"
+              allowEmpty
+              value={inspectionRange?.from.slice(0, 7) ?? null}
+              onChange={(month) => {
+                if (!month) {
+                  setValues({ inspectionFrom: "", inspectionTo: "", page: "1" });
                   return;
                 }
-                setFilter("executionTo", value);
+                const range = monthKeyToRange(month);
+                setValues({ inspectionFrom: range.from, inspectionTo: range.to, page: "1" });
               }}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: executionFrom || undefined }}
-            />
-            <TextField
-              size="small"
-              label="Vistoria de"
-              type="date"
-              value={inspectionFrom}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value && inspectionTo && value > inspectionTo) {
-                  setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
-                  return;
-                }
-                setFilter("inspectionFrom", value);
-              }}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ max: inspectionTo || undefined }}
-            />
-            <TextField
-              size="small"
-              label="Vistoria até"
-              type="date"
-              value={inspectionTo}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value && inspectionFrom && value < inspectionFrom) {
-                  setValues({ inspectionFrom: value, inspectionTo: value, page: "1" });
-                  return;
-                }
-                setFilter("inspectionTo", value);
-              }}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: inspectionFrom || undefined }}
             />
             <Button
               variant="outlined"
@@ -710,6 +812,18 @@ export const InspectionsPage = ({
             disabled={loading}
           />
         )}
+        {showBulkTeam && selectedIds.length > 0 && (
+          <Button
+            variant="contained"
+            onClick={() => {
+              setBulkTeamError("");
+              setBulkTeamId("");
+              setTeamDialogOpen(true);
+            }}
+          >
+            Trocar equipe ({selectedIds.length})
+          </Button>
+        )}
       </Box>
 
       {embedded ? (
@@ -721,8 +835,16 @@ export const InspectionsPage = ({
       )}
       <ConfirmDialog
         open={!!deletingInspection}
-        title="Excluir vistoria em rascunho"
-        description={`Deseja excluir a vistoria "${deletingInspection?.serviceDescription ?? ""}"? Esta ação não pode ser desfeita.`}
+        title={
+          deletingInspection?.status === InspectionStatus.RASCUNHO
+            ? "Excluir vistoria em rascunho"
+            : "Excluir vistoria"
+        }
+        description={
+          deletingInspection?.status === InspectionStatus.RASCUNHO
+            ? `Deseja excluir a vistoria "${deletingInspection?.serviceDescription ?? ""}"? Esta ação não pode ser desfeita.`
+            : "Fotos, assinatura, nota e pendências desta vistoria serão apagados. Esta ação não pode ser desfeita."
+        }
         confirmLabel="Excluir"
         loading={deleting}
         onClose={() => {
@@ -731,6 +853,43 @@ export const InspectionsPage = ({
         }}
         onConfirm={handleDeleteInspection}
       />
+      <Dialog
+        open={teamDialogOpen}
+        onClose={changingTeam ? undefined : () => setTeamDialogOpen(false)}
+        disableEscapeKeyDown={changingTeam}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Trocar equipe</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>{teamChangeDescription(selectedIds.length)}</Box>
+            <Autocomplete
+              options={teamOptions}
+              getOptionLabel={(team) => team.name}
+              value={bulkTeam}
+              onChange={(_, team) => setBulkTeamId(team?.id ?? "")}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              disabled={changingTeam}
+              noOptionsText="Nenhuma equipe"
+              renderInput={(params) => <TextField {...params} label="Equipe" />}
+            />
+            {bulkTeamError && <Alert severity="error">{bulkTeamError}</Alert>}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTeamDialogOpen(false)} disabled={changingTeam}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleChangeTeam}
+            variant="contained"
+            disabled={changingTeam || !bulkTeamId}
+          >
+            {changingTeam ? <CircularProgress size={18} color="inherit" /> : "Trocar equipe"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

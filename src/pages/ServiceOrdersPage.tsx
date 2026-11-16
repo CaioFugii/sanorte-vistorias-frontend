@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   FormControl,
@@ -22,10 +23,11 @@ import {
 import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { downloadBlob } from "@/utils/downloadBlob";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { Contract, PaginatedResponse, ServiceOrder, UserRole } from "@/domain";
+import { Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
+import { ServiceOrderImportHistory } from "@/pages/ServiceOrderImportHistory";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
@@ -38,6 +40,8 @@ import {
   TableDeleteButton,
 } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
+import { MonthFilter } from "@/components/MonthFilter";
+import { currentMonthKey, monthKeyToRange } from "@/domain/rules/monthPeriod";
 
 const DEFAULT_LIMIT = 10;
 const MIN_SEARCH_LENGTH = 3;
@@ -57,30 +61,6 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function formatDateForInput(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getInitialDateRange(days: number): { from: string; to: string } {
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(end.getDate() - days);
-  return {
-    from: formatDateForInput(start),
-    to: formatDateForInput(end),
-  };
-}
-
-function clampDateInput(value: string, min: string, max: string): string {
-  if (!value) return "";
-  if (value < min) return min;
-  if (value > max) return max;
-  return value;
-}
-
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleString("pt-BR", {
@@ -96,11 +76,74 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
 }
 
+function deleteConfirmation(orderCount: number, inspectionCount: number): string {
+  const orders = orderCount === 1 ? "1 ordem de serviço" : `${orderCount} ordens de serviço`;
+  const inspections = inspectionCount === 1 ? "1 vistoria" : `${inspectionCount} vistorias`;
+  const verb = orderCount === 1 ? "Será excluída" : "Serão excluídas";
+  return `${verb} ${orders} e ${inspections}. Esta ação não pode ser desfeita.`;
+}
+
+function errorText(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
+    if (Array.isArray(message)) return message.join(" ");
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+type SelectedServiceOrder = { id: string; inspectionCount: number };
+
+function formatStageMonthLabel(offsetMonths: 0 | -1): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  let year = Number(parts.find((part) => part.type === "year")?.value);
+  let month = Number(parts.find((part) => part.type === "month")?.value);
+  if (offsetMonths === -1) {
+    if (month === 1) {
+      year -= 1;
+      month = 12;
+    } else {
+      month -= 1;
+    }
+  }
+  const label = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 const TABLE_COLUMN_COUNT = 12;
 
-function ServiceOrderTableHead({ showActions }: { showActions: boolean }): JSX.Element {
+function ServiceOrderTableHead({
+  showActions,
+  allSelected,
+  someSelected,
+  onTogglePage,
+}: {
+  showActions: boolean;
+  allSelected: boolean;
+  someSelected: boolean;
+  onTogglePage: (checked: boolean) => void;
+}): JSX.Element {
   return (
     <TableRow>
+      {showActions && (
+        <TableCell padding="checkbox">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={(event) => onTogglePage(event.target.checked)}
+            inputProps={{ "aria-label": "Selecionar as OS desta página" }}
+          />
+        </TableCell>
+      )}
       <TableCell>Número da OS</TableCell>
       <TableCell>Setor</TableCell>
       <TableCell>Endereço</TableCell>
@@ -124,11 +167,6 @@ interface ListagemTabProps {
 }
 
 function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
-  const initialDateRange = getInitialDateRange(30);
-  const maxSelectableDate = formatDateForInput(new Date());
-  const minDate = new Date();
-  minDate.setFullYear(minDate.getFullYear() - 2);
-  const minSelectableDate = formatDateForInput(minDate);
   const initialContractId = contracts.length === 1 ? contracts[0].id : "";
   const sectors = useReferenceStore((state) => state.sectors);
   const loadCache = useReferenceStore((state) => state.loadCache);
@@ -137,20 +175,22 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
   const [osNumber, setOsNumber] = useState("");
   const [sectorId, setSectorId] = useState("");
   const [contractId, setContractId] = useState(initialContractId);
-  const [from, setPeriodFrom] = useState(initialDateRange.from);
-  const [to, setPeriodTo] = useState(initialDateRange.to);
+  const [monthKey, setMonthKey] = useState(currentMonthKey);
+  const { from, to } = useMemo(() => monthKeyToRange(monthKey), [monthKey]);
   const [field, setField] = useState<"" | "true" | "false">("");
   const [remote, setRemote] = useState<"" | "true" | "false">("");
   const [postWork, setPostWork] = useState<"" | "true" | "false">("");
   const [equipe, setEquipe] = useState("");
   const [resultado, setResultado] = useState("");
   const [result, setResult] = useState<PaginatedResponse<ServiceOrder> | null>(null);
+  const [summary, setSummary] = useState<ServiceOrderStageSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [deleting, setDeleting] = useState<ServiceOrder | null>(null);
+  const [selected, setSelected] = useState<Record<string, SelectedServiceOrder>>({});
+  const [pendingDelete, setPendingDelete] = useState<{ ids: string[]; inspectionCount: number } | null>(null);
   const [deletingLoading, setDeletingLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const tableColumnCount = TABLE_COLUMN_COUNT + (isAdmin ? 1 : 0);
+  const tableColumnCount = TABLE_COLUMN_COUNT + (isAdmin ? 2 : 0);
   const debouncedOsNumber = useDebouncedValue(osNumber, SEARCH_DEBOUNCE_MS);
   const debouncedEquipe = useDebouncedValue(equipe, SEARCH_DEBOUNCE_MS);
   const debouncedResultado = useDebouncedValue(resultado, SEARCH_DEBOUNCE_MS);
@@ -200,6 +240,30 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     };
   }, [page, limit, osNumberFilter, sectorId, contractId, from, to, field, remote, postWork, equipeFilter, resultadoFilter, refreshKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    appRepository
+      .getServiceOrderSummary({
+        osNumber: osNumberFilter,
+        sectorId: sectorId.trim() || undefined,
+        contractId: contractId.trim() || undefined,
+        field: field === "" ? undefined : field === "true",
+        remote: remote === "" ? undefined : remote === "true",
+        postWork: postWork === "" ? undefined : postWork === "true",
+        equipe: equipeFilter,
+        resultado: resultadoFilter,
+      })
+      .then((res) => {
+        if (!cancelled) setSummary(res);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [osNumberFilter, sectorId, contractId, field, remote, postWork, equipeFilter, resultadoFilter, refreshKey]);
+
   const handleSearch = (value: string) => {
     setOsNumber(value);
     setPage(1);
@@ -215,13 +279,8 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     setPage(1);
   };
 
-  const handlePeriodFromChange = (value: string) => {
-    setPeriodFrom(clampDateInput(value, minSelectableDate, maxSelectableDate));
-    setPage(1);
-  };
-
-  const handlePeriodToChange = (value: string) => {
-    setPeriodTo(clampDateInput(value, minSelectableDate, maxSelectableDate));
+  const handleMonthChange = (value: string | null) => {
+    setMonthKey(value && value <= currentMonthKey() ? value : currentMonthKey());
     setPage(1);
   };
 
@@ -239,8 +298,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     setOsNumber("");
     setSectorId("");
     setContractId(initialContractId);
-    setPeriodFrom(initialDateRange.from);
-    setPeriodTo(initialDateRange.to);
+    setMonthKey(currentMonthKey());
     setField("");
     setRemote("");
     setPostWork("");
@@ -267,17 +325,64 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
 
   const meta = result?.meta;
   const data = result?.data ?? [];
+  const selectedCount = Object.keys(selected).length;
+  const selectedOnPage = data.filter((row) => selected[row.id]).length;
+  const allPageSelected = data.length > 0 && selectedOnPage === data.length;
+  const somePageSelected = selectedOnPage > 0 && !allPageSelected;
 
-  if (loading && !result) {
-    return (
-      <Box display="flex" justifyContent="center" p={4}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const toggleRow = (row: ServiceOrder) => {
+    setSelected((current) => {
+      const next = { ...current };
+      if (next[row.id]) delete next[row.id];
+      else next[row.id] = { id: row.id, inspectionCount: row.inspectionCount ?? 0 };
+      return next;
+    });
+  };
+
+  const togglePage = (checked: boolean) => {
+    setSelected((current) => {
+      const next = { ...current };
+      for (const row of data) {
+        if (checked) next[row.id] = { id: row.id, inspectionCount: row.inspectionCount ?? 0 };
+        else delete next[row.id];
+      }
+      return next;
+    });
+  };
+
+  const openBulkDelete = () => {
+    const rows = Object.values(selected);
+    if (!rows.length) return;
+    setPendingDelete({
+      ids: rows.map((row) => row.id),
+      inspectionCount: rows.reduce((sum, row) => sum + row.inspectionCount, 0),
+    });
+  };
+
+  const remotePeriodLabel = formatStageMonthLabel(0);
+  const postWorkPeriodLabel = formatStageMonthLabel(-1);
 
   return (
     <Box>
+      <Box
+        display="grid"
+        gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }}
+        gap={2}
+        mb={2}
+      >
+        <DataCard title={`Remoto · mês vigente (${remotePeriodLabel})`}>
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography>Total: {summary ? formatNumber(summary.remote.total) : "—"}</Typography>
+            <Typography>Feitas: {summary ? formatNumber(summary.remote.done) : "—"}</Typography>
+          </Box>
+        </DataCard>
+        <DataCard title={`Pós-obra · mês anterior (${postWorkPeriodLabel})`}>
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography>Total: {summary ? formatNumber(summary.postWork.total) : "—"}</Typography>
+            <Typography>Feitas: {summary ? formatNumber(summary.postWork.done) : "—"}</Typography>
+          </Box>
+        </DataCard>
+      </Box>
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
         <TextField
           size="small"
@@ -323,24 +428,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
             ))}
           </Select>
         </FormControl>
-        <TextField
-          size="small"
-          label="Data inicial"
-          type="date"
-          value={from}
-          onChange={(e) => handlePeriodFromChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ min: minSelectableDate, max: maxSelectableDate }}
-        />
-        <TextField
-          size="small"
-          label="Data final"
-          type="date"
-          value={to}
-          onChange={(e) => handlePeriodToChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ min: minSelectableDate, max: maxSelectableDate }}
-        />
+        <MonthFilter value={monthKey} onChange={handleMonthChange} />
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Campo</InputLabel>
           <Select
@@ -425,6 +513,16 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
           onExport={handleExportServiceOrders}
           disabled={loading || !navigator.onLine}
         />
+        {isAdmin && selectedCount > 0 && (
+          <Button
+            color="error"
+            variant="contained"
+            onClick={openBulkDelete}
+            disabled={loading || deletingLoading || !navigator.onLine}
+          >
+            Excluir selecionadas ({selectedCount})
+          </Button>
+        )}
         {meta && (
           <Chip
             color="primary"
@@ -438,7 +536,12 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
         <TableContainer sx={{ overflowX: "auto" }}>
           <Table sx={{ minWidth: 1500 }}>
             <TableHead>
-              <ServiceOrderTableHead showActions={isAdmin} />
+              <ServiceOrderTableHead
+                showActions={isAdmin}
+                allSelected={allPageSelected}
+                someSelected={somePageSelected}
+                onTogglePage={togglePage}
+              />
             </TableHead>
             <TableBody>
               {loading ? (
@@ -457,7 +560,16 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
                 </TableRow>
               ) : (
                 data.map((so) => (
-                  <TableRow key={so.id}>
+                  <TableRow key={so.id} selected={Boolean(selected[so.id])}>
+                    {isAdmin && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={Boolean(selected[so.id])}
+                          onChange={() => toggleRow(so)}
+                          inputProps={{ "aria-label": `Selecionar OS ${so.osNumber}` }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>{so.osNumber}</TableCell>
                     <TableCell>
                       <Chip
@@ -470,13 +582,23 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
                     </TableCell>
                     <TableCell>{so.address}</TableCell>
                     <TableCell>
-                      <Chip size="small" color={so.field ? "success" : "error"} label={so.field ? "Sim" : "Não"} />
+                      {so.field ? <Chip size="small" color="success" label="Sim" /> : null}
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" color={so.remote ? "success" : "error"} label={so.remote ? "Sim" : "Não"} />
+                      <Chip
+                        size="small"
+                        color={so.remote ? "success" : "error"}
+                        label={so.remote ? "Sim" : "Não"}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" color={so.postWork ? "success" : "error"} label={so.postWork ? "Sim" : "Não"} />
+                      {so.postWorkRequired ? (
+                        <Chip
+                          size="small"
+                          color={so.postWork ? "success" : "error"}
+                          label={so.postWork ? "Sim" : "Não"}
+                        />
+                      ) : null}
                     </TableCell>
                     <TableCell>{so.status ?? "—"}</TableCell>
                     <TableCell>{so.equipe ?? "—"}</TableCell>
@@ -487,7 +609,14 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
                     {isAdmin && (
                       <TableActionsCell>
                         <TableActionsGroup>
-                          <TableDeleteButton onClick={() => setDeleting(so)} />
+                          <TableDeleteButton
+                            onClick={() =>
+                              setPendingDelete({
+                                ids: [so.id],
+                                inspectionCount: so.inspectionCount ?? 0,
+                              })
+                            }
+                          />
                         </TableActionsGroup>
                       </TableActionsCell>
                     )}
@@ -512,27 +641,36 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
       </SectionTable>
 
       <ConfirmDialog
-        open={!!deleting}
-        title="Excluir ordem de serviço"
-        description={`Deseja excluir a OS "${deleting?.osNumber ?? ""}"? Esta ação não pode ser desfeita.`}
+        open={!!pendingDelete}
+        title={pendingDelete && pendingDelete.ids.length > 1 ? "Excluir ordens de serviço" : "Excluir ordem de serviço"}
+        description={
+          pendingDelete
+            ? deleteConfirmation(pendingDelete.ids.length, pendingDelete.inspectionCount)
+            : ""
+        }
         confirmLabel="Excluir"
         loading={deletingLoading}
         onClose={() => {
           if (deletingLoading) return;
-          setDeleting(null);
+          setPendingDelete(null);
         }}
         onConfirm={async () => {
-          if (!deleting || deletingLoading) return;
+          if (!pendingDelete || deletingLoading) return;
+          const ids = pendingDelete.ids;
           setDeletingLoading(true);
           setDeleteError(null);
           try {
-            await appRepository.deleteServiceOrder(deleting.id);
-            setDeleting(null);
+            if (ids.length === 1) await appRepository.deleteServiceOrder(ids[0]);
+            else await appRepository.deleteServiceOrders(ids);
+            setSelected((current) => {
+              const next = { ...current };
+              for (const id of ids) delete next[id];
+              return next;
+            });
+            setPendingDelete(null);
             setRefreshKey((current) => current + 1);
           } catch (error) {
-            const message =
-              error instanceof Error ? error.message : "Não foi possível excluir a ordem de serviço.";
-            setDeleteError(message);
+            setDeleteError(errorText(error, "Não foi possível excluir a ordem de serviço."));
           } finally {
             setDeletingLoading(false);
           }
@@ -550,17 +688,14 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
 
 interface ImportacaoTabProps {
   contracts: Array<{ id: string; name: string }>;
+  canUpload: boolean;
 }
 
-function ImportacaoTab({ contracts }: ImportacaoTabProps): JSX.Element {
+function ImportacaoTab({ contracts, canUpload }: ImportacaoTabProps): JSX.Element {
   const [importing, setImporting] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState("");
-  const [importResult, setImportResult] = useState<{
-    inserted: number;
-    skipped: number;
-    deleted: number;
-    errors: string[];
-  } | null>(null);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [importResult, setImportResult] = useState<ServiceOrderImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -587,11 +722,13 @@ function ImportacaoTab({ contracts }: ImportacaoTabProps): JSX.Element {
     try {
       const res = await appRepository.importServiceOrders(file, selectedContractId);
       setImportResult(res);
+      setHistoryRefresh((current) => current + 1);
     } catch (err) {
       setImportResult({
         inserted: 0,
         skipped: 0,
         deleted: 0,
+        notRegistered: 0,
         errors: [err instanceof Error ? err.message : "Erro ao importar"],
       });
     } finally {
@@ -601,6 +738,7 @@ function ImportacaoTab({ contracts }: ImportacaoTabProps): JSX.Element {
 
   return (
     <Box>
+      {canUpload && (
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
         <FormControl size="small" sx={{ minWidth: 280 }}>
           <InputLabel>Contrato da importação</InputLabel>
@@ -635,36 +773,36 @@ function ImportacaoTab({ contracts }: ImportacaoTabProps): JSX.Element {
           onChange={handleFileChange}
         />
       </Box>
-      {contracts.length === 0 && (
+      )}
+      {canUpload && contracts.length === 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Nenhum contrato disponível no seu perfil. Solicite o vínculo de contrato para importar ordens de serviço.
         </Alert>
       )}
 
-      {!importResult ? (
+      {canUpload && !importResult && (
         <Typography color="text.secondary" sx={{ mt: 2 }}>
           Envie um arquivo Excel (.xlsx ou .xls) com as colunas necessárias para importar ordens de
           serviço. Selecione o contrato da importação antes de enviar o arquivo.
         </Typography>
-      ) : (
+      )}
+      {importResult && (
         <Alert
           severity={(importResult.errors ?? []).length > 0 ? "warning" : "success"}
           sx={{ mt: 2 }}
           onClose={() => setImportResult(null)}
         >
-          Inseridas: {importResult.inserted}. Ignoradas (duplicadas): {importResult.skipped}. Deletadas (canceladas): {importResult.deleted}.
+          Inseridas: {importResult.inserted}. Ignoradas: {importResult.skipped}. Deletadas: {importResult.deleted}. Não registradas: {importResult.notRegistered}.
           {(importResult.errors ?? []).length > 0 && (
             <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-              {(importResult.errors ?? []).slice(0, 10).map((err, i) => (
+              {(importResult.errors ?? []).map((err, i) => (
                 <li key={i}>{err}</li>
               ))}
-              {(importResult.errors ?? []).length > 5 && (
-                <li>... e mais {(importResult.errors ?? []).length - 5} erro(s)</li>
-              )}
             </Box>
           )}
         </Alert>
       )}
+      <ServiceOrderImportHistory refreshKey={historyRefresh} />
     </Box>
   );
 }
@@ -674,6 +812,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
   const canImport = user?.role === UserRole.GESTOR;
+  const canViewHistory = isAdmin || canImport;
   const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const availableContracts = user?.contracts ?? [];
   const contractsForFilters = isAdmin ? allContracts : availableContracts;
@@ -699,10 +838,10 @@ export const ServiceOrdersPage = (): JSX.Element => {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!canImport && tab !== 0) {
+    if (!canViewHistory && tab !== 0) {
       setTab(0);
     }
-  }, [canImport, tab]);
+  }, [canViewHistory, tab]);
 
   return (
     <Box>
@@ -721,8 +860,12 @@ export const ServiceOrdersPage = (): JSX.Element => {
       <DataCard>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
           <Tab label="Todos" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
-          {canImport && (
-            <Tab label="Importação" id="service-orders-tab-1" aria-controls="service-orders-panel-1" />
+          {canViewHistory && (
+            <Tab
+              label={canImport ? "Importação" : "Histórico"}
+              id="service-orders-tab-1"
+              aria-controls="service-orders-panel-1"
+            />
           )}
         </Tabs>
 
@@ -730,9 +873,9 @@ export const ServiceOrdersPage = (): JSX.Element => {
           <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
             {tab === 0 && <ListagemTab contracts={contractsForFilters} isAdmin={isAdmin} />}
           </div>
-          {canImport && (
+          {canViewHistory && (
             <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
-              {tab === 1 && <ImportacaoTab contracts={availableContracts} />}
+              {tab === 1 && <ImportacaoTab contracts={availableContracts} canUpload={canImport} />}
             </div>
           )}
         </Box>

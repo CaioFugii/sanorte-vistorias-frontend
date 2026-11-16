@@ -89,10 +89,13 @@ export const NewInspectionPage = (): JSX.Element => {
   const WORK_SAFETY_SECTOR_NAME = "SEGURANCA DO TRABALHO";
   const isWorkSafetyModule = module === ModuleType.SEGURANCA_TRABALHO;
   const isInvestmentWorkModule = module === ModuleType.OBRAS_INVESTIMENTO;
+  const isFieldModule = module === ModuleType.CAMPO;
   const isAdmin = user?.role === UserRole.ADMIN;
-  const serviceOrderRequired = !isWorkSafetyModule && !isInvestmentWorkModule;
+  const serviceOrderRequired =
+    module === ModuleType.REMOTO || module === ModuleType.POS_OBRA;
   const investmentWorkRequired = isInvestmentWorkModule && !selectedServiceOrder;
-  const requiresContractWithoutServiceOrder = isWorkSafetyModule || isInvestmentWorkModule;
+  const requiresContractWithoutServiceOrder =
+    isWorkSafetyModule || isInvestmentWorkModule || isFieldModule;
   const contractRequired = requiresContractWithoutServiceOrder && !selectedServiceOrder;
   const isCollaboratorScope = inspectionScope === InspectionScope.COLLABORATOR;
   const teamRequired = inspectionScope === InspectionScope.TEAM;
@@ -217,6 +220,7 @@ export const NewInspectionPage = (): JSX.Element => {
           field?: boolean;
           remote?: boolean;
           postWork?: boolean;
+          postWorkEligible?: boolean;
         } = {
           osNumber: trimmed,
           page: 1,
@@ -224,7 +228,10 @@ export const NewInspectionPage = (): JSX.Element => {
         };
         if (module === ModuleType.CAMPO) params.field = false;
         else if (module === ModuleType.REMOTO) params.remote = false;
-        else if (module === ModuleType.POS_OBRA) params.postWork = false;
+        else if (module === ModuleType.POS_OBRA) {
+          params.postWork = false;
+          params.postWorkEligible = true;
+        }
 
         const result = await appRepository.getServiceOrders(params);
         if (requestId !== osSearchRequestRef.current) return;
@@ -654,7 +661,9 @@ export const NewInspectionPage = (): JSX.Element => {
                           ? "OS não encontrada. Verifique o número ou importe a OS na página Ordens de Serviço."
                           : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
                             ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
-                            : "Selecione uma OS para preencher o setor automaticamente"
+                            : isFieldModule
+                              ? "Opcional. Sem OS, informe o contrato e o setor."
+                              : "Selecione uma OS para preencher o setor automaticamente"
                       }
                       InputProps={{
                         ...params.InputProps,
@@ -781,7 +790,11 @@ export const NewInspectionPage = (): JSX.Element => {
                   }}
                   label={selectedServiceOrder ? "Setor (definido pela OS)" : "Setor"}
                   required
-                  disabled={Boolean(selectedServiceOrder) || !isInvestmentWorkModule || sectorsPending}
+                  disabled={
+                    Boolean(selectedServiceOrder) ||
+                    (!isInvestmentWorkModule && !isFieldModule) ||
+                    sectorsPending
+                  }
                   helperText={sectorSelectHelperText}
                   error={isInvestmentWorkModule && !selectedServiceOrder && !sectorsPending && Boolean(sectorsError) && activeSectorsCount === 0}
                 />
