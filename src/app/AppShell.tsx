@@ -70,7 +70,7 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       icon: <Checklist fontSize="small" />,
       items: [
         { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
+        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" /> },
         { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
       ],
     },
@@ -109,7 +109,7 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       icon: <Checklist fontSize="small" />,
       items: [
         { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/service-orders", label: "Ordens de Serviço", icon: <Assignment fontSize="small" /> },
+        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" /> },
         { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
       ],
     },
@@ -165,7 +165,7 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       path: "/inspections/new",
     },
     {
-      label: "Ordens de Serviço",
+      label: "Painel de Controle",
       icon: <Assignment fontSize="small" />,
       path: "/service-orders",
     },

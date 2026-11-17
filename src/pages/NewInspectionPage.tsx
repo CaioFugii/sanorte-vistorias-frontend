@@ -129,6 +129,9 @@ export const NewInspectionPage = (): JSX.Element => {
     ) {
       return "A equipe selecionada é empreiteira e não permite vínculo de colaboradores.";
     }
+    if (lower.includes("já tem vistoria de")) {
+      return normalized;
+    }
     return null;
   };
 
@@ -658,7 +661,7 @@ export const NewInspectionPage = (): JSX.Element => {
                       error={osNumberError}
                       helperText={
                         osNumberError
-                          ? "OS não encontrada. Verifique o número ou importe a OS na página Ordens de Serviço."
+                          ? "OS não encontrada. Verifique o número ou importe a OS no Painel de Controle."
                           : osNumberInput.trim().length > 0 && osNumberInput.trim().length < MIN_OS_SEARCH_LENGTH
                             ? `Digite pelo menos ${MIN_OS_SEARCH_LENGTH} caracteres para buscar`
                             : isFieldModule

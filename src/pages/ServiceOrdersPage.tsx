@@ -847,7 +847,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
     <Box>
       <PageHeader
         eyebrow="Operação"
-        title="Ordens de Serviço (OS)"
+        title="Painel de Controle"
         subtitle="Consulte e importe ordens de serviço para suportar a execução das vistorias."
       />
 
