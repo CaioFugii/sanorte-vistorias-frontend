@@ -148,6 +148,9 @@ export interface ServiceOrder {
   field?: boolean;
   remote?: boolean;
   postWork?: boolean;
+  fieldInspectionId?: string | null;
+  remoteInspectionId?: string | null;
+  postWorkInspectionId?: string | null;
   postWorkRequired?: boolean;
   inspectionCount?: number;
   status?: string | null;

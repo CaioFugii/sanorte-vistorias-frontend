@@ -24,6 +24,7 @@ import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
@@ -166,7 +167,36 @@ interface ListagemTabProps {
   isAdmin: boolean;
 }
 
+function StageMark({
+  present,
+  externalId,
+  hideWhenAbsent,
+  onOpen,
+}: {
+  present?: boolean;
+  externalId?: string | null;
+  hideWhenAbsent?: boolean;
+  onOpen: (externalId: string) => void;
+}): JSX.Element | null {
+  if (!present && hideWhenAbsent) return null;
+  const clickable = Boolean(present && externalId);
+  return (
+    <Chip
+      size="small"
+      color={present ? "success" : "error"}
+      label={present ? "Sim" : "Não"}
+      clickable={clickable}
+      onClick={clickable ? () => onOpen(externalId as string) : undefined}
+      sx={clickable ? { cursor: "pointer" } : undefined}
+    />
+  );
+}
+
 function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
+  const navigate = useNavigate();
+  const openInspection = (externalId: string) => {
+    navigate(`/inspections/${externalId}`, { state: { from: "/service-orders" } });
+  };
   const initialContractId = contracts.length === 1 ? contracts[0].id : "";
   const sectors = useReferenceStore((state) => state.sectors);
   const loadCache = useReferenceStore((state) => state.loadCache);
@@ -582,21 +612,26 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
                     </TableCell>
                     <TableCell>{so.address}</TableCell>
                     <TableCell>
-                      {so.field ? <Chip size="small" color="success" label="Sim" /> : null}
+                      <StageMark
+                        present={so.field}
+                        externalId={so.fieldInspectionId}
+                        hideWhenAbsent
+                        onOpen={openInspection}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        color={so.remote ? "success" : "error"}
-                        label={so.remote ? "Sim" : "Não"}
+                      <StageMark
+                        present={so.remote}
+                        externalId={so.remoteInspectionId}
+                        onOpen={openInspection}
                       />
                     </TableCell>
                     <TableCell>
                       {so.postWorkRequired ? (
-                        <Chip
-                          size="small"
-                          color={so.postWork ? "success" : "error"}
-                          label={so.postWork ? "Sim" : "Não"}
+                        <StageMark
+                          present={so.postWork}
+                          externalId={so.postWorkInspectionId}
+                          onOpen={openInspection}
                         />
                       ) : null}
                     </TableCell>
