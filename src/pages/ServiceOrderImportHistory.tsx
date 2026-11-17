@@ -21,6 +21,30 @@ import { downloadBlob } from "@/utils/downloadBlob";
 
 const DEFAULT_LIMIT = 10;
 
+const IMPORT_LINE_FIELDS: Array<{ keys: string[]; fallback?: string }> = [
+  { keys: ["Número OS"] },
+  { keys: ["Família", "Familia"] },
+  { keys: ["Status da OS", "Status"] },
+  { keys: ["Endereço", "Endereco"] },
+  { keys: ["Número", "Numero"] },
+  { keys: ["Bairro"] },
+  { keys: ["Resultado"], fallback: "N/A" },
+  { keys: ["Data Fim Execução"] },
+  { keys: ["Tempo de execução efetivo"], fallback: "N/A" },
+  { keys: ["Equipe"], fallback: "N/A" },
+];
+
+function visibleImportFields(rawRow: Record<string, string>): Array<{ key: string; value: string }> {
+  return IMPORT_LINE_FIELDS.map((field) => {
+    const present = field.keys.find((key) => Object.prototype.hasOwnProperty.call(rawRow, key));
+    const key = present ?? field.keys[0];
+    return {
+      key,
+      value: present ? (rawRow[key] ?? "") : (field.fallback ?? ""),
+    };
+  });
+}
+
 function errorText(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "response" in error) {
     const message = (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
@@ -45,23 +69,27 @@ function ImportLineEditor({
   line: ServiceOrderImportLine;
   onResolved: () => void;
 }): JSX.Element {
-  const [cells, setCells] = useState<Record<string, string>>(line.rawRow ?? {});
+  const [baseRow, setBaseRow] = useState<Record<string, string>>(line.rawRow ?? {});
+  const [fields, setFields] = useState(() => visibleImportFields(line.rawRow ?? {}));
   const [reason, setReason] = useState(line.reason);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fields = Object.keys(cells);
 
   const confirm = async () => {
     setSaving(true);
     setError(null);
+    const row = { ...baseRow };
+    for (const field of fields) row[field.key] = field.value;
     try {
-      const updated = await appRepository.reprocessServiceOrderImportLine(importId, line.id, cells);
+      const updated = await appRepository.reprocessServiceOrderImportLine(importId, line.id, row);
       if (updated.status === ServiceOrderImportLineStatus.ENTERED) {
         onResolved();
         return;
       }
+      const nextRow = updated.rawRow ?? row;
       setReason(updated.reason);
-      setCells(updated.rawRow ?? cells);
+      setBaseRow(nextRow);
+      setFields(visibleImportFields(nextRow));
     } catch (err) {
       setError(errorText(err, "Não foi possível reprocessar a linha."));
     } finally {
@@ -80,12 +108,16 @@ function ImportLineEditor({
       <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={1.5}>
         {fields.map((field) => (
           <TextField
-            key={field}
+            key={field.key}
             size="small"
-            label={field}
-            value={cells[field] ?? ""}
+            label={field.key}
+            value={field.value}
             onChange={(event) =>
-              setCells((current) => ({ ...current, [field]: event.target.value }))
+              setFields((current) =>
+                current.map((item) =>
+                  item.key === field.key ? { ...item, value: event.target.value } : item,
+                ),
+              )
             }
           />
         ))}
