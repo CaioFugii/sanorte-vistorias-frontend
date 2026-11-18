@@ -33,13 +33,12 @@ export function visibleImportFields(rawRow: Record<string, string>): ImportLineF
 
 /**
  * Campos que a pessoa pode corrigir. `null` libera todos: o motivo não aponta uma célula.
- * OS repetida libera a chave (número, família e, em reposição, resultado).
+ * OS repetida libera a chave: número, família e resultado.
  * Endereço vazio libera as três células que compõem o endereço.
  */
 export function editableImportFieldKeys(
   reason: string | null | undefined,
   rawRow: Record<string, string>,
-  sectorName?: string | null,
 ): Set<string> | null {
   const text = reason ?? "";
   const family = () => columnKey(rawRow, ["Família", "Familia"]);
@@ -60,11 +59,11 @@ export function editableImportFieldKeys(
     ]);
   }
   if (text.includes("OS repetida")) {
-    const keys = new Set([columnKey(rawRow, ["Número OS"]), family()]);
-    if ((sectorName ?? "").toUpperCase() === "REPOSICAO") {
-      keys.add(columnKey(rawRow, ["Resultado"]));
-    }
-    return keys;
+    return new Set([
+      columnKey(rawRow, ["Número OS"]),
+      family(),
+      columnKey(rawRow, ["Resultado"]),
+    ]);
   }
   return null;
 }

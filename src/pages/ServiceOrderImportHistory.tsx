@@ -57,7 +57,6 @@ function ImportLineEditor({
 }): JSX.Element {
   const [baseRow, setBaseRow] = useState<Record<string, string>>(line.rawRow ?? {});
   const [fields, setFields] = useState(() => visibleImportFields(line.rawRow ?? {}));
-  const [sectorName, setSectorName] = useState(line.sectorName);
   const [reason, setReason] = useState(line.reason);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +74,6 @@ function ImportLineEditor({
       }
       const nextRow = updated.rawRow ?? row;
       setReason(updated.reason);
-      setSectorName(updated.sectorName);
       setBaseRow(nextRow);
       setFields(visibleImportFields(nextRow));
     } catch (err) {
@@ -85,7 +83,7 @@ function ImportLineEditor({
     }
   };
 
-  const editableKeys = editableImportFieldKeys(reason, baseRow, sectorName);
+  const editableKeys = editableImportFieldKeys(reason, baseRow);
   const fieldIsEditable = (key: string) => editableKeys === null || editableKeys.has(key);
 
   return (

@@ -48,6 +48,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Correção de OS repetida: o resultado fica editável em qualquer setor, porque ele faz parte da chave da OS
 - Aba **Vistorias** de Qualidade foi para o Painel de Controle, ao lado de Todos. Admin e Gestor continuam vendo; o atalho antigo em Dados redireciona
 - Fiscal deixa de ver o Painel de Controle. A busca de OS na nova vistoria continua disponível
 - Correção da importação de OS: só o campo que causou o erro fica editável. Os outros da linha ficam bloqueados
