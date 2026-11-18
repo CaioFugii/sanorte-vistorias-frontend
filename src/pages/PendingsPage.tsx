@@ -75,11 +75,13 @@ export const PendingsPage = (): JSX.Element => {
   const isAdmin = user?.role === UserRole.ADMIN;
   const canReviewResolutions =
     user?.role === UserRole.GESTOR || user?.role === UserRole.ADMIN;
-  const [pendingTab, setPendingTab] = useState<"ativas" | "resolvidas">("ativas");
+  const [pendingTab, setPendingTab] = useState<"ativas" | "aprovacao" | "resolvidas">("ativas");
   const listStatus =
-    canReviewResolutions && pendingTab === "resolvidas"
+    canReviewResolutions && pendingTab === "aprovacao"
       ? InspectionStatus.AGUARDANDO_APROVACAO
-      : InspectionStatus.PENDENTE_AJUSTE;
+      : canReviewResolutions && pendingTab === "resolvidas"
+        ? InspectionStatus.RESOLVIDA
+        : InspectionStatus.PENDENTE_AJUSTE;
   const availableContracts = user?.contracts ?? [];
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
@@ -441,18 +443,27 @@ export const PendingsPage = (): JSX.Element => {
       {canReviewResolutions && (
         <Tabs
           value={pendingTab}
-          onChange={(_event, value: "ativas" | "resolvidas") => {
+          onChange={(_event, value: "ativas" | "aprovacao" | "resolvidas") => {
             setPendingTab(value);
             setPage(1);
           }}
           sx={{ mb: 2 }}
         >
           <Tab value="ativas" label="Pendências ativas" />
-          <Tab value="resolvidas" label="Pendências Resolvidas" />
+          <Tab value="aprovacao" label="Aguardando Aprovação" />
+          <Tab value="resolvidas" label="Resolvidas" />
         </Tabs>
       )}
 
-      <SectionTable title={pendingTab === "resolvidas" && canReviewResolutions ? "Pendências Resolvidas" : "Pendências ativas"}>
+      <SectionTable
+        title={
+          pendingTab === "aprovacao" && canReviewResolutions
+            ? "Aguardando Aprovação"
+            : pendingTab === "resolvidas" && canReviewResolutions
+              ? "Resolvidas"
+              : "Pendências ativas"
+        }
+      >
         <Table>
           <TableHead>
             <TableRow>
@@ -481,10 +492,12 @@ export const PendingsPage = (): JSX.Element => {
               <TableRow>
                 <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                   {hasActiveFilters
-                    ? "Nenhuma pendência encontrada para os filtros informados."
+                    ? "Nenhuma vistoria encontrada para os filtros informados."
                     : listStatus === InspectionStatus.AGUARDANDO_APROVACAO
-                      ? "Nenhuma pendência aguardando aprovação."
-                      : "Nenhuma pendência de ajuste."}
+                      ? "Nenhuma vistoria aguardando aprovação."
+                      : listStatus === InspectionStatus.RESOLVIDA
+                        ? "Nenhuma vistoria resolvida."
+                        : "Nenhuma pendência de ajuste."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -561,7 +574,7 @@ export const PendingsPage = (): JSX.Element => {
                       <TableActionsGroup>
                         <TableViewButton
                           label={
-                            pendingTab === "resolvidas" && canReviewResolutions
+                            pendingTab === "aprovacao" && canReviewResolutions
                               ? "Ver retorno"
                               : user?.role === UserRole.SUPERVISOR
                                 ? "Ver e resolver"
