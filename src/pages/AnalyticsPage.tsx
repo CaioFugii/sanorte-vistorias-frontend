@@ -29,7 +29,6 @@ import { QualityRankingTab } from "@/pages/analytics/components/QualityRankingTa
 import { QualityServicesTab } from "@/pages/analytics/components/QualityServicesTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import { QualityNonConformitiesList } from "@/pages/analytics/components/QualityNonConformitiesList";
-import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
 import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
@@ -107,7 +106,6 @@ const QUALITY_TAB_KEYS = [
   "fiscais",
   "encarregados",
   "nonconformities",
-  "vistorias",
 ] as const;
 
 type QualityTabKey = (typeof QUALITY_TAB_KEYS)[number];
@@ -120,7 +118,6 @@ const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
   fiscais: "Fiscais",
   encarregados: "Encarregados",
   nonconformities: "Não conformidades",
-  vistorias: "Vistorias",
 };
 
 const RANKING_DIALOG_METRICS: DashboardTeamRankingMetric[] = [
@@ -382,16 +379,10 @@ export function AnalyticsPage(): JSX.Element {
   });
   const rankingRequestKeyRef = useRef<string | null>(null);
   const rankingDialogFromUrl = useMemo(() => parseRankingDialogParams(searchParams), [searchParams]);
-  const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
   const canSeeNonConformitiesTab = user?.role === UserRole.SUPERVISOR;
   const visibleTabs = useMemo(
-    () =>
-      QUALITY_TAB_KEYS.filter((key) => {
-        if (key === "vistorias") return canSeeInspectionsTab;
-        if (key === "nonconformities") return canSeeNonConformitiesTab;
-        return true;
-      }),
-    [canSeeInspectionsTab, canSeeNonConformitiesTab]
+    () => QUALITY_TAB_KEYS.filter((key) => key !== "nonconformities" || canSeeNonConformitiesTab),
+    [canSeeNonConformitiesTab]
   );
   const activeTab = useMemo(() => {
     const tabParam = searchParams.get("tab");
@@ -920,6 +911,10 @@ export function AnalyticsPage(): JSX.Element {
     ? formatMonthYearLabelPtBR(currentMonthByService.month)
     : "";
 
+  if (searchParams.get("tab") === "vistorias") {
+    return <Navigate to="/service-orders?tab=vistorias" replace />;
+  }
+
   return (
     <Box>
       <PageHeader
@@ -1001,14 +996,7 @@ export function AnalyticsPage(): JSX.Element {
             </Tabs>
           </Paper>
 
-          {activeTabKey === "vistorias" ? (
-            <QualityInspectionsTab
-              contractId={selectedContractId || undefined}
-              dateFilterHint={
-                <DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />
-              }
-            />
-          ) : hasCoreAnalyticsData ? (
+          {hasCoreAnalyticsData ? (
             <>
               {activeTabKey === "ranking" && (
                 <QualityRankingTab

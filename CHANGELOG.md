@@ -46,6 +46,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Aba **Vistorias** de Qualidade foi para o Painel de Controle, ao lado de Todos. Admin e Gestor continuam vendo; o atalho antigo em Dados redireciona
+- Fiscal deixa de ver o Painel de Controle. A busca de OS na nova vistoria continua disponível
 - Correção da importação de OS: só o campo que causou o erro fica editável. Os outros da linha ficam bloqueados
 - Painel de Controle: as caixas de Remoto e Pós-obra acompanham o mês do filtro. Remoto mostra o mês escolhido e Pós-obra o anterior
 - Aba **Fiscais** de Qualidade: gráfico de colunas, seleção dos fiscais e filtro de tipo (Campo, Remoto ou Pós-Obra). O padrão é Remoto, com todos os fiscais selecionados

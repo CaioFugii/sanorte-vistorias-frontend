@@ -24,7 +24,8 @@ import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
@@ -830,15 +831,41 @@ function ImportacaoTab({ contracts, canUpload }: ImportacaoTabProps): JSX.Elemen
   );
 }
 
+type PanelTab = "todos" | "vistorias" | "historico";
+
+function panelTabFromSearch(
+  requested: string | null,
+  canSeeInspections: boolean,
+  canViewHistory: boolean
+): PanelTab {
+  if (requested === "vistorias" && canSeeInspections) return "vistorias";
+  if (requested === "historico" && canViewHistory) return "historico";
+  return "todos";
+}
+
 export const ServiceOrdersPage = (): JSX.Element => {
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
   const canImport = user?.role === UserRole.GESTOR;
   const canViewHistory = isAdmin || canImport;
+  const canSeeInspections = isAdmin || canImport;
+  const tab = panelTabFromSearch(searchParams.get("tab"), canSeeInspections, canViewHistory);
   const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const availableContracts = user?.contracts ?? [];
   const contractsForFilters = isAdmin ? allContracts : availableContracts;
+
+  const selectTab = (next: PanelTab) => {
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        if (next === "todos") params.delete("tab");
+        else params.set("tab", next);
+        return params;
+      },
+      { replace: true }
+    );
+  };
 
   useEffect(() => {
     if (!isAdmin) {
@@ -861,10 +888,19 @@ export const ServiceOrdersPage = (): JSX.Element => {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!canViewHistory && tab !== 0) {
-      setTab(0);
-    }
-  }, [canViewHistory, tab]);
+    const requested = searchParams.get("tab");
+    const allowed =
+      requested === "vistorias" ? canSeeInspections : requested === "historico" ? canViewHistory : true;
+    if (!requested || allowed) return;
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        params.delete("tab");
+        return params;
+      },
+      { replace: true }
+    );
+  }, [canSeeInspections, canViewHistory, searchParams, setSearchParams]);
 
   return (
     <Box>
@@ -881,24 +917,48 @@ export const ServiceOrdersPage = (): JSX.Element => {
       )}
 
       <DataCard>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
-          <Tab label="Todos" id="service-orders-tab-0" aria-controls="service-orders-panel-0" />
+        <Tabs value={tab} onChange={(_, value: PanelTab) => selectTab(value)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
+          <Tab label="Todos" value="todos" id="service-orders-tab-todos" aria-controls="service-orders-panel-todos" />
+          {canSeeInspections && (
+            <Tab
+              label="Vistorias"
+              value="vistorias"
+              id="service-orders-tab-vistorias"
+              aria-controls="service-orders-panel-vistorias"
+            />
+          )}
           {canViewHistory && (
             <Tab
               label={canImport ? "Importação" : "Histórico"}
-              id="service-orders-tab-1"
-              aria-controls="service-orders-panel-1"
+              value="historico"
+              id="service-orders-tab-historico"
+              aria-controls="service-orders-panel-historico"
             />
           )}
         </Tabs>
 
         <Box sx={{ p: 2 }}>
-          <div role="tabpanel" hidden={tab !== 0} id="service-orders-panel-0" aria-labelledby="service-orders-tab-0">
-            {tab === 0 && <ListagemTab contracts={contractsForFilters} isAdmin={isAdmin} />}
+          <div role="tabpanel" hidden={tab !== "todos"} id="service-orders-panel-todos" aria-labelledby="service-orders-tab-todos">
+            {tab === "todos" && <ListagemTab contracts={contractsForFilters} isAdmin={isAdmin} />}
           </div>
+          {canSeeInspections && (
+            <div
+              role="tabpanel"
+              hidden={tab !== "vistorias"}
+              id="service-orders-panel-vistorias"
+              aria-labelledby="service-orders-tab-vistorias"
+            >
+              {tab === "vistorias" && <QualityInspectionsTab />}
+            </div>
+          )}
           {canViewHistory && (
-            <div role="tabpanel" hidden={tab !== 1} id="service-orders-panel-1" aria-labelledby="service-orders-tab-1">
-              {tab === 1 && <ImportacaoTab contracts={availableContracts} canUpload={canImport} />}
+            <div
+              role="tabpanel"
+              hidden={tab !== "historico"}
+              id="service-orders-panel-historico"
+              aria-labelledby="service-orders-tab-historico"
+            >
+              {tab === "historico" && <ImportacaoTab contracts={availableContracts} canUpload={canImport} />}
             </div>
           )}
         </Box>

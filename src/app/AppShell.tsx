@@ -165,11 +165,6 @@ const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
       path: "/inspections/new",
     },
     {
-      label: "Painel de Controle",
-      icon: <Assignment fontSize="small" />,
-      path: "/service-orders",
-    },
-    {
       label: "Relatórios",
       icon: <Description fontSize="small" />,
       path: "/reports/new",

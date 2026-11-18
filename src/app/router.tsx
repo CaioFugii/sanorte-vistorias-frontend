@@ -194,7 +194,7 @@ export const router = createBrowserRouter([
         path: "/service-orders",
         element: (
           <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL]}
+            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}
           >
             <ServiceOrdersPage />
           </RequireRoles>
@@ -222,7 +222,7 @@ export const router = createBrowserRouter([
         path: "/quality/inspections",
         element: (
           <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
-            <Navigate to="/quality/analytics?tab=vistorias" replace />
+            <Navigate to="/service-orders?tab=vistorias" replace />
           </RequireRoles>
         ),
       },

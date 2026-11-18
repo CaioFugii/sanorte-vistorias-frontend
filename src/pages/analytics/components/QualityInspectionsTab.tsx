@@ -19,7 +19,7 @@ const QUALITY_MODULE_OPTIONS = [
 
 type QualityInspectionsTabProps = {
   contractId?: string;
-  dateFilterHint: ReactNode;
+  dateFilterHint?: ReactNode;
 };
 
 export function QualityInspectionsTab({
