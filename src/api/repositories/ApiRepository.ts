@@ -1912,6 +1912,50 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardSafetyWorkFieldSupervisorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    supervisors: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/safety-work/field-supervisors-ranking", { params });
+    return response.data;
+  }
+
+  async getDashboardSafetyWorkCoordinatorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    coordinators: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/safety-work/coordinators-ranking", { params });
+    return response.data;
+  }
+
   async getDashboardSafetyWorkInspectorsProduction(params: {
     from: string;
     to: string;

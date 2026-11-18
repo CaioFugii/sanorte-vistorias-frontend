@@ -51,6 +51,8 @@ import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityN
 import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import {
+  CoordinatorsRankingData,
+  FieldSupervisorsRankingData,
   ForemenRankingData,
   InspectorsProductionData,
   QualityByServiceData,
@@ -75,7 +77,7 @@ const SAFETY_TAB_LABELS: Record<SafetyTabKey, string> = {
   ranking: "Ranking",
   teams: "Equipes",
   fiscais: "Fiscais",
-  encarregados: "Encarregados",
+  encarregados: "Gestão",
   overview: "Visão Geral",
   nonconformities: "Não Conformidades",
   vistorias: "Vistorias",
@@ -259,6 +261,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
   >([]);
   const [inspectorsProduction, setInspectorsProduction] = useState<InspectorsProductionData | null>(null);
   const [foremenRanking, setForemenRanking] = useState<ForemenRankingData | null>(null);
+  const [supervisorsRanking, setSupervisorsRanking] = useState<FieldSupervisorsRankingData | null>(null);
+  const [coordinatorsRanking, setCoordinatorsRanking] = useState<CoordinatorsRankingData | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceData | null>(null);
   const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<Awaited<
     ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByChecklist>
@@ -355,8 +359,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
     setError(null);
     try {
       const overviewRange = getFixedSafetyOverviewRange();
-      const [summaryResult, rankingResult, inspectorsResult, foremenResult, overviewResult, nonConformitiesResult] =
-        await Promise.all([
+      const [
+        summaryResult,
+        rankingResult,
+        inspectorsResult,
+        foremenResult,
+        supervisorsResult,
+        coordinatorsResult,
+        overviewResult,
+        nonConformitiesResult,
+      ] = await Promise.all([
           appRepository.getDashboardSafetyWorkSummary({
             from: period.from,
             to: period.to,
@@ -377,6 +389,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
             to: period.to,
             contractId: contractId || undefined,
           }),
+          appRepository.getDashboardSafetyWorkFieldSupervisorsRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
+          appRepository.getDashboardSafetyWorkCoordinatorsRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          }),
           appRepository.getDashboardSafetyWorkQualityByService({
             from: overviewRange.from,
             to: overviewRange.to,
@@ -392,6 +414,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
       setSummary(summaryResult);
       setInspectorsProduction(inspectorsResult);
       setForemenRanking(foremenResult);
+      setSupervisorsRanking(supervisorsResult);
+      setCoordinatorsRanking(coordinatorsResult);
       setQualityByService(overviewResult);
       setNonConformitiesByChecklist(nonConformitiesResult);
       setTeamRanking(
@@ -889,6 +913,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
       {activeTabKey === "encarregados" && (
         <QualityForemenTab
           data={foremenRanking}
+          supervisors={supervisorsRanking}
+          coordinators={coordinatorsRanking}
           loading={loading}
           error={error}
           areaLabel="Segurança do Trabalho"

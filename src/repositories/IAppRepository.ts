@@ -890,6 +890,42 @@ export interface IAppRepository {
       resolvedCount: number;
     }>;
   }>;
+  getDashboardSafetyWorkFieldSupervisorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    supervisors: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }>;
+  getDashboardSafetyWorkCoordinatorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    coordinators: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }>;
   getDashboardSafetyWorkInspectorsProduction(params: {
     from: string;
     to: string;

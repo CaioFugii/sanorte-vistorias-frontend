@@ -1267,6 +1267,48 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getDashboardSafetyWorkForemenRanking(params);
   }
 
+  async getDashboardSafetyWorkFieldSupervisorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    supervisors: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardSafetyWorkFieldSupervisorsRanking(params);
+  }
+
+  async getDashboardSafetyWorkCoordinatorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    coordinators: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    return this.apiRepository.getDashboardSafetyWorkCoordinatorsRanking(params);
+  }
+
   async getDashboardSafetyWorkInspectorsProduction(params: {
     from: string;
     to: string;
