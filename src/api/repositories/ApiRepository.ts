@@ -748,6 +748,19 @@ export class ApiRepository {
     return response.data;
   }
 
+  async previewServiceOrderImportDeletion(
+    importId: string
+  ): Promise<{ serviceOrderCount: number; inspectionCount: number }> {
+    const response = await apiClient.get<{ serviceOrderCount: number; inspectionCount: number }>(
+      `/service-orders/imports/${importId}/inserted`
+    );
+    return response.data;
+  }
+
+  async deleteServiceOrderImportInserted(importId: string): Promise<void> {
+    await apiClient.delete(`/service-orders/imports/${importId}/inserted`);
+  }
+
   async deleteServiceOrder(serviceOrderId: string): Promise<void> {
     await apiClient.delete(`/service-orders/${serviceOrderId}`);
   }

@@ -610,6 +610,16 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.reprocessServiceOrderImportLine(importId, lineId, row);
   }
 
+  async previewServiceOrderImportDeletion(
+    importId: string
+  ): Promise<{ serviceOrderCount: number; inspectionCount: number }> {
+    return this.apiRepository.previewServiceOrderImportDeletion(importId);
+  }
+
+  async deleteServiceOrderImportInserted(importId: string): Promise<void> {
+    return this.apiRepository.deleteServiceOrderImportInserted(importId);
+  }
+
   async deleteServiceOrder(serviceOrderId: string): Promise<void> {
     return this.apiRepository.deleteServiceOrder(serviceOrderId);
   }

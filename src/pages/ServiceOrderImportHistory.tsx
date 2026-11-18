@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
 import { SectionTable } from "@/components/ui";
 import {
@@ -30,6 +31,14 @@ function errorText(error: unknown, fallback: string): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+function insertedDeletionText(orderCount: number, inspectionCount: number): string {
+  const orders =
+    orderCount === 1 ? "1 ordem de serviço inserida" : `${orderCount} ordens de serviço inseridas`;
+  const inspections = inspectionCount === 1 ? "1 vistoria" : `${inspectionCount} vistorias`;
+  const verb = orderCount === 1 ? "Será excluída" : "Serão excluídas";
+  return `${verb} ${orders} por este arquivo e ${inspections}. Esta ação não pode ser desfeita.`;
 }
 
 function formatWhen(value?: string | null): string {
@@ -123,7 +132,13 @@ function ImportLineEditor({
   );
 }
 
-export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }): JSX.Element {
+export function ServiceOrderImportHistory({
+  refreshKey,
+  canDelete,
+}: {
+  refreshKey: number;
+  canDelete: boolean;
+}): JSX.Element {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [result, setResult] = useState<PaginatedResponse<ServiceOrderImportSummary> | null>(null);
@@ -132,6 +147,15 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
   const [detail, setDetail] = useState<ServiceOrderImportDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [localRefresh, setLocalRefresh] = useState(0);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    serviceOrderCount: number;
+    inspectionCount: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,7 +174,7 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
     return () => {
       cancelled = true;
     };
-  }, [page, limit, refreshKey]);
+  }, [page, limit, refreshKey, localRefresh]);
 
   const openDetail = (importId: string) => {
     setSelectedId(importId);
@@ -161,6 +185,44 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
       .then(setDetail)
       .catch((err) => setError(errorText(err, "Não foi possível abrir o lançamento.")))
       .finally(() => setDetailLoading(false));
+  };
+
+  const askDelete = async (item: ServiceOrderImportSummary) => {
+    setNotice(null);
+    setError(null);
+    setPreviewingId(item.id);
+    try {
+      const preview = await appRepository.previewServiceOrderImportDeletion(item.id);
+      if (preview.serviceOrderCount === 0) {
+        setNotice("Este arquivo não tem ordens de serviço inseridas para excluir.");
+        return;
+      }
+      setPendingDelete({
+        id: item.id,
+        serviceOrderCount: preview.serviceOrderCount,
+        inspectionCount: preview.inspectionCount,
+      });
+    } catch (err) {
+      setError(errorText(err, "Não foi possível preparar a exclusão."));
+    } finally {
+      setPreviewingId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await appRepository.deleteServiceOrderImportInserted(pendingDelete.id);
+      setPendingDelete(null);
+      setNotice(null);
+      setLocalRefresh((current) => current + 1);
+    } catch (err) {
+      setError(errorText(err, "Não foi possível excluir as ordens inseridas por este arquivo."));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const download = async (importId: string) => {
@@ -187,6 +249,11 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+      {notice && (
+        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setNotice(null)}>
+          {notice}
         </Alert>
       )}
       <SectionTable title="Lançamentos">
@@ -236,6 +303,16 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
                       <Button size="small" onClick={() => download(item.id)}>
                         Baixar
                       </Button>
+                      {canDelete && (
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => askDelete(item)}
+                          disabled={previewingId === item.id || deleting || !navigator.onLine}
+                        >
+                          Excluir
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -301,6 +378,21 @@ export function ServiceOrderImportHistory({ refreshKey }: { refreshKey: number }
           )}
         </Box>
       )}
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Excluir ordens inseridas"
+        description={
+          pendingDelete
+            ? insertedDeletionText(pendingDelete.serviceOrderCount, pendingDelete.inspectionCount)
+            : ""
+        }
+        confirmLabel="Excluir"
+        loading={deleting}
+        onClose={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+        onConfirm={confirmDelete}
+      />
     </Box>
   );
 }

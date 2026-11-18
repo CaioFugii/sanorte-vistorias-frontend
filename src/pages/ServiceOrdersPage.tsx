@@ -713,9 +713,10 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
 interface ImportacaoTabProps {
   contracts: Array<{ id: string; name: string }>;
   canUpload: boolean;
+  canDelete: boolean;
 }
 
-function ImportacaoTab({ contracts, canUpload }: ImportacaoTabProps): JSX.Element {
+function ImportacaoTab({ contracts, canUpload, canDelete }: ImportacaoTabProps): JSX.Element {
   const [importing, setImporting] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState("");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -826,7 +827,7 @@ function ImportacaoTab({ contracts, canUpload }: ImportacaoTabProps): JSX.Elemen
           )}
         </Alert>
       )}
-      <ServiceOrderImportHistory refreshKey={historyRefresh} />
+      <ServiceOrderImportHistory refreshKey={historyRefresh} canDelete={canDelete} />
     </Box>
   );
 }
@@ -958,7 +959,9 @@ export const ServiceOrdersPage = (): JSX.Element => {
               id="service-orders-panel-historico"
               aria-labelledby="service-orders-tab-historico"
             >
-              {tab === "historico" && <ImportacaoTab contracts={availableContracts} canUpload={canImport} />}
+              {tab === "historico" && (
+                <ImportacaoTab contracts={availableContracts} canUpload={canImport} canDelete={isAdmin} />
+              )}
             </div>
           )}
         </Box>

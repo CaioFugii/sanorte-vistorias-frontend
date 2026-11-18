@@ -340,6 +340,10 @@ export interface IAppRepository {
     lineId: string,
     row: Record<string, string>
   ): Promise<ServiceOrderImportLine>;
+  previewServiceOrderImportDeletion(
+    importId: string
+  ): Promise<{ serviceOrderCount: number; inspectionCount: number }>;
+  deleteServiceOrderImportInserted(importId: string): Promise<void>;
   exportServiceOrdersExcel(params?: {
     osNumber?: string;
     sectorId?: string;
