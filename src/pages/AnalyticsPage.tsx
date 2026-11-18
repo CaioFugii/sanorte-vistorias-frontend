@@ -383,7 +383,10 @@ export function AnalyticsPage(): JSX.Element {
   });
   const rankingRequestKeyRef = useRef<string | null>(null);
   const rankingDialogFromUrl = useMemo(() => parseRankingDialogParams(searchParams), [searchParams]);
-  const canSeeNonConformitiesTab = user?.role === UserRole.SUPERVISOR;
+  const canSeeNonConformitiesTab =
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.GESTOR ||
+    user?.role === UserRole.SUPERVISOR;
   const visibleTabs = useMemo(
     () => QUALITY_TAB_KEYS.filter((key) => key !== "nonconformities" || canSeeNonConformitiesTab),
     [canSeeNonConformitiesTab]
