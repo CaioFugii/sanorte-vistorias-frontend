@@ -154,6 +154,29 @@ export function QualityNonConformitiesList({
       )}
 
       <Box sx={{ p: showHeading ? 2.5 : 0, bgcolor: showHeading ? "#f8fafc" : "transparent" }}>
+        {showTeamFilter && (
+          <Box sx={{ mb: 2.5, maxWidth: 420 }}>
+            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
+              Filtrar por equipe
+            </Typography>
+            <Autocomplete
+              options={sortedTeamOptions}
+              value={selectedTeam}
+              onChange={(_, team) => onSelectedTeamIdChange?.(team?.id ?? "")}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Equipe"
+                  placeholder="Todas as equipes"
+                  size="small"
+                />
+              )}
+            />
+          </Box>
+        )}
+
         {loading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
             <CircularProgress size={28} />
@@ -301,29 +324,6 @@ export function QualityNonConformitiesList({
                 </Box>
               </Box>
             ))}
-          </Box>
-        )}
-
-        {showTeamFilter && (
-          <Box sx={{ mt: 3, maxWidth: 420 }}>
-            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
-              Filtrar por equipe
-            </Typography>
-            <Autocomplete
-              options={sortedTeamOptions}
-              value={selectedTeam}
-              onChange={(_, team) => onSelectedTeamIdChange?.(team?.id ?? "")}
-              getOptionLabel={(option) => option.name}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Equipe"
-                  placeholder="Todas as equipes"
-                  size="small"
-                />
-              )}
-            />
           </Box>
         )}
       </Box>
