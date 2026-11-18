@@ -16,34 +16,11 @@ import {
   ServiceOrderImportLineStatus,
   ServiceOrderImportSummary,
 } from "@/domain";
+import { editableImportFieldKeys, visibleImportFields } from "@/domain/rules/serviceOrderImportFields";
 import { appRepository } from "@/repositories/AppRepository";
 import { downloadBlob } from "@/utils/downloadBlob";
 
 const DEFAULT_LIMIT = 10;
-
-const IMPORT_LINE_FIELDS: Array<{ keys: string[]; fallback?: string }> = [
-  { keys: ["Número OS"] },
-  { keys: ["Família", "Familia"] },
-  { keys: ["Status da OS", "Status"] },
-  { keys: ["Endereço", "Endereco"] },
-  { keys: ["Número", "Numero"] },
-  { keys: ["Bairro"] },
-  { keys: ["Resultado"], fallback: "N/A" },
-  { keys: ["Data Fim Execução"] },
-  { keys: ["Tempo de execução efetivo"], fallback: "N/A" },
-  { keys: ["Equipe"], fallback: "N/A" },
-];
-
-function visibleImportFields(rawRow: Record<string, string>): Array<{ key: string; value: string }> {
-  return IMPORT_LINE_FIELDS.map((field) => {
-    const present = field.keys.find((key) => Object.prototype.hasOwnProperty.call(rawRow, key));
-    const key = present ?? field.keys[0];
-    return {
-      key,
-      value: present ? (rawRow[key] ?? "") : (field.fallback ?? ""),
-    };
-  });
-}
 
 function errorText(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "response" in error) {
@@ -71,6 +48,7 @@ function ImportLineEditor({
 }): JSX.Element {
   const [baseRow, setBaseRow] = useState<Record<string, string>>(line.rawRow ?? {});
   const [fields, setFields] = useState(() => visibleImportFields(line.rawRow ?? {}));
+  const [sectorName, setSectorName] = useState(line.sectorName);
   const [reason, setReason] = useState(line.reason);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +66,7 @@ function ImportLineEditor({
       }
       const nextRow = updated.rawRow ?? row;
       setReason(updated.reason);
+      setSectorName(updated.sectorName);
       setBaseRow(nextRow);
       setFields(visibleImportFields(nextRow));
     } catch (err) {
@@ -96,6 +75,9 @@ function ImportLineEditor({
       setSaving(false);
     }
   };
+
+  const editableKeys = editableImportFieldKeys(reason, baseRow, sectorName);
+  const fieldIsEditable = (key: string) => editableKeys === null || editableKeys.has(key);
 
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, mb: 2 }}>
@@ -106,21 +88,28 @@ function ImportLineEditor({
         </Typography>
       )}
       <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={1.5}>
-        {fields.map((field) => (
-          <TextField
-            key={field.key}
-            size="small"
-            label={field.key}
-            value={field.value}
-            onChange={(event) =>
-              setFields((current) =>
-                current.map((item) =>
-                  item.key === field.key ? { ...item, value: event.target.value } : item,
-                ),
-              )
-            }
-          />
-        ))}
+        {fields.map((field) => {
+          const editable = fieldIsEditable(field.key);
+          return (
+            <TextField
+              key={field.key}
+              size="small"
+              label={field.key}
+              value={field.value}
+              disabled={!editable}
+              onChange={
+                editable
+                  ? (event) =>
+                      setFields((current) =>
+                        current.map((item) =>
+                          item.key === field.key ? { ...item, value: event.target.value } : item,
+                        ),
+                      )
+                  : undefined
+              }
+            />
+          );
+        })}
       </Box>
       {error && (
         <Alert severity="error" sx={{ mt: 1 }}>

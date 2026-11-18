@@ -46,6 +46,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Correção da importação de OS: só o campo que causou o erro fica editável. Os outros da linha ficam bloqueados
 - Painel de Controle: as caixas de Remoto e Pós-obra acompanham o mês do filtro. Remoto mostra o mês escolhido e Pós-obra o anterior
 - Aba **Fiscais** de Qualidade: gráfico de colunas, seleção dos fiscais e filtro de tipo (Campo, Remoto ou Pós-Obra). O padrão é Remoto, com todos os fiscais selecionados
 - Aba **Encarregados** de Qualidade: gráfico de barras da nota média
