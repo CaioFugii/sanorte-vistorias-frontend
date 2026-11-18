@@ -354,7 +354,10 @@ export function ServiceOrderImportHistory({
                     key={line.id}
                     importId={detail.id}
                     line={line}
-                    onResolved={() => openDetail(detail.id)}
+                    onResolved={() => {
+                      setLocalRefresh((current) => current + 1);
+                      openDetail(detail.id);
+                    }}
                   />
                 ))
               )}
