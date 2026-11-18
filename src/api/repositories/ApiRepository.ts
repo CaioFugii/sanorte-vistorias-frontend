@@ -1846,6 +1846,50 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getDashboardQualityFieldSupervisorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    supervisors: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/quality/field-supervisors-ranking", { params });
+    return response.data;
+  }
+
+  async getDashboardQualityCoordinatorsRanking(params: {
+    from: string;
+    to: string;
+    contractId?: string;
+  }): Promise<{
+    from: string;
+    to: string;
+    coordinators: Array<{
+      id: string;
+      name: string;
+      teams: Array<{ id: string; name: string }>;
+      averagePercent: number;
+      inspectionsCount: number;
+      nonConformitiesCount: number;
+      pendingAdjustmentsCount: number;
+      resolvedCount: number;
+    }>;
+  }> {
+    const response = await apiClient.get("/dashboards/quality/coordinators-ranking", { params });
+    return response.data;
+  }
+
   async getDashboardSafetyWorkForemenRanking(params: {
     from: string;
     to: string;

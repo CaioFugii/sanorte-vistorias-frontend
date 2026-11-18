@@ -33,6 +33,8 @@ import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTa
 import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
 import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import {
+  CoordinatorsRankingData,
+  FieldSupervisorsRankingData,
   ForemenRankingData,
   InspectorsProductionData,
   TeamRankingInspectionItem,
@@ -116,7 +118,7 @@ const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
   services: "Serviços",
   teams: "Equipes",
   fiscais: "Fiscais",
-  encarregados: "Encarregados",
+  encarregados: "Gestão",
   nonconformities: "Não conformidades",
 };
 
@@ -340,6 +342,8 @@ export function AnalyticsPage(): JSX.Element {
   const [inspectorsLoading, setInspectorsLoading] = useState(false);
   const [inspectorsError, setInspectorsError] = useState<string | null>(null);
   const [foremenRanking, setForemenRanking] = useState<ForemenRankingData | null>(null);
+  const [supervisorsRanking, setSupervisorsRanking] = useState<FieldSupervisorsRankingData | null>(null);
+  const [coordinatorsRanking, setCoordinatorsRanking] = useState<CoordinatorsRankingData | null>(null);
   const [teamRankingQuality, setTeamRankingQuality] = useState<
     Array<{
       teamId: string;
@@ -441,13 +445,24 @@ export function AnalyticsPage(): JSX.Element {
           contractId: contractId || undefined,
         }),
       ]);
-      const [teamRanking, foremenRankingResult] = await Promise.all([
+      const [teamRanking, foremenRankingResult, supervisorsRankingResult, coordinatorsRankingResult] =
+        await Promise.all([
         appRepository.getDashboardTeamRanking({
           from: period.from,
           to: period.to,
           contractId: contractId || undefined,
         }),
         appRepository.getDashboardQualityForemenRanking({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardQualityFieldSupervisorsRanking({
+          from: period.from,
+          to: period.to,
+          contractId: contractId || undefined,
+        }),
+        appRepository.getDashboardQualityCoordinatorsRanking({
           from: period.from,
           to: period.to,
           contractId: contractId || undefined,
@@ -461,6 +476,8 @@ export function AnalyticsPage(): JSX.Element {
       setCurrentMonthByService(currentResponse ?? null);
       setQualitySummaryFromApi(summaryResponse);
       setForemenRanking(foremenRankingResult);
+      setSupervisorsRanking(supervisorsRankingResult);
+      setCoordinatorsRanking(coordinatorsRankingResult);
       setTeamRankingQuality(
         teamRanking.map((item) => ({
           teamId: item.teamId,
@@ -1105,6 +1122,8 @@ export function AnalyticsPage(): JSX.Element {
               {activeTabKey === "encarregados" && (
                 <QualityForemenTab
                   data={foremenRanking}
+                  supervisors={supervisorsRanking}
+                  coordinators={coordinatorsRanking}
                   loading={loading}
                   error={error}
                   dateFilterHint={

@@ -11,7 +11,11 @@ import {
 } from "@mui/material";
 import { ReactNode } from "react";
 import { getKpiScoreHighlight } from "./kpiScoreHighlight";
-import { ForemenRankingData } from "./models";
+import {
+  CoordinatorsRankingData,
+  FieldSupervisorsRankingData,
+  ForemenRankingData,
+} from "./models";
 
 const CHART_HEADER_SX = {
   px: 2.5,
@@ -20,8 +24,27 @@ const CHART_HEADER_SX = {
   borderBottom: "1px solid #e2e8f0",
 };
 
+type RankingPerson = {
+  id: string;
+  name: string;
+  averagePercent: number;
+  inspectionsCount: number;
+  nonConformitiesCount: number;
+  pendingAdjustmentsCount: number;
+  resolvedCount: number;
+};
+
+type RankingSectionConfig = {
+  title: string;
+  personLabel: string;
+  emptyMessage: string;
+  people: RankingPerson[];
+};
+
 type QualityForemenTabProps = {
   data: ForemenRankingData | null;
+  supervisors?: FieldSupervisorsRankingData | null;
+  coordinators?: CoordinatorsRankingData | null;
   loading: boolean;
   error: string | null;
   dateFilterHint: ReactNode;
@@ -32,22 +55,22 @@ function formatPercent(value: number): string {
   return `${value.toFixed(2).replace(".", ",")}%`;
 }
 
-export function QualityForemenTab({
-  data,
-  loading,
-  error,
+function RankingSection({
+  section,
+  areaLabel,
   dateFilterHint,
-  areaLabel = "Qualidade",
-}: QualityForemenTabProps): JSX.Element {
-  const foremen = data?.foremen ?? [];
-
+}: {
+  section: RankingSectionConfig;
+  areaLabel: string;
+  dateFilterHint: ReactNode;
+}): JSX.Element {
   return (
     <Paper sx={{ p: 0, overflow: "hidden" }}>
       <Box sx={CHART_HEADER_SX}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
           <Box>
             <Typography variant="h6" fontWeight={800}>
-              Resultado por encarregados
+              {section.title}
             </Typography>
             <Typography variant="subtitle2" fontWeight={700}>
               {areaLabel}
@@ -58,43 +81,27 @@ export function QualityForemenTab({
       </Box>
 
       <Box sx={{ p: 2.5, bgcolor: "#f8fafc" }}>
-        {loading && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress size={28} />
-          </Box>
-        )}
-
-        {error && !loading && (
-          <Paper sx={{ p: 1.5, mb: 2, bgcolor: "error.light" }}>
-            <Typography variant="body2" color="error.contrastText">
-              {error}
-            </Typography>
-          </Paper>
-        )}
-
-        {!loading && !error && foremen.length === 0 && (
+        {section.people.length === 0 && (
           <Paper sx={{ p: 2, bgcolor: "#fff", border: "1px dashed #cbd5e1" }}>
-            <Typography color="text.secondary">
-              Nenhum resultado de encarregado encontrado para o período selecionado.
-            </Typography>
+            <Typography color="text.secondary">{section.emptyMessage}</Typography>
           </Paper>
         )}
 
-        {!loading && !error && foremen.length > 0 && (
+        {section.people.length > 0 && (
           <Paper sx={{ p: 2, mb: 2.5, border: "1px solid #e2e8f0" }}>
             <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
               Nota média
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
-              {foremen.map((foreman) => {
-                const barColor = getKpiScoreHighlight(foreman.averagePercent).textColor;
-                const width = Math.min(100, Math.max(0, foreman.averagePercent));
+              {section.people.map((person) => {
+                const barColor = getKpiScoreHighlight(person.averagePercent).textColor;
+                const width = Math.min(100, Math.max(0, person.averagePercent));
                 return (
-                  <Box key={foreman.foremanId} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Box key={person.id} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <Typography
                       variant="caption"
                       fontWeight={800}
-                      title={foreman.foremanName}
+                      title={person.name}
                       sx={{
                         width: { xs: 120, sm: 220 },
                         flexShrink: 0,
@@ -105,7 +112,7 @@ export function QualityForemenTab({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {foreman.foremanName}
+                      {person.name}
                     </Typography>
                     <Box sx={{ flex: 1, height: 22, bgcolor: "#e2e8f0", borderRadius: 1, overflow: "hidden" }}>
                       <Box
@@ -118,7 +125,7 @@ export function QualityForemenTab({
                       />
                     </Box>
                     <Typography variant="body2" fontWeight={800} sx={{ width: 72, flexShrink: 0, textAlign: "right" }}>
-                      {formatPercent(foreman.averagePercent)}
+                      {formatPercent(person.averagePercent)}
                     </Typography>
                   </Box>
                 );
@@ -127,12 +134,12 @@ export function QualityForemenTab({
           </Paper>
         )}
 
-        {!loading && !error && foremen.length > 0 && (
+        {section.people.length > 0 && (
           <Paper sx={{ overflow: "auto", border: "1px solid #e2e8f0" }}>
             <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800 }}>Encarregado</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>{section.personLabel}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 800 }}>Nota média</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 800 }}>Vistorias</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 800 }}>Não conformidades</TableCell>
@@ -141,14 +148,14 @@ export function QualityForemenTab({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {foremen.map((foreman) => (
-                  <TableRow key={foreman.foremanId} hover>
-                    <TableCell sx={{ fontWeight: 700 }}>{foreman.foremanName}</TableCell>
-                    <TableCell align="right">{formatPercent(foreman.averagePercent)}</TableCell>
-                    <TableCell align="right">{foreman.inspectionsCount.toLocaleString("pt-BR")}</TableCell>
-                    <TableCell align="right">{foreman.nonConformitiesCount.toLocaleString("pt-BR")}</TableCell>
-                    <TableCell align="right">{foreman.pendingAdjustmentsCount.toLocaleString("pt-BR")}</TableCell>
-                    <TableCell align="right">{foreman.resolvedCount.toLocaleString("pt-BR")}</TableCell>
+                {section.people.map((person) => (
+                  <TableRow key={person.id} hover>
+                    <TableCell sx={{ fontWeight: 700 }}>{person.name}</TableCell>
+                    <TableCell align="right">{formatPercent(person.averagePercent)}</TableCell>
+                    <TableCell align="right">{person.inspectionsCount.toLocaleString("pt-BR")}</TableCell>
+                    <TableCell align="right">{person.nonConformitiesCount.toLocaleString("pt-BR")}</TableCell>
+                    <TableCell align="right">{person.pendingAdjustmentsCount.toLocaleString("pt-BR")}</TableCell>
+                    <TableCell align="right">{person.resolvedCount.toLocaleString("pt-BR")}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -157,5 +164,96 @@ export function QualityForemenTab({
         )}
       </Box>
     </Paper>
+  );
+}
+
+export function QualityForemenTab({
+  data,
+  supervisors,
+  coordinators,
+  loading,
+  error,
+  dateFilterHint,
+  areaLabel = "Qualidade",
+}: QualityForemenTabProps): JSX.Element {
+  const sections: RankingSectionConfig[] = [];
+  if (coordinators !== undefined) {
+    sections.push({
+      title: "Resultado por coordenadores",
+      personLabel: "Coordenador",
+      emptyMessage: "Nenhum resultado de coordenador encontrado para o período selecionado.",
+      people: (coordinators?.coordinators ?? []).map((person) => ({
+        id: person.id,
+        name: person.name,
+        averagePercent: person.averagePercent,
+        inspectionsCount: person.inspectionsCount,
+        nonConformitiesCount: person.nonConformitiesCount,
+        pendingAdjustmentsCount: person.pendingAdjustmentsCount,
+        resolvedCount: person.resolvedCount,
+      })),
+    });
+  }
+  if (supervisors !== undefined) {
+    sections.push({
+      title: "Resultado por supervisores",
+      personLabel: "Supervisor",
+      emptyMessage: "Nenhum resultado de supervisor encontrado para o período selecionado.",
+      people: (supervisors?.supervisors ?? []).map((person) => ({
+        id: person.id,
+        name: person.name,
+        averagePercent: person.averagePercent,
+        inspectionsCount: person.inspectionsCount,
+        nonConformitiesCount: person.nonConformitiesCount,
+        pendingAdjustmentsCount: person.pendingAdjustmentsCount,
+        resolvedCount: person.resolvedCount,
+      })),
+    });
+  }
+  sections.push({
+    title: "Resultado por encarregados",
+    personLabel: "Encarregado",
+    emptyMessage: "Nenhum resultado de encarregado encontrado para o período selecionado.",
+    people: (data?.foremen ?? []).map((foreman) => ({
+      id: foreman.foremanId,
+      name: foreman.foremanName,
+      averagePercent: foreman.averagePercent,
+      inspectionsCount: foreman.inspectionsCount,
+      nonConformitiesCount: foreman.nonConformitiesCount,
+      pendingAdjustmentsCount: foreman.pendingAdjustmentsCount,
+      resolvedCount: foreman.resolvedCount,
+    })),
+  });
+
+  if (loading) {
+    return (
+      <Paper sx={{ p: 0, overflow: "hidden" }}>
+        <Box sx={{ p: 2.5, bgcolor: "#f8fafc", display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 1.5, bgcolor: "error.light" }}>
+        <Typography variant="body2" color="error.contrastText">
+          {error}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {sections.map((section) => (
+        <RankingSection
+          key={section.title}
+          section={section}
+          areaLabel={areaLabel}
+          dateFilterHint={dateFilterHint}
+        />
+      ))}
+    </Box>
   );
 }

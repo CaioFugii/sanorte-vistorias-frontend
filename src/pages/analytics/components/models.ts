@@ -146,6 +146,29 @@ export type ForemenRankingData = {
   foremen: ForemanRankingRow[];
 };
 
+export type HierarchyRankingRow = {
+  id: string;
+  name: string;
+  teams: Array<{ id: string; name: string }>;
+  averagePercent: number;
+  inspectionsCount: number;
+  nonConformitiesCount: number;
+  pendingAdjustmentsCount: number;
+  resolvedCount: number;
+};
+
+export type FieldSupervisorsRankingData = {
+  from: string;
+  to: string;
+  supervisors: HierarchyRankingRow[];
+};
+
+export type CoordinatorsRankingData = {
+  from: string;
+  to: string;
+  coordinators: HierarchyRankingRow[];
+};
+
 export type TeamRankingInspectionsMeta = {
   teamId: string;
   teamName: string;

@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Aba **Gestão** em Dados de Qualidade: nota média de coordenadores e supervisores, acima do resultado dos encarregados
 - Histórico de importação: o Admin exclui as ordens de serviço inseridas por um arquivo, com as vistorias ligadas
 - Aba **Fiscais** em Dados de Qualidade: produção diária por fiscal, no mesmo formato de Segurança do Trabalho
 - Aba **Encarregados** em Dados de Qualidade: nota média, vistorias, não conformidades e pendências pelo encarregado atual
