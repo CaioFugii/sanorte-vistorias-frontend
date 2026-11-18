@@ -42,7 +42,7 @@ import {
 } from "@/components/ui";
 import { useAuthStore } from "@/stores/authStore";
 import { MonthFilter } from "@/components/MonthFilter";
-import { currentMonthKey, monthKeyToRange } from "@/domain/rules/monthPeriod";
+import { currentMonthKey, formatMonthKeyLabel, monthKeyToRange, shiftMonthKey } from "@/domain/rules/monthPeriod";
 
 const DEFAULT_LIMIT = 10;
 const MIN_SEARCH_LENGTH = 3;
@@ -96,27 +96,8 @@ function errorText(error: unknown, fallback: string): string {
 
 type SelectedServiceOrder = { id: string; inspectionCount: number };
 
-function formatStageMonthLabel(offsetMonths: 0 | -1): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(new Date());
-  let year = Number(parts.find((part) => part.type === "year")?.value);
-  let month = Number(parts.find((part) => part.type === "month")?.value);
-  if (offsetMonths === -1) {
-    if (month === 1) {
-      year -= 1;
-      month = 12;
-    } else {
-      month -= 1;
-    }
-  }
-  const label = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "UTC",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
+function monthCardLabel(monthKey: string): string {
+  const label = formatMonthKeyLabel(monthKey);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
@@ -272,11 +253,14 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
+    setSummary(null);
     appRepository
       .getServiceOrderSummary({
         osNumber: osNumberFilter,
         sectorId: sectorId.trim() || undefined,
         contractId: contractId.trim() || undefined,
+        from: from || undefined,
+        to: to || undefined,
         field: field === "" ? undefined : field === "true",
         remote: remote === "" ? undefined : remote === "true",
         postWork: postWork === "" ? undefined : postWork === "true",
@@ -292,7 +276,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [osNumberFilter, sectorId, contractId, field, remote, postWork, equipeFilter, resultadoFilter, refreshKey]);
+  }, [osNumberFilter, sectorId, contractId, from, to, field, remote, postWork, equipeFilter, resultadoFilter, refreshKey]);
 
   const handleSearch = (value: string) => {
     setOsNumber(value);
@@ -389,8 +373,12 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
     });
   };
 
-  const remotePeriodLabel = formatStageMonthLabel(0);
-  const postWorkPeriodLabel = formatStageMonthLabel(-1);
+  const remotePeriodLabel = monthCardLabel(monthKey);
+  const postWorkPeriodLabel = monthCardLabel(shiftMonthKey(monthKey, -1));
+  const remoteTitle =
+    monthKey === currentMonthKey()
+      ? `Remoto · mês vigente (${remotePeriodLabel})`
+      : `Remoto · ${remotePeriodLabel}`;
 
   return (
     <Box>
@@ -400,7 +388,7 @@ function ListagemTab({ contracts, isAdmin }: ListagemTabProps): JSX.Element {
         gap={2}
         mb={2}
       >
-        <DataCard title={`Remoto · mês vigente (${remotePeriodLabel})`}>
+        <DataCard title={remoteTitle}>
           <Box sx={{ px: 2, py: 1.5 }}>
             <Typography>Total: {summary ? formatNumber(summary.remote.total) : "—"}</Typography>
             <Typography>Feitas: {summary ? formatNumber(summary.remote.done) : "—"}</Typography>

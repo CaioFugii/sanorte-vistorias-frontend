@@ -630,7 +630,7 @@ export class ApiRepository {
   }
 
   async getServiceOrderSummary(
-    params?: Omit<ServiceOrdersParams, "page" | "limit" | "from" | "to" | "periodFrom" | "periodTo" | "postWorkEligible">
+    params?: Omit<ServiceOrdersParams, "page" | "limit" | "periodFrom" | "periodTo" | "postWorkEligible">
   ): Promise<ServiceOrderStageSummary> {
     const response = await apiClient.get<ServiceOrderStageSummary>(
       "/service-orders/summary",

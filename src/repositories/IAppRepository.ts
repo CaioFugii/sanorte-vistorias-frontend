@@ -278,6 +278,8 @@ export interface IAppRepository {
     osNumber?: string;
     sectorId?: string;
     contractId?: string;
+    from?: string;
+    to?: string;
     field?: boolean;
     remote?: boolean;
     postWork?: boolean;
