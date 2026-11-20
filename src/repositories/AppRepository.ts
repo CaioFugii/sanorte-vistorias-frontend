@@ -14,7 +14,12 @@ import {
   Foreman,
   Evidence,
   InvestmentWork,
+  InvestmentWorkImportDetail,
+  InvestmentWorkImportPreview,
+  InvestmentWorkImportResult,
+  InvestmentWorkImportSummary,
   InvestmentWorkStatus,
+  InvestmentWorkSummary,
   Inspection,
   InspectionNotice,
   InspectionExcelLayout,
@@ -74,6 +79,7 @@ function normalizeInspectionListItem(
     externalId: routeId,
     serverId,
     module: inspection.module as ModuleType,
+    evaluationModule: inspection.evaluationModule ?? null,
     serviceDescription: inspection.serviceDescription ?? "",
     locationDescription: inspection.locationDescription ?? "",
     team: inspection.team ?? null,
@@ -88,6 +94,7 @@ function normalizeInspectionListItem(
     finalizedAt: inspection.finalizedAt,
     createdAt: inspection.createdAt ?? "",
     serviceOrder: inspection.serviceOrder ?? null,
+    contract: inspection.contract ?? null,
     investmentWork: inspection.investmentWork ?? null,
   };
 }
@@ -572,8 +579,27 @@ export class AppRepository implements IAppRepository {
     contractId?: string;
     search?: string;
     active?: boolean;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+    origin?: "MANUAL" | "IMPORT";
   }): Promise<PaginatedResponse<InvestmentWork>> {
     return this.apiRepository.getInvestmentWorks(params);
+  }
+
+  async getInvestmentWorkSummary(params?: {
+    contractId?: string;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+  }): Promise<InvestmentWorkSummary> {
+    return this.apiRepository.getInvestmentWorkSummary(params);
   }
 
   async getInvestmentWork(investmentWorkId: string): Promise<InvestmentWork> {
@@ -587,10 +613,10 @@ export class AppRepository implements IAppRepository {
     expectedEndDate: string;
     address: string;
     district: string;
-    basin: string;
+    basin?: string;
     service: string;
     teamId: string;
-    materialNetwork: string;
+    materialNetwork?: string;
     singularities?: string;
     status?: InvestmentWorkStatus;
   }): Promise<InvestmentWork> {
@@ -613,6 +639,7 @@ export class AppRepository implements IAppRepository {
       singularities?: string;
       status?: InvestmentWorkStatus;
       active: boolean;
+      pdaTeamName?: string;
     }>
   ): Promise<InvestmentWork> {
     return this.apiRepository.updateInvestmentWork(investmentWorkId, input);
@@ -620,6 +647,35 @@ export class AppRepository implements IAppRepository {
 
   async deleteInvestmentWork(investmentWorkId: string): Promise<void> {
     return this.apiRepository.deleteInvestmentWork(investmentWorkId);
+  }
+
+  async previewInvestmentWorkImport(file: File): Promise<InvestmentWorkImportPreview> {
+    return this.apiRepository.previewInvestmentWorkImport(file);
+  }
+
+  async importInvestmentWorks(
+    file: File,
+    contractId: string,
+    descriptions: string[]
+  ): Promise<InvestmentWorkImportResult> {
+    return this.apiRepository.importInvestmentWorks(file, contractId, descriptions);
+  }
+
+  async getInvestmentWorkImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<InvestmentWorkImportSummary>> {
+    return this.apiRepository.getInvestmentWorkImports(params);
+  }
+
+  async getInvestmentWorkImport(importId: string): Promise<InvestmentWorkImportDetail> {
+    return this.apiRepository.getInvestmentWorkImport(importId);
+  }
+
+  async downloadInvestmentWorkImport(
+    importId: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.downloadInvestmentWorkImport(importId);
   }
 
   async importServiceOrders(

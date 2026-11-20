@@ -1,6 +1,7 @@
 import {
   ChecklistAnswer,
   InvestmentWorkEvaluationModule,
+  InvestmentWorkOrigin,
   InvestmentWorkStatus,
   InspectionScope,
   InspectionNoticeType,
@@ -192,6 +193,7 @@ export interface Contract {
 
 export interface InvestmentWork {
   id: string;
+  origin?: InvestmentWorkOrigin;
   contractId: string;
   createdByUserId?: string;
   /** Alguns endpoints enxutos podem retornar `name` ao invés de `workName`. */
@@ -201,13 +203,18 @@ export interface InvestmentWork {
   expectedEndDate: string;
   address: string;
   district: string;
-  basin: string;
-  service: string;
-  teamId: string;
-  team?: Pick<Team, "id" | "name">;
+  basin?: string | null;
+  service?: string | null;
+  teamId?: string | null;
+  team?: Pick<Team, "id" | "name"> | null;
+  pdaTeamName?: string | null;
+  sector?: Pick<Sector, "id" | "name"> | null;
   contract?: Pick<Contract, "id" | "name">;
-  materialNetwork: string;
+  materialNetwork?: string | null;
   singularities?: string | null;
+  fieldInspectionCount?: number;
+  postWorkInspectionCount?: number;
+  descriptions?: string[];
   status: InvestmentWorkStatus;
   active: boolean;
   averageScorePercent?: number | null;
@@ -227,6 +234,49 @@ export interface InvestmentWork {
   };
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface InvestmentWorkSummary {
+  field: { period: { from: string; to: string }; goal: number; done: number };
+  postWork: { period: { from: string; to: string }; goal: number; done: number };
+}
+
+export interface InvestmentWorkImportPreview {
+  fileName: string;
+  totalLines: number;
+  descriptions: Array<{ key: string; label: string; count: number }>;
+}
+
+export interface InvestmentWorkImportResult {
+  id: string;
+  created: number;
+  ignored: number;
+  notSelected: number;
+  notRegistered: number;
+  errors: string[];
+}
+
+export interface InvestmentWorkImportSummary {
+  id: string;
+  originalFileName: string;
+  createdAt: string;
+  selectedDescriptions: string[];
+  createdCount: number;
+  ignoredCount: number;
+  notSelectedCount: number;
+  notRegisteredCount: number;
+  contract: { id: string; name: string };
+  user: { id: string; name: string };
+}
+
+export interface InvestmentWorkImportDetail extends InvestmentWorkImportSummary {
+  lines: Array<{
+    lineNumber: number;
+    osNumber: string | null;
+    description: string | null;
+    reason: string;
+    rawRow: Record<string, unknown>;
+  }>;
 }
 
 export interface ChecklistItem {
@@ -296,7 +346,14 @@ export interface InspectionListItem {
   createdAt: string;
   /** API pode retornar payload enxuto da OS nas listagens. */
   serviceOrder?: InspectionServiceOrderSummary | null;
-  investmentWork?: { id: string; name?: string; workName?: string } | null;
+  contract?: { id: string; name: string } | null;
+  investmentWork?: {
+    id: string;
+    name?: string | null;
+    workName?: string | null;
+    origin?: InvestmentWorkOrigin;
+    executionDate?: string | null;
+  } | null;
 }
 
 /**
@@ -312,7 +369,19 @@ export interface Inspection extends InspectionListItem {
   investmentWorkId?: string;
   /** OS: detalhe/listagem podem trazer combinações diferentes de campos. */
   serviceOrder?: InspectionServiceOrderSummary | null;
-  investmentWork?: Pick<InvestmentWork, "id" | "workName" | "name" | "address"> | { id: string; name?: string; workName?: string } | null;
+  investmentWork?:
+    | (Pick<InvestmentWork, "id" | "workName" | "name" | "address"> & {
+        origin?: InvestmentWorkOrigin;
+        executionDate?: string | null;
+      })
+    | {
+        id: string;
+        name?: string | null;
+        workName?: string | null;
+        origin?: InvestmentWorkOrigin;
+        executionDate?: string | null;
+      }
+    | null;
   collaboratorIds?: string[];
   createdByUserId?: string;
   paralyzedReason?: string | null;

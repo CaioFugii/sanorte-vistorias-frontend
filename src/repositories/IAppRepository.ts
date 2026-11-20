@@ -12,7 +12,12 @@ import {
   FieldSupervisor,
   Foreman,
   InvestmentWork,
+  InvestmentWorkImportDetail,
+  InvestmentWorkImportPreview,
+  InvestmentWorkImportResult,
+  InvestmentWorkImportSummary,
   InvestmentWorkStatus,
+  InvestmentWorkSummary,
   Inspection,
   InspectionNotice,
   InspectionExcelLayout,
@@ -319,7 +324,23 @@ export interface IAppRepository {
     contractId?: string;
     search?: string;
     active?: boolean;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+    origin?: "MANUAL" | "IMPORT";
   }): Promise<PaginatedResponse<InvestmentWork>>;
+  getInvestmentWorkSummary(params?: {
+    contractId?: string;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+  }): Promise<InvestmentWorkSummary>;
   getInvestmentWork(investmentWorkId: string): Promise<InvestmentWork>;
   createInvestmentWork(input: {
     contractId: string;
@@ -328,10 +349,10 @@ export interface IAppRepository {
     expectedEndDate: string;
     address: string;
     district: string;
-    basin: string;
+    basin?: string;
     service: string;
     teamId: string;
-    materialNetwork: string;
+    materialNetwork?: string;
     singularities?: string;
     status?: InvestmentWorkStatus;
   }): Promise<InvestmentWork>;
@@ -351,9 +372,22 @@ export interface IAppRepository {
       singularities?: string;
       status?: InvestmentWorkStatus;
       active: boolean;
+      pdaTeamName?: string;
     }>
   ): Promise<InvestmentWork>;
   deleteInvestmentWork(investmentWorkId: string): Promise<void>;
+  previewInvestmentWorkImport(file: File): Promise<InvestmentWorkImportPreview>;
+  importInvestmentWorks(
+    file: File,
+    contractId: string,
+    descriptions: string[]
+  ): Promise<InvestmentWorkImportResult>;
+  getInvestmentWorkImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<InvestmentWorkImportSummary>>;
+  getInvestmentWorkImport(importId: string): Promise<InvestmentWorkImportDetail>;
+  downloadInvestmentWorkImport(importId: string): Promise<{ blob: Blob; filename: string }>;
   importServiceOrders(file: File, contractId: string): Promise<ServiceOrderImportResult>;
   getServiceOrderImports(params?: {
     page?: number;

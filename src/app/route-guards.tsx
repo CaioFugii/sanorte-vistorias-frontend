@@ -3,7 +3,7 @@ import { AppShell } from "./AppShell";
 import { useAuthStore } from "@/stores/authStore";
 import { AccessArea, UserRole } from "@/domain/enums";
 import { User } from "@/domain/types";
-import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
+import { canSeeArea, canSeeObrasInvTab, firstVisibleRoute } from "@/domain/rules/access-area";
 
 function homeForCurrentUser(): string {
   return firstVisibleRoute(useAuthStore.getState().user) ?? "/dashboard";
@@ -42,6 +42,15 @@ export function RequireArea({
 }): JSX.Element | null {
   const user = useAuthStore((state) => state.user);
   return guard(user, (current) => canSeeArea(current, area), children);
+}
+
+export function RequireObrasInvTab({
+  children,
+}: {
+  children: JSX.Element;
+}): JSX.Element | null {
+  const user = useAuthStore((state) => state.user);
+  return guard(user, (current) => canSeeObrasInvTab(current), children);
 }
 
 export function RequireAnyArea({

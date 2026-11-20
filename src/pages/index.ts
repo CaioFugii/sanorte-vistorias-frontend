@@ -14,7 +14,6 @@ export { UsersPage } from './UsersPage';
 export { ChecklistsPage } from './ChecklistsPage';
 export { ChecklistEditorPage } from './ChecklistEditorPage';
 export { ServiceOrdersPage } from './ServiceOrdersPage';
-export { InvestmentWorksPage } from './InvestmentWorksPage';
 export { InspectionsPage } from './InspectionsPage';
 export { SafetyInspectionsPage } from './SafetyInspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';

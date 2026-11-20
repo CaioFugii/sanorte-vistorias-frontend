@@ -50,6 +50,7 @@ export function QualityInspectionsTab({
           hideHeader
           embedded
           contractId={contractId}
+          showContractFilter
           allowBulkTeamChange
         />
       </Box>

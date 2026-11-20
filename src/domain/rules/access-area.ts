@@ -40,9 +40,9 @@ export const ACCESS_AREA_LABELS: Record<AccessArea, string> = {
   [AccessArea.GESTAO]: "Gestão",
   [AccessArea.QUALIDADE_DADOS]: "Dados de Qualidade",
   [AccessArea.QUALIDADE_PAINEL]: "Painel de Controle",
+  [AccessArea.ENGENHARIA_OBRAS]: "Obras Inv",
   [AccessArea.QUALIDADE_PENDENCIAS]: "Pendências",
   [AccessArea.SEGURANCA_DADOS]: "Dados de Segurança",
-  [AccessArea.ENGENHARIA_OBRAS]: "Obras de Investimento",
   [AccessArea.ENGENHARIA_RELATORIOS]: "Relatórios",
   [AccessArea.CAMPO_MINHAS]: "Minhas vistorias",
   [AccessArea.CAMPO_NOVA]: "Nova vistoria",
@@ -55,13 +55,14 @@ export const ACCESS_AREA_GROUPS: Array<{ label: string; areas: AccessArea[] }> =
     areas: [
       AccessArea.QUALIDADE_DADOS,
       AccessArea.QUALIDADE_PAINEL,
+      AccessArea.ENGENHARIA_OBRAS,
       AccessArea.QUALIDADE_PENDENCIAS,
     ],
   },
   { label: "Segurança do Trabalho", areas: [AccessArea.SEGURANCA_DADOS] },
   {
     label: "Engenharia",
-    areas: [AccessArea.ENGENHARIA_OBRAS, AccessArea.ENGENHARIA_RELATORIOS],
+    areas: [AccessArea.ENGENHARIA_RELATORIOS],
   },
   { label: "Campo", areas: [AccessArea.CAMPO_MINHAS, AccessArea.CAMPO_NOVA] },
 ];
@@ -72,7 +73,7 @@ const AREA_ROUTE: Record<AccessArea, string> = {
   [AccessArea.QUALIDADE_PAINEL]: "/service-orders",
   [AccessArea.QUALIDADE_PENDENCIAS]: "/pendings",
   [AccessArea.SEGURANCA_DADOS]: "/safety/analytics",
-  [AccessArea.ENGENHARIA_OBRAS]: "/investment-works",
+  [AccessArea.ENGENHARIA_OBRAS]: "/service-orders?tab=obras",
   [AccessArea.ENGENHARIA_RELATORIOS]: "/reports/new",
   [AccessArea.CAMPO_MINHAS]: "/inspections/mine",
   [AccessArea.CAMPO_NOVA]: "/inspections/new",
@@ -101,6 +102,13 @@ export function roleOperatesArea(
 ): boolean {
   if (!role) return false;
   return (AREAS_OPERATED_BY_ROLE[role as UserRole] ?? []).includes(area);
+}
+
+export function canSeeObrasInvTab(user: AccessSubject | null | undefined): boolean {
+  return (
+    canSeeArea(user, AccessArea.QUALIDADE_PAINEL) &&
+    canSeeArea(user, AccessArea.ENGENHARIA_OBRAS)
+  );
 }
 
 export function canSeeArea(
@@ -135,7 +143,11 @@ export function canAreaAction(
 export function firstVisibleRoute(user: AccessSubject | null | undefined): string | null {
   if (!user?.role) return null;
   if (user.role === UserRole.ADMIN) return "/dashboard";
-  const area = ACCESS_AREAS_IN_ORDER.find((candidate) => canSeeArea(user, candidate));
+  const area = ACCESS_AREAS_IN_ORDER.find((candidate) => {
+    if (!canSeeArea(user, candidate)) return false;
+    if (candidate === AccessArea.ENGENHARIA_OBRAS) return canSeeObrasInvTab(user);
+    return true;
+  });
   return area ? AREA_ROUTE[area] : null;
 }
 

@@ -23,9 +23,9 @@ export enum AccessArea {
   GESTAO = "gestao",
   QUALIDADE_DADOS = "qualidade_dados",
   QUALIDADE_PAINEL = "qualidade_painel",
+  ENGENHARIA_OBRAS = "engenharia_obras",
   QUALIDADE_PENDENCIAS = "qualidade_pendencias",
   SEGURANCA_DADOS = "seguranca_dados",
-  ENGENHARIA_OBRAS = "engenharia_obras",
   ENGENHARIA_RELATORIOS = "engenharia_relatorios",
   CAMPO_MINHAS = "campo_minhas",
   CAMPO_NOVA = "campo_nova",
@@ -35,9 +35,9 @@ export const ACCESS_AREAS_IN_ORDER: readonly AccessArea[] = [
   AccessArea.GESTAO,
   AccessArea.QUALIDADE_DADOS,
   AccessArea.QUALIDADE_PAINEL,
+  AccessArea.ENGENHARIA_OBRAS,
   AccessArea.QUALIDADE_PENDENCIAS,
   AccessArea.SEGURANCA_DADOS,
-  AccessArea.ENGENHARIA_OBRAS,
   AccessArea.ENGENHARIA_RELATORIOS,
   AccessArea.CAMPO_MINHAS,
   AccessArea.CAMPO_NOVA,
@@ -76,6 +76,11 @@ export enum InspectionExcelLayout {
 export enum ServiceOrderImportLineStatus {
   ENTERED = "entered",
   NOT_REGISTERED = "not_registered",
+}
+
+export enum InvestmentWorkOrigin {
+  MANUAL = "MANUAL",
+  IMPORT = "IMPORT",
 }
 
 export enum InvestmentWorkStatus {

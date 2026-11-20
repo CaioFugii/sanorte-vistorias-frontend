@@ -743,10 +743,13 @@ export const NewInspectionPage = (): JSX.Element => {
                   }}
                   loading={investmentWorkSearchLoading}
                   filterOptions={(options) => options}
-                  getOptionLabel={(option) => option.workName}
+                  getOptionLabel={(option) =>
+                    option.origin ? `${option.workName} (${option.origin === "IMPORT" ? "Excel" : "Manual"})` : option.workName
+                  }
                   renderOption={(props, option) => (
                     <li {...props}>
-                      {option.workName} - {option.address}
+                      {option.workName}
+                      {option.origin ? ` (${option.origin === "IMPORT" ? "Excel" : "Manual"})` : ""} - {option.address}
                     </li>
                   )}
                   isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -760,7 +763,7 @@ export const NewInspectionPage = (): JSX.Element => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Obra de investimento"
+                      label="Nome da obra ou número da O.S"
                       required={investmentWorkRequired}
                       placeholder="Digite nome, endereço, bairro ou serviço"
                       helperText={

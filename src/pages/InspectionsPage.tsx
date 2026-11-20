@@ -101,6 +101,7 @@ interface InspectionsPageProps {
   hideHeader?: boolean;
   embedded?: boolean;
   contractId?: string;
+  showContractFilter?: boolean;
   excelLayout?: InspectionExcelLayout;
   allowBulkTeamChange?: boolean;
 }
@@ -111,6 +112,7 @@ export const InspectionsPage = ({
   hideHeader = false,
   embedded = false,
   contractId,
+  showContractFilter = false,
   excelLayout = InspectionExcelLayout.AVALIACOES,
   allowBulkTeamChange = false,
 }: InspectionsPageProps = {}): JSX.Element => {
@@ -119,6 +121,10 @@ export const InspectionsPage = ({
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const assignedContracts = user?.contracts ?? [];
+  const [contractOptions, setContractOptions] = useState<Array<{ id: string; name: string }>>(
+    assignedContracts
+  );
   const availableModules = useMemo(
     () =>
       moduleOptions && moduleOptions.length > 0
@@ -138,6 +144,8 @@ export const InspectionsPage = ({
       : moduleOptions && moduleOptions.length > 0
         ? moduleOptions[0]
         : "";
+  const defaultContractId =
+    showContractFilter && assignedContracts.length === 1 ? assignedContracts[0].id : "";
   const listQueryDefaults = useMemo(
     () => ({
       page: "1",
@@ -152,8 +160,9 @@ export const InspectionsPage = ({
       executionTo: "",
       inspectionFrom: "",
       inspectionTo: "",
+      contractId: defaultContractId,
     }),
-    [initialSelectedModule]
+    [defaultContractId, initialSelectedModule]
   );
   const { values, setFilter, setValues, reset, page, limit, setPage, setLimit } =
     useListQueryState(listQueryDefaults);
@@ -167,6 +176,10 @@ export const InspectionsPage = ({
   const executionTo = values.executionTo;
   const inspectionFrom = values.inspectionFrom;
   const inspectionTo = values.inspectionTo;
+  const selectedContractFilter = values.contractId;
+  const effectiveContractId = showContractFilter
+    ? selectedContractFilter || undefined
+    : contractId || undefined;
   const executionRange = useMemo(
     () => coerceMonthRange(executionFrom, executionTo),
     [executionFrom, executionTo]
@@ -256,6 +269,17 @@ export const InspectionsPage = ({
   }, [defaultModule, availableModules, moduleOptions, selectedModule, setValues]);
 
   useEffect(() => {
+    if (!showContractFilter || user?.role !== UserRole.ADMIN) return;
+    let cancelled = false;
+    void appRepository.getContracts({ page: 1, limit: 100 }).then((result) => {
+      if (!cancelled) setContractOptions(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showContractFilter, user?.role]);
+
+  useEffect(() => {
     if (!embedded) {
       setTeamOptions([]);
       setFiscalOptions([]);
@@ -264,7 +288,7 @@ export const InspectionsPage = ({
 
     let cancelled = false;
     const loadFilterOptions = async () => {
-      const selectedContractId = contractId || undefined;
+      const selectedContractId = effectiveContractId;
       const pageSize = 100;
       const collected: Team[] = [];
       let teamPage = 1;
@@ -324,7 +348,7 @@ export const InspectionsPage = ({
     return () => {
       cancelled = true;
     };
-  }, [embedded, contractId, setValues]);
+  }, [embedded, effectiveContractId, setValues]);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,7 +364,7 @@ export const InspectionsPage = ({
           limit,
           osNumber: osNumberFilter,
           module: selectedModule || undefined,
-          contractId: contractId || undefined,
+          contractId: effectiveContractId,
           teamId: embedded ? selectedTeamId || undefined : undefined,
           createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
           service: embedded ? serviceFilter : undefined,
@@ -369,7 +393,7 @@ export const InspectionsPage = ({
     osNumberFilter,
     refreshNonce,
     selectedModule,
-    contractId,
+    effectiveContractId,
     selectedTeamId,
     selectedFiscalId,
     serviceFilter,
@@ -397,7 +421,8 @@ export const InspectionsPage = ({
       executionFrom ||
       executionTo ||
       inspectionFrom ||
-      inspectionTo
+      inspectionTo ||
+      (showContractFilter && selectedContractFilter !== defaultContractId)
   );
 
   if (loading && !meta && !embedded) {
@@ -445,7 +470,7 @@ export const InspectionsPage = ({
     module: selectedModule || undefined,
     modules:
       !selectedModule && availableModules.length > 0 ? availableModules : undefined,
-    contractId: contractId || undefined,
+    contractId: effectiveContractId,
     teamId: embedded ? selectedTeamId || undefined : undefined,
     createdByUserId: embedded ? selectedFiscalId || undefined : undefined,
     service: embedded ? serviceFilter : undefined,
@@ -510,6 +535,7 @@ export const InspectionsPage = ({
             )}
             <TableCell>Módulo</TableCell>
             <TableCell>OS / Obra</TableCell>
+            {showContractFilter && <TableCell>Contrato</TableCell>}
             <TableCell>Descrição do serviço</TableCell>
             <TableCell>Serviço</TableCell>
             <TableCell>Data de execução</TableCell>
@@ -525,7 +551,7 @@ export const InspectionsPage = ({
           {loading ? (
             <TableRow>
               <TableCell
-                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0)}
+                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0) + (showContractFilter ? 1 : 0)}
                 align="center"
                 sx={{ py: 4 }}
               >
@@ -535,7 +561,7 @@ export const InspectionsPage = ({
           ) : inspections.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0)}
+                colSpan={INSPECTION_TABLE_COLUMNS + (showBulkTeam ? 1 : 0) + (showContractFilter ? 1 : 0)}
                 align="center"
                 sx={{ py: 4 }}
               >
@@ -565,14 +591,15 @@ export const InspectionsPage = ({
                     inspection.investmentWork?.name ??
                     "-"}
                 </TableCell>
+                {showContractFilter && <TableCell>{inspection.contract?.name ?? "-"}</TableCell>}
                 <TableCell>{inspection.serviceDescription}</TableCell>
                 <TableCell>{inspection.serviceOrder?.resultado ?? "-"}</TableCell>
                 <TableCell>
                   {inspection.serviceOrder?.fimExecucao
-                    ? new Date(inspection.serviceOrder.fimExecucao).toLocaleString(
-                        "pt-BR",
-                      )
-                    : "-"}
+                    ? new Date(inspection.serviceOrder.fimExecucao).toLocaleString("pt-BR")
+                    : inspection.investmentWork?.executionDate
+                      ? inspection.investmentWork.executionDate.split("-").reverse().join("/")
+                      : "-"}
                 </TableCell>
                 <TableCell>{inspection.team?.name || "-"}</TableCell>
                 <TableCell>{inspection.locationDescription || "-"}</TableCell>
@@ -716,6 +743,25 @@ export const InspectionsPage = ({
         )}
         {embedded && (
           <>
+            {showContractFilter && (
+              <FormControl size="small" sx={{ minWidth: 220 }}>
+                <InputLabel>Contrato</InputLabel>
+                <Select
+                  value={selectedContractFilter}
+                  label="Contrato"
+                  onChange={(event) => setFilter("contractId", event.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>Todos</em>
+                  </MenuItem>
+                  {contractOptions.map((contract) => (
+                    <MenuItem key={contract.id} value={contract.id}>
+                      {contract.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             <Autocomplete
               size="small"
               sx={{ minWidth: 240 }}

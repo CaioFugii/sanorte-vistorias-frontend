@@ -4,6 +4,7 @@ import {
   RequireAdmin,
   RequireAnyArea,
   RequireArea,
+  RequireObrasInvTab,
   RequireRoles,
   RoleAwareHomeRedirect,
 } from "./route-guards";
@@ -14,7 +15,6 @@ import {
   ContractsPage,
   DashboardPage,
   FillInspectionPage,
-  InvestmentWorksPage,
   InspectionDetailPage,
   InspectionsPage,
   LoginPage,
@@ -165,8 +165,10 @@ export const router = createBrowserRouter([
       {
         path: "/investment-works",
         element: (
-          <RequireArea area={AccessArea.ENGENHARIA_OBRAS}>
-            <InvestmentWorksPage />
+          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
+            <RequireObrasInvTab>
+              <Navigate to="/service-orders?tab=obras" replace />
+            </RequireObrasInvTab>
           </RequireArea>
         ),
       },

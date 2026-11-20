@@ -12,7 +12,12 @@ import {
   FieldSupervisor,
   Foreman,
   InvestmentWork,
+  InvestmentWorkImportDetail,
+  InvestmentWorkImportPreview,
+  InvestmentWorkImportResult,
+  InvestmentWorkImportSummary,
   InvestmentWorkStatus,
+  InvestmentWorkSummary,
   Inspection,
   InspectionNotice,
   InspectionExcelLayout,
@@ -67,6 +72,13 @@ export interface InvestmentWorksParams {
   contractId?: string;
   search?: string;
   active?: boolean;
+  from?: string;
+  to?: string;
+  address?: string;
+  district?: string;
+  pdaTeam?: string;
+  postWork?: boolean;
+  origin?: "MANUAL" | "IMPORT";
 }
 
 export type DashboardTeamRankingMetric =
@@ -714,10 +726,10 @@ export class ApiRepository {
     expectedEndDate: string;
     address: string;
     district: string;
-    basin: string;
+    basin?: string;
     service: string;
     teamId: string;
-    materialNetwork: string;
+    materialNetwork?: string;
     singularities?: string;
     status?: InvestmentWorkStatus;
   }): Promise<InvestmentWork> {
@@ -741,6 +753,7 @@ export class ApiRepository {
       singularities?: string;
       status?: InvestmentWorkStatus;
       active: boolean;
+      pdaTeamName?: string;
     }>
   ): Promise<InvestmentWork> {
     const response = await apiClient.put<InvestmentWork>(`/investment-works/${investmentWorkId}`, input);
@@ -749,6 +762,68 @@ export class ApiRepository {
 
   async deleteInvestmentWork(investmentWorkId: string): Promise<void> {
     await apiClient.delete(`/investment-works/${investmentWorkId}`);
+  }
+
+  async getInvestmentWorkSummary(
+    params?: Omit<InvestmentWorksParams, "page" | "limit" | "status" | "search" | "active" | "origin">
+  ): Promise<InvestmentWorkSummary> {
+    const response = await apiClient.get<InvestmentWorkSummary>("/investment-works/summary", { params });
+    return response.data;
+  }
+
+  async previewInvestmentWorkImport(file: File): Promise<InvestmentWorkImportPreview> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<InvestmentWorkImportPreview>(
+      "/investment-works/imports/preview",
+      formData
+    );
+    return response.data;
+  }
+
+  async importInvestmentWorks(
+    file: File,
+    contractId: string,
+    descriptions: string[]
+  ): Promise<InvestmentWorkImportResult> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("contractId", contractId);
+    formData.append("descriptions", JSON.stringify(descriptions));
+    const response = await apiClient.post<InvestmentWorkImportResult>(
+      "/investment-works/imports",
+      formData
+    );
+    return response.data;
+  }
+
+  async getInvestmentWorkImports(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<InvestmentWorkImportSummary>> {
+    const response = await apiClient.get<PaginatedResponse<InvestmentWorkImportSummary>>(
+      "/investment-works/imports",
+      { params }
+    );
+    return response.data;
+  }
+
+  async getInvestmentWorkImport(importId: string): Promise<InvestmentWorkImportDetail> {
+    const response = await apiClient.get<InvestmentWorkImportDetail>(
+      `/investment-works/imports/${importId}`
+    );
+    return response.data;
+  }
+
+  async downloadInvestmentWorkImport(
+    importId: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>(`/investment-works/imports/${importId}/file`, {
+      responseType: "blob",
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ?? "obras.xlsx";
+    return { blob: response.data, filename };
   }
 
   async importServiceOrders(file: File, contractId: string): Promise<ServiceOrderImportResult> {

@@ -29,7 +29,6 @@ import {
   ExpandLess,
   ExpandMore,
   Groups,
-  HomeWork,
   Key,
   Logout,
   KeyboardDoubleArrowLeft,
@@ -89,7 +88,6 @@ const menuBlueprint: Array<MenuGroup & { area?: AccessArea }> = [
       label: "Engenharia",
       icon: <Engineering fontSize="small" />,
       items: [
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" />, area: AccessArea.ENGENHARIA_OBRAS },
         { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" />, area: AccessArea.ENGENHARIA_RELATORIOS },
       ],
     },
