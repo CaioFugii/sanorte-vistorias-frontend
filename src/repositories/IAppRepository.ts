@@ -1,4 +1,6 @@
 import {
+  AccessArea,
+  AccessProfile,
   Checklist,
   ChecklistItem,
   ChecklistSection,
@@ -68,12 +70,36 @@ export interface IAppRepository {
     password: string;
     role: UserRole;
     contractIds: string[];
+    accessProfileId?: string;
   }): Promise<User>;
   updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
+    input: Partial<{
+      name: string;
+      email: string;
+      password: string;
+      role: UserRole;
+      contractIds: string[];
+      accessProfileId: string;
+    }>
   ): Promise<User>;
   deleteUser(userId: string): Promise<void>;
+  getAccessProfiles(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<AccessProfile>>;
+  getAccessProfile(id: string): Promise<AccessProfile>;
+  createAccessProfile(input: {
+    name: string;
+    description?: string;
+    areas: AccessArea[];
+  }): Promise<AccessProfile>;
+  updateAccessProfile(
+    id: string,
+    input: { name: string; description?: string; areas: AccessArea[] }
+  ): Promise<AccessProfile>;
+  duplicateAccessProfile(id: string, name: string): Promise<AccessProfile>;
+  deleteAccessProfile(id: string): Promise<void>;
   getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }>;
   getContracts(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Contract>>;
   getContract(contractId: string): Promise<Contract>;

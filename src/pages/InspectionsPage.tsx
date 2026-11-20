@@ -225,7 +225,8 @@ export const InspectionsPage = ({
   const [bulkTeamId, setBulkTeamId] = useState("");
   const [bulkTeamError, setBulkTeamError] = useState("");
   const [changingTeam, setChangingTeam] = useState(false);
-  const isFiscal = hasRole(UserRole.FISCAL) && user;
+  const isMine = location.pathname.startsWith("/inspections/mine");
+  const isFiscal = isMine || (hasRole(UserRole.FISCAL) && Boolean(user));
   const inspectionsTitle = useMemo(() => {
     if (location.pathname.startsWith("/safety/inspections")) {
       return "Vistorias - Segurança do Trabalho";

@@ -50,7 +50,7 @@ const formatTeamSectors = (team: Team): string => {
 
 export const TeamsPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const canManage = user?.role === UserRole.ADMIN;
   const refreshFromApi = useReferenceStore((state) => state.refreshFromApi);
   const loadCache = useReferenceStore((state) => state.loadCache);
   const sectors = useReferenceStore((state) => state.sectors);
@@ -149,7 +149,7 @@ export const TeamsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Equipes"
         subtitle="Configure equipes de campo e mantenha o catálogo técnico atualizado."
-        actions={!isSupervisor ? (
+        actions={canManage ? (
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
@@ -251,7 +251,7 @@ export const TeamsPage = (): JSX.Element => {
                 <TableCell>{team.active ? 'Ativa' : 'Inativa'}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    {!isSupervisor && <TableEditButton
+                    {canManage && <TableEditButton
                     onClick={() => {
                       void (async () => {
                         setFormError(null);
@@ -284,7 +284,7 @@ export const TeamsPage = (): JSX.Element => {
                       })();
                     }}
                     />}
-                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingTeam(team)} />}
+                    {canManage && <TableDeleteButton onClick={() => setDeletingTeam(team)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -306,7 +306,7 @@ export const TeamsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && canManage} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingTeam ? "Editar equipe" : "Nova equipe"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -464,7 +464,7 @@ export const TeamsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingTeam && !isSupervisor}
+        open={!!deletingTeam && canManage}
         title="Remover equipe"
         description={`Deseja remover a equipe "${deletingTeam?.name ?? ""}"?`}
         confirmLabel="Remover"

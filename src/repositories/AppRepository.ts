@@ -1,6 +1,8 @@
 import { ApiRepository } from "@/api/repositories/ApiRepository";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import {
+  AccessArea,
+  AccessProfile,
   Checklist,
   ChecklistItem,
   ChecklistSection,
@@ -172,19 +174,61 @@ export class AppRepository implements IAppRepository {
     password: string;
     role: UserRole;
     contractIds: string[];
+    accessProfileId?: string;
   }): Promise<User> {
     return this.apiRepository.createUser(input);
   }
 
   async updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
+    input: Partial<{
+      name: string;
+      email: string;
+      password: string;
+      role: UserRole;
+      contractIds: string[];
+      accessProfileId: string;
+    }>
   ): Promise<User> {
     return this.apiRepository.updateUser(userId, input);
   }
 
   async deleteUser(userId: string): Promise<void> {
     return this.apiRepository.deleteUser(userId);
+  }
+
+  async getAccessProfiles(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<AccessProfile>> {
+    return this.apiRepository.getAccessProfiles(params);
+  }
+
+  async getAccessProfile(id: string): Promise<AccessProfile> {
+    return this.apiRepository.getAccessProfile(id);
+  }
+
+  async createAccessProfile(input: {
+    name: string;
+    description?: string;
+    areas: AccessArea[];
+  }): Promise<AccessProfile> {
+    return this.apiRepository.createAccessProfile(input);
+  }
+
+  async updateAccessProfile(
+    id: string,
+    input: { name: string; description?: string; areas: AccessArea[] }
+  ): Promise<AccessProfile> {
+    return this.apiRepository.updateAccessProfile(id, input);
+  }
+
+  async duplicateAccessProfile(id: string, name: string): Promise<AccessProfile> {
+    return this.apiRepository.duplicateAccessProfile(id, name);
+  }
+
+  async deleteAccessProfile(id: string): Promise<void> {
+    return this.apiRepository.deleteAccessProfile(id);
   }
 
   async getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }> {

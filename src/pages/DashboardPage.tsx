@@ -16,6 +16,8 @@ import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { Contract, DashboardOverview, UserRole } from "@/domain";
 import { PageHeader } from "@/components/ui";
+import { AccessArea } from "@/domain/enums";
+import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
 import { ModuleOverviewCard } from "@/pages/dashboard/ModuleOverviewCard";
 
 const QUALITY_COLOR = "#3B6BFF";
@@ -50,7 +52,7 @@ function formatPeriodHint(from: string, to: string): string {
 
 export const DashboardPage = (): JSX.Element => {
   const navigate = useNavigate();
-  const { hasAnyRole, user } = useAuthStore();
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -62,7 +64,7 @@ export const DashboardPage = (): JSX.Element => {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const period = useMemo(() => getLastFourMonthsRange(), []);
 
-  const canAccessDashboard = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
+  const canAccessDashboard = canSeeArea(user, AccessArea.GESTAO);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -129,7 +131,7 @@ export const DashboardPage = (): JSX.Element => {
   }, [canAccessDashboard, period, selectedContractId, reloadToken]);
 
   if (!canAccessDashboard) {
-    return <Navigate to="/inspections/mine" replace />;
+    return <Navigate to={firstVisibleRoute(user) ?? "/login"} replace />;
   }
 
   return (
@@ -200,22 +202,26 @@ export const DashboardPage = (): JSX.Element => {
 
       {!error && overview && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <ModuleOverviewCard
-              title="QUALIDADE"
-              color={QUALITY_COLOR}
-              data={overview.quality}
-              onClick={() => navigate("/quality/analytics")}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ModuleOverviewCard
-              title="SEGURANÇA DO TRABALHO"
-              color={SAFETY_COLOR}
-              data={overview.safetyWork}
-              onClick={() => navigate("/safety/analytics")}
-            />
-          </Grid>
+          {canSeeArea(user, AccessArea.QUALIDADE_DADOS) && (
+            <Grid item xs={12} md={6}>
+              <ModuleOverviewCard
+                title="QUALIDADE"
+                color={QUALITY_COLOR}
+                data={overview.quality}
+                onClick={() => navigate("/quality/analytics")}
+              />
+            </Grid>
+          )}
+          {canSeeArea(user, AccessArea.SEGURANCA_DADOS) && (
+            <Grid item xs={12} md={6}>
+              <ModuleOverviewCard
+                title="SEGURANÇA DO TRABALHO"
+                color={SAFETY_COLOR}
+                data={overview.safetyWork}
+                onClick={() => navigate("/safety/analytics")}
+              />
+            </Grid>
+          )}
         </Grid>
       )}
     </Box>

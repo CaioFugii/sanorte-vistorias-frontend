@@ -37,7 +37,8 @@ import {
 import { MonthFilter } from "@/components/MonthFilter";
 import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
-import { Contract, ModuleType, Team, UserRole } from "@/domain";
+import { AccessArea, Contract, ModuleType, Team, UserRole } from "@/domain";
+import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { appRepository } from "@/repositories/AppRepository";
 import { PercentBadge } from "@/components/PercentBadge";
@@ -223,8 +224,8 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
-  const { hasAnyRole, user, isAuthenticated } = useAuthStore();
-  const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
+  const { user, isAuthenticated } = useAuthStore();
+  const canAccessAnalytics = canSeeArea(user, AccessArea.SEGURANCA_DADOS);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
   const [searchParams, setSearchParams] = useSearchParams();
@@ -279,7 +280,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const canSeeInspectionsTab = user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+  const canSeeInspectionsTab = canSeeArea(user, AccessArea.SEGURANCA_DADOS);
   const visibleTabs = useMemo(
     () => SAFETY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
     [canSeeInspectionsTab]
@@ -770,7 +771,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   }
 
   if (!canAccessAnalytics) {
-    return <Navigate to="/inspections/mine" replace />;
+    return <Navigate to={firstVisibleRoute(user) ?? "/login"} replace />;
   }
 
   const handleClearFilters = () => {

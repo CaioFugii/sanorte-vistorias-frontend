@@ -38,7 +38,7 @@ const DEFAULT_LIMIT = 10;
 
 export const SectorsPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const canManage = user?.role === UserRole.ADMIN;
   const [result, setResult] = useState<PaginatedResponse<Sector> | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
@@ -90,7 +90,7 @@ export const SectorsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Setores"
         subtitle="Mantenha a estrutura setorial utilizada nas ordens de serviço e checklists."
-        actions={!isSupervisor ? (
+        actions={canManage ? (
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
@@ -142,7 +142,7 @@ export const SectorsPage = (): JSX.Element => {
                 <TableCell>{sector.active ? "Ativo" : "Inativo"}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    {!isSupervisor && <TableEditButton
+                    {canManage && <TableEditButton
                     onClick={() => {
                       setEditingSector(sector);
                       setName(sector.name);
@@ -150,7 +150,7 @@ export const SectorsPage = (): JSX.Element => {
                       setDialogOpen(true);
                     }}
                     />}
-                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingSector(sector)} />}
+                    {canManage && <TableDeleteButton onClick={() => setDeletingSector(sector)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -172,7 +172,7 @@ export const SectorsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && canManage} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editingSector ? "Editar setor" : "Novo setor"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -212,7 +212,7 @@ export const SectorsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingSector && !isSupervisor}
+        open={!!deletingSector && canManage}
         title="Remover setor"
         description={`Deseja remover o setor "${deletingSector?.name ?? ""}"?`}
         confirmLabel="Remover"

@@ -28,7 +28,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
+import { AccessArea, Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
+import { canAreaAction } from "@/domain/rules/access-area";
 import { ServiceOrderImportHistory } from "@/pages/ServiceOrderImportHistory";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -848,7 +849,12 @@ export const ServiceOrdersPage = (): JSX.Element => {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
-  const canImport = user?.role === UserRole.GESTOR;
+  const canImport = canAreaAction(user, AccessArea.QUALIDADE_PAINEL, [
+    UserRole.ADMIN,
+    UserRole.GESTOR,
+    UserRole.SUPERVISOR,
+  ]);
+  const canDeleteOrders = canAreaAction(user, AccessArea.QUALIDADE_PAINEL, [UserRole.ADMIN]);
   const canViewHistory = isAdmin || canImport;
   const canSeeInspections = isAdmin || canImport;
   const tab = panelTabFromSearch(searchParams.get("tab"), canSeeInspections, canViewHistory);
@@ -940,7 +946,9 @@ export const ServiceOrdersPage = (): JSX.Element => {
 
         <Box sx={{ p: 2 }}>
           <div role="tabpanel" hidden={tab !== "todos"} id="service-orders-panel-todos" aria-labelledby="service-orders-tab-todos">
-            {tab === "todos" && <ListagemTab contracts={contractsForFilters} isAdmin={isAdmin} />}
+            {tab === "todos" && (
+              <ListagemTab contracts={contractsForFilters} isAdmin={canDeleteOrders} />
+            )}
           </div>
           {canSeeInspections && (
             <div
@@ -960,7 +968,11 @@ export const ServiceOrdersPage = (): JSX.Element => {
               aria-labelledby="service-orders-tab-historico"
             >
               {tab === "historico" && (
-                <ImportacaoTab contracts={availableContracts} canUpload={canImport} canDelete={isAdmin} />
+                <ImportacaoTab
+                  contracts={availableContracts}
+                  canUpload={canImport}
+                  canDelete={canDeleteOrders}
+                />
               )}
             </div>
           )}

@@ -10,14 +10,12 @@ import {
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserRole } from "@/domain";
+import { firstVisibleRoute } from "@/domain/rules/access-area";
+import type { User } from "@/domain/types";
 import { useAuthStore } from "@/stores/authStore";
 
-function getPostLoginPath(role: UserRole | undefined): string {
-  if (role === UserRole.FISCAL) {
-    return "/inspections/mine";
-  }
-  return "/dashboard";
+function getPostLoginPath(user: User | null | undefined): string {
+  return firstVisibleRoute(user) ?? "/dashboard";
 }
 
 export const LoginPage = (): JSX.Element => {
@@ -30,7 +28,7 @@ export const LoginPage = (): JSX.Element => {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(getPostLoginPath(user.role), { replace: true });
+      navigate(getPostLoginPath(user), { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 
@@ -48,7 +46,7 @@ export const LoginPage = (): JSX.Element => {
       await login(email, password);
       await loadMe();
       const { user: currentUser } = useAuthStore.getState();
-      navigate(getPostLoginPath(currentUser?.role), { replace: true });
+      navigate(getPostLoginPath(currentUser), { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.message || "Erro ao fazer login.");
     } finally {

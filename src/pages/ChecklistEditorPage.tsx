@@ -67,7 +67,7 @@ export const ChecklistEditorPage = (): JSX.Element => {
   const fromState = (location.state as { from?: string } | null)?.from;
   const backTarget = fromState?.startsWith("/") ? fromState : "/checklists";
   const user = useAuthStore((state) => state.user);
-  const readOnly = user?.role === UserRole.SUPERVISOR;
+  const readOnly = user?.role !== UserRole.ADMIN;
 
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [loading, setLoading] = useState(true);

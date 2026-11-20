@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { Contract, PaginatedResponse, User } from "@/domain";
+import { AccessProfile, Contract, PaginatedResponse, User } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -40,7 +40,7 @@ const DEFAULT_LIMIT = 10;
 
 export const UsersPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const isAdmin = user?.role === UserRole.ADMIN;
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<PaginatedResponse<User> | null>(null);
   const [page, setPage] = useState(1);
@@ -55,6 +55,8 @@ export const UsersPage = (): JSX.Element => {
   const [role, setRole] = useState<UserRole>(UserRole.FISCAL);
   const [contractOptions, setContractOptions] = useState<Contract[]>([]);
   const [selectedContractIds, setSelectedContractIds] = useState<string[]>([]);
+  const [accessProfiles, setAccessProfiles] = useState<AccessProfile[]>([]);
+  const [accessProfileId, setAccessProfileId] = useState("");
   const [filterContractId, setFilterContractId] = useState("");
 
   const load = async () => {
@@ -84,6 +86,14 @@ export const UsersPage = (): JSX.Element => {
     void loadContracts();
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    void appRepository
+      .getAccessProfiles({ page: 1, limit: 100 })
+      .then((response) => setAccessProfiles(response.data))
+      .catch(() => setAccessProfiles([]));
+  }, [isAdmin]);
+
   const users = result?.data ?? [];
   const meta = result?.meta;
 
@@ -101,7 +111,7 @@ export const UsersPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Usuários"
         subtitle="Gerencie acessos e perfis do sistema corporativo."
-        actions={!isSupervisor ? (
+        actions={isAdmin ? (
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -111,6 +121,7 @@ export const UsersPage = (): JSX.Element => {
               setEmail("");
               setPassword("");
               setRole(UserRole.FISCAL);
+              setAccessProfileId("");
               setSelectedContractIds([]);
               setDialogOpen(true);
             }}
@@ -172,18 +183,19 @@ export const UsersPage = (): JSX.Element => {
                 <TableCell>{user.role}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    {!isSupervisor && <TableEditButton
+                    {isAdmin && <TableEditButton
                     onClick={() => {
                       setEditing(user);
                       setName(user.name);
                       setEmail(user.email);
                       setPassword("");
                       setRole(user.role);
+                      setAccessProfileId(user.accessProfileId ?? "");
                       setSelectedContractIds(user.contractIds ?? user.contracts?.map((contract) => contract.id) ?? []);
                       setDialogOpen(true);
                     }}
                     />}
-                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingUser(user)} />}
+                    {isAdmin && <TableDeleteButton onClick={() => setDeletingUser(user)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -205,7 +217,7 @@ export const UsersPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && isAdmin} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar usuário" : "Novo usuário"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -244,6 +256,26 @@ export const UsersPage = (): JSX.Element => {
             <MenuItem value={UserRole.SUPERVISOR}>SUPERVISOR</MenuItem>
             <MenuItem value={UserRole.FISCAL}>FISCAL</MenuItem>
           </TextField>
+          {isAdmin && (
+            <TextField
+              margin="normal"
+              fullWidth
+              select
+              label="Acesso"
+              value={accessProfileId}
+              onChange={(event) => setAccessProfileId(event.target.value)}
+              helperText="Obrigatório para quem não é Administrador"
+            >
+              <MenuItem value="">
+                <em>Nenhum</em>
+              </MenuItem>
+              {accessProfiles.map((profile) => (
+                <MenuItem key={profile.id} value={profile.id}>
+                  {profile.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
           <Autocomplete
             multiple
             options={contractOptions}
@@ -267,8 +299,16 @@ export const UsersPage = (): JSX.Element => {
           <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
           <Button
             variant="contained"
-            disabled={!name.trim() || !email.trim() || (!editing && !password.trim()) || selectedContractIds.length === 0}
+            disabled={
+              !name.trim() ||
+              !email.trim() ||
+              (!editing && !password.trim()) ||
+              selectedContractIds.length === 0 ||
+              (isAdmin && role !== UserRole.ADMIN && !accessProfileId)
+            }
             onClick={async () => {
+              const access =
+                isAdmin && role !== UserRole.ADMIN && accessProfileId ? { accessProfileId } : {};
               if (editing) {
                 await appRepository.updateUser(editing.id, {
                   name,
@@ -276,6 +316,7 @@ export const UsersPage = (): JSX.Element => {
                   role,
                   password: password.trim() ? password : undefined,
                   contractIds: selectedContractIds,
+                  ...access,
                 });
               } else {
                 await appRepository.createUser({
@@ -284,6 +325,7 @@ export const UsersPage = (): JSX.Element => {
                   password,
                   role,
                   contractIds: selectedContractIds,
+                  accessProfileId,
                 });
               }
               setDialogOpen(false);
@@ -295,7 +337,7 @@ export const UsersPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingUser && !isSupervisor}
+        open={!!deletingUser && isAdmin}
         title="Excluir usuário"
         description={`Deseja excluir o usuário "${deletingUser?.name ?? ""}"?`}
         confirmLabel="Excluir"

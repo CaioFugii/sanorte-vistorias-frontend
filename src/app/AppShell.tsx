@@ -30,6 +30,7 @@ import {
   ExpandMore,
   Groups,
   HomeWork,
+  Key,
   Logout,
   KeyboardDoubleArrowLeft,
   KeyboardDoubleArrowRight,
@@ -38,7 +39,9 @@ import {
 } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { UserRole } from "@/domain/enums";
+import { AccessArea, UserRole } from "@/domain/enums";
+import { canSeeArea } from "@/domain/rules/access-area";
+import type { User } from "@/domain/types";
 import { InspectionNoticeHost } from "@/components/InspectionNoticeHost";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -53,6 +56,8 @@ interface MenuLeaf {
   path: string;
   label: string;
   icon: JSX.Element;
+  area?: AccessArea;
+  adminOnly?: boolean;
 }
 
 interface MenuGroup {
@@ -62,115 +67,75 @@ interface MenuGroup {
   path?: string;
 }
 
-const menuGroupsByRole: Record<UserRole, MenuGroup[]> = {
-  ADMIN: [
-    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
+const menuBlueprint: Array<MenuGroup & { area?: AccessArea }> = [
+    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard", area: AccessArea.GESTAO },
     {
       label: "Qualidade",
       icon: <Checklist fontSize="small" />,
       items: [
-        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" /> },
-        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
+        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" />, area: AccessArea.QUALIDADE_DADOS },
+        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" />, area: AccessArea.QUALIDADE_PAINEL },
+        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" />, area: AccessArea.QUALIDADE_PENDENCIAS },
       ],
     },
     {
       label: "Segurança do Trabalho",
       icon: <Warning fontSize="small" />,
       items: [
-        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
+        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" />, area: AccessArea.SEGURANCA_DADOS },
       ],
     },
     {
       label: "Engenharia",
       icon: <Engineering fontSize="small" />,
       items: [
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
-        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> } ],
-    },
-    {
-      label: "Administração",
-      icon: <Groups fontSize="small" />,
-      items: [
-        { path: "/users", label: "Usuários", icon: <Groups fontSize="small" /> },
-        { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" /> },
-        { path: "/field-hierarchy", label: "Hierarquia de campo", icon: <Groups fontSize="small" /> },
-        { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" /> },
-        { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" /> },
-        { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" /> },
-        { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" /> },
+        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" />, area: AccessArea.ENGENHARIA_OBRAS },
+        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" />, area: AccessArea.ENGENHARIA_RELATORIOS },
       ],
     },
-  ],
-  GESTOR: [
-    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
-    {
-      label: "Qualidade",
-      icon: <Checklist fontSize="small" />,
-      items: [
-        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" /> },
-        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
-      ],
-    },
-    {
-      label: "Segurança do Trabalho",
-      icon: <Warning fontSize="small" />,
-      items: [
-        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-      ],
-    },
-    {
-      label: "Engenharia",
-      icon: <Engineering fontSize="small" />,
-      items: [
-        { path: "/investment-works", label: "Obras de Investimento", icon: <HomeWork fontSize="small" /> },
-        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> },
-      
-      ],
-    },
-  ],
-  SUPERVISOR: [
-    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard" },
-    {
-      label: "Qualidade",
-      icon: <Checklist fontSize="small" />,
-      items: [
-        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" /> },
-      ],
-    },
-    {
-      label: "Segurança do Trabalho",
-      icon: <Warning fontSize="small" />,
-      items: [
-        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" /> },
-      ],
-    },
-    {
-      label: "Engenharia",
-      icon: <Engineering fontSize="small" />,
-      items: [{ path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" /> }],
-    },
-  ],
-  FISCAL: [
     {
       label: "Minhas Vistorias",
       icon: <Assignment fontSize="small" />,
       path: "/inspections/mine",
+      area: AccessArea.CAMPO_MINHAS,
     },
     {
       label: "Nova Vistoria",
       icon: <Assignment fontSize="small" />,
       path: "/inspections/new",
+      area: AccessArea.CAMPO_NOVA,
     },
     {
-      label: "Relatórios",
-      icon: <Description fontSize="small" />,
-      path: "/reports/new",
+      label: "Administração",
+      icon: <Groups fontSize="small" />,
+      items: [
+        { path: "/users", label: "Usuários", icon: <Groups fontSize="small" />, adminOnly: true },
+        { path: "/teams", label: "Equipes", icon: <Groups fontSize="small" />, adminOnly: true },
+        { path: "/field-hierarchy", label: "Hierarquia de campo", icon: <Groups fontSize="small" />, adminOnly: true },
+        { path: "/contracts", label: "Contratos", icon: <BusinessCenter fontSize="small" />, adminOnly: true },
+        { path: "/sectors", label: "Setores", icon: <Engineering fontSize="small" />, adminOnly: true },
+        { path: "/collaborators", label: "Colaboradores", icon: <Groups fontSize="small" />, adminOnly: true },
+        { path: "/checklists", label: "Checklists", icon: <Checklist fontSize="small" />, adminOnly: true },
+        { path: "/access-profiles", label: "Acessos", icon: <Key fontSize="small" />, adminOnly: true },
+      ],
     },
-  ],
-};
+];
+
+function leafVisible(user: User, item: MenuLeaf): boolean {
+  if (item.adminOnly) return user.role === UserRole.ADMIN;
+  return item.area ? canSeeArea(user, item.area) : false;
+}
+
+function menuForUser(user: User | null): MenuGroup[] {
+  if (!user) return [];
+  return menuBlueprint.flatMap((group) => {
+    if (group.path) {
+      return leafVisible(user, group as MenuLeaf) ? [group] : [];
+    }
+    const items = (group.items ?? []).filter((item) => leafVisible(user, item));
+    return items.length > 0 ? [{ ...group, items }] : [];
+  });
+}
 
 export function AppShell({ children }: AppShellProps): JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -213,11 +178,11 @@ export function AppShell({ children }: AppShellProps): JSX.Element {
     return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
   }, [logout, navigate]);
 
-  const menuGroups = user ? menuGroupsByRole[user.role] : [];
+  const menuGroups = menuForUser(user);
 
   useEffect(() => {
     if (!user) return;
-    const routeGroup = menuGroupsByRole[user.role].find((group) =>
+    const routeGroup = menuForUser(user).find((group) =>
       group.items?.some((item) =>
         item.path === "/reports/new"
           ? location.pathname.startsWith("/reports/")

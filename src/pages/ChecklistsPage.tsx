@@ -74,7 +74,7 @@ export const ChecklistsPage = (): JSX.Element => {
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const user = useAuthStore((state) => state.user);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const canManage = user?.role === UserRole.ADMIN;
   const [result, setResult] = useState<PaginatedResponse<Checklist> | null>(null);
   const { values, setFilter, page, limit, setPage, setLimit } = useListQueryState(
     CHECKLISTS_LIST_QUERY
@@ -204,7 +204,7 @@ export const ChecklistsPage = (): JSX.Element => {
         title="Checklists"
         subtitle="Cadastre checklists e estruture seções e perguntas no editor dedicado."
         actions={
-          !isSupervisor ? (
+          canManage ? (
             <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
               Novo checklist
             </Button>
@@ -280,7 +280,7 @@ export const ChecklistsPage = (): JSX.Element => {
                         </TableCell>
                         <TableActionsCell>
                           <TableActionsGroup>
-                            {isSupervisor ? (
+                            {!canManage ? (
                               <TableViewButton
                                 label="Ver"
                                 onClick={() =>
@@ -320,7 +320,7 @@ export const ChecklistsPage = (): JSX.Element => {
             )}
           </SectionTable>
 
-      <Dialog open={checklistDialogOpen && !isSupervisor} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={checklistDialogOpen && canManage} onClose={() => setChecklistDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Novo checklist</DialogTitle>
         <DialogContent>
           <Box mt={2}>
@@ -420,7 +420,7 @@ export const ChecklistsPage = (): JSX.Element => {
       </Dialog>
 
       <ConfirmDialog
-        open={!!deletingChecklist && !isSupervisor}
+        open={!!deletingChecklist && canManage}
         title="Excluir checklist"
         description={`Deseja excluir o checklist "${deletingChecklist?.name ?? ""}"?`}
         confirmLabel="Excluir"

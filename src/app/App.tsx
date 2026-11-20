@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { router } from "./router";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { useAuthStore } from "@/stores/authStore";
+import { canOpenPath, firstVisibleRoute } from "@/domain/rules/access-area";
 import { API_ERROR_EVENT } from "@/api/apiClient";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -30,6 +31,29 @@ function App(): JSX.Element {
     };
     bootstrap();
   }, [loadCache, loadMe, refreshFromApi]);
+
+  useEffect(() => {
+    let lastPath = router.state.location.pathname;
+    return router.subscribe((state) => {
+      const path = state.location.pathname;
+      if (path === lastPath || path === "/login") return;
+      lastPath = path;
+      if (!sessionStorage.getItem("auth_token")) return;
+      void (async () => {
+        try {
+          await useAuthStore.getState().loadMe();
+        } catch {
+          return;
+        }
+        const current = useAuthStore.getState().user;
+        if (canOpenPath(current, path)) return;
+        const next = firstVisibleRoute(current);
+        if (next && next !== path) {
+          await router.navigate(next, { replace: true });
+        }
+      })();
+    });
+  }, []);
 
   useEffect(() => {
     const onApiError = (event: Event) => {

@@ -1,4 +1,6 @@
 import {
+  AccessArea,
+  AccessProfile,
   AuthLoginResponse,
   Checklist,
   ChecklistItem,
@@ -172,6 +174,7 @@ export class ApiRepository {
     password: string;
     role: UserRole;
     contractIds: string[];
+    accessProfileId?: string;
   }): Promise<User> {
     const response = await apiClient.post<User>("/users", input);
     return response.data;
@@ -179,7 +182,14 @@ export class ApiRepository {
 
   async updateUser(
     userId: string,
-    input: Partial<{ name: string; email: string; password: string; role: UserRole; contractIds: string[] }>
+    input: Partial<{
+      name: string;
+      email: string;
+      password: string;
+      role: UserRole;
+      contractIds: string[];
+      accessProfileId: string;
+    }>
   ): Promise<User> {
     const response = await apiClient.put<User>(`/users/${userId}`, input);
     return response.data;
@@ -187,6 +197,49 @@ export class ApiRepository {
 
   async deleteUser(userId: string): Promise<void> {
     await apiClient.delete(`/users/${userId}`);
+  }
+
+  async getAccessProfiles(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<AccessProfile>> {
+    const response = await apiClient.get<PaginatedResponse<AccessProfile>>("/access-profiles", {
+      params,
+    });
+    return response.data;
+  }
+
+  async getAccessProfile(id: string): Promise<AccessProfile> {
+    const response = await apiClient.get<AccessProfile>(`/access-profiles/${id}`);
+    return response.data;
+  }
+
+  async createAccessProfile(input: {
+    name: string;
+    description?: string;
+    areas: AccessArea[];
+  }): Promise<AccessProfile> {
+    const response = await apiClient.post<AccessProfile>("/access-profiles", input);
+    return response.data;
+  }
+
+  async updateAccessProfile(
+    id: string,
+    input: { name: string; description?: string; areas: AccessArea[] }
+  ): Promise<AccessProfile> {
+    const response = await apiClient.put<AccessProfile>(`/access-profiles/${id}`, input);
+    return response.data;
+  }
+
+  async duplicateAccessProfile(id: string, name: string): Promise<AccessProfile> {
+    const response = await apiClient.post<AccessProfile>(`/access-profiles/${id}/duplicate`, {
+      name,
+    });
+    return response.data;
+  }
+
+  async deleteAccessProfile(id: string): Promise<void> {
+    await apiClient.delete(`/access-profiles/${id}`);
   }
 
   async getFiscals(params?: { contractId?: string }): Promise<{ data: Array<Pick<User, "id" | "name">> }> {

@@ -20,7 +20,8 @@ import { PageHeader } from "@/components/ui";
 import { MonthFilter } from "@/components/MonthFilter";
 import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
-import { Contract, Team, UserRole, ModuleType } from "@/domain";
+import { AccessArea, Contract, Team, UserRole, ModuleType } from "@/domain";
+import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { QualityKpiStrip } from "@/pages/analytics/components/QualityKpiStrip";
@@ -303,8 +304,8 @@ function mergeQualityByServiceResponses(
 }
 
 export function AnalyticsPage(): JSX.Element {
-  const { hasAnyRole, user, isAuthenticated } = useAuthStore();
-  const canAccessAnalytics = hasAnyRole([UserRole.GESTOR, UserRole.ADMIN, UserRole.SUPERVISOR]);
+  const { user, isAuthenticated } = useAuthStore();
+  const canAccessAnalytics = canSeeArea(user, AccessArea.QUALIDADE_DADOS);
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
   const [searchParams, setSearchParams] = useSearchParams();
@@ -897,7 +898,7 @@ export function AnalyticsPage(): JSX.Element {
   }
 
   if (!canAccessAnalytics) {
-    return <Navigate to="/inspections/mine" replace />;
+    return <Navigate to={firstVisibleRoute(user) ?? "/login"} replace />;
   }
 
   const handleClearFilters = () => {

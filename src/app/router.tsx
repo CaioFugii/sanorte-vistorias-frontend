@@ -1,5 +1,12 @@
-import { Navigate, Outlet, createBrowserRouter } from "react-router-dom";
-import { AppShell } from "./AppShell";
+import { Navigate, createBrowserRouter } from "react-router-dom";
+import {
+  ProtectedLayout,
+  RequireAdmin,
+  RequireAnyArea,
+  RequireArea,
+  RequireRoles,
+  RoleAwareHomeRedirect,
+} from "./route-guards";
 import {
   ChecklistsPage,
   ChecklistEditorPage,
@@ -24,53 +31,8 @@ import {
   FieldHierarchyPage,
   UsersPage,
 } from "@/pages";
-import { useAuthStore } from "@/stores/authStore";
-import { UserRole } from "@/domain/enums";
-
-function ProtectedLayout(): JSX.Element {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
-  );
-}
-
-function getDefaultRouteForRole(role?: UserRole): string {
-  if (role === UserRole.FISCAL) {
-    return "/inspections/mine";
-  }
-  return "/dashboard";
-}
-
-function RequireRoles({
-  children,
-  allowedRoles,
-}: {
-  children: JSX.Element;
-  allowedRoles: UserRole[];
-}): JSX.Element {
-  const role = useAuthStore((state) => state.user?.role);
-  // During bootstrap, allow rendering until /auth/me resolves role.
-  if (!role) {
-    return children;
-  }
-  if (!allowedRoles.includes(role)) {
-    return <Navigate to={getDefaultRouteForRole(role)} replace />;
-  }
-  return children;
-}
-
-function RoleAwareHomeRedirect(): JSX.Element {
-  const role = useAuthStore((state) => state.user?.role);
-  if (role === UserRole.FISCAL) {
-    return <Navigate to="/inspections/mine" replace />;
-  }
-  return <Navigate to="/dashboard" replace />;
-}
+import { AccessArea, UserRole } from "@/domain/enums";
+import { AccessProfilesPage } from "@/pages/AccessProfilesPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -87,47 +49,41 @@ export const router = createBrowserRouter([
       {
         path: "/dashboard",
         element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
-          >
+          <RequireArea area={AccessArea.GESTAO}>
             <DashboardPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/quality/analytics",
         element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
-          >
+          <RequireArea area={AccessArea.QUALIDADE_DADOS}>
             <QualityAnalyticsPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/safety/analytics",
         element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
-          >
+          <RequireArea area={AccessArea.SEGURANCA_DADOS}>
             <SafetyAnalyticsPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/teams",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <TeamsPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/field-hierarchy",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <FieldHierarchyPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
@@ -145,67 +101,73 @@ export const router = createBrowserRouter([
       {
         path: "/contracts",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <ContractsPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/sectors",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <SectorsPage />
-          </RequireRoles>
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "/access-profiles",
+        element: (
+          <RequireAdmin>
+            <AccessProfilesPage />
+          </RequireAdmin>
         ),
       },
       {
         path: "/users",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <UsersPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/collaborators",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <CollaboratorsPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/checklists",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <ChecklistsPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/checklists/:id/edit",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN]}>
+          <RequireAdmin>
             <ChecklistEditorPage />
-          </RequireRoles>
+          </RequireAdmin>
         ),
       },
       {
         path: "/service-orders",
         element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}
-          >
+          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
             <ServiceOrdersPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/investment-works",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
+          <RequireArea area={AccessArea.ENGENHARIA_OBRAS}>
             <InvestmentWorksPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
@@ -221,76 +183,95 @@ export const router = createBrowserRouter([
       {
         path: "/quality/inspections",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
+          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
             <Navigate to="/service-orders?tab=vistorias" replace />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/safety/inspections",
         element: (
-          <RequireRoles allowedRoles={[UserRole.ADMIN, UserRole.GESTOR]}>
+          <RequireArea area={AccessArea.SEGURANCA_DADOS}>
             <Navigate to="/safety/analytics?tab=vistorias" replace />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/inspections/mine",
         element: (
-          <RequireRoles allowedRoles={[UserRole.FISCAL]}>
+          <RequireArea area={AccessArea.CAMPO_MINHAS}>
             <InspectionsPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/inspections/new",
         element: (
-          <RequireRoles allowedRoles={[UserRole.FISCAL]}>
+          <RequireArea area={AccessArea.CAMPO_NOVA}>
             <NewInspectionPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
-      { path: "/inspections/:externalId", element: <InspectionDetailPage /> },
-      { path: "/inspections/:externalId/fill", element: <FillInspectionPage /> },
-      { path: "/inspections/:externalId/manage", element: <ManageInspectionPage /> },
+      {
+        path: "/inspections/:externalId",
+        element: (
+          <RequireAnyArea
+            areas={[
+              AccessArea.QUALIDADE_PAINEL,
+              AccessArea.QUALIDADE_PENDENCIAS,
+              AccessArea.SEGURANCA_DADOS,
+              AccessArea.CAMPO_MINHAS,
+            ]}
+          >
+            <InspectionDetailPage />
+          </RequireAnyArea>
+        ),
+      },
+      {
+        path: "/inspections/:externalId/fill",
+        element: (
+          <RequireArea area={AccessArea.CAMPO_MINHAS}>
+            <FillInspectionPage />
+          </RequireArea>
+        ),
+      },
+      {
+        path: "/inspections/:externalId/manage",
+        element: (
+          <RequireAnyArea
+            areas={[
+              AccessArea.QUALIDADE_PAINEL,
+              AccessArea.QUALIDADE_PENDENCIAS,
+              AccessArea.SEGURANCA_DADOS,
+              AccessArea.CAMPO_MINHAS,
+            ]}
+          >
+            <ManageInspectionPage />
+          </RequireAnyArea>
+        ),
+      },
       {
         path: "/pendings",
         element: (
-          <RequireRoles
-            allowedRoles={[UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR]}
-          >
+          <RequireArea area={AccessArea.QUALIDADE_PENDENCIAS}>
             <PendingsPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/reports/new",
         element: (
-          <RequireRoles
-            allowedRoles={[
-              UserRole.ADMIN,
-              UserRole.GESTOR,
-              UserRole.SUPERVISOR,
-              UserRole.FISCAL,
-            ]}
-          >
+          <RequireArea area={AccessArea.ENGENHARIA_RELATORIOS}>
             <ReportTypesPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
       {
         path: "/reports/new/:code",
         element: (
-          <RequireRoles
-            allowedRoles={[
-              UserRole.ADMIN,
-              UserRole.GESTOR,
-              UserRole.SUPERVISOR,
-              UserRole.FISCAL,
-            ]}
-          >
+          <RequireArea area={AccessArea.ENGENHARIA_RELATORIOS}>
             <ReportFormPage />
-          </RequireRoles>
+          </RequireArea>
         ),
       },
     ],

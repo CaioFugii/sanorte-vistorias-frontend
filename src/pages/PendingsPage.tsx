@@ -25,7 +25,8 @@ import { downloadBlob } from "@/utils/downloadBlob";
 import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Contract, InspectionListItem, Team } from "@/domain";
-import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
+import { AccessArea, InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
+import { canAreaAction } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
@@ -73,8 +74,10 @@ export const PendingsPage = (): JSX.Element => {
   const detailFrom = `${location.pathname}${location.search}`;
   const { user } = useAuthStore();
   const isAdmin = user?.role === UserRole.ADMIN;
-  const canReviewResolutions =
-    user?.role === UserRole.GESTOR || user?.role === UserRole.ADMIN;
+  const canReviewResolutions = canAreaAction(user, AccessArea.QUALIDADE_PENDENCIAS, [
+    UserRole.GESTOR,
+    UserRole.ADMIN,
+  ]);
   const [pendingTab, setPendingTab] = useState<"ativas" | "aprovacao" | "resolvidas">("ativas");
   const listStatus =
     canReviewResolutions && pendingTab === "aprovacao"

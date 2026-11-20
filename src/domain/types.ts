@@ -5,6 +5,7 @@ import {
   InspectionScope,
   InspectionNoticeType,
   InspectionStatus,
+  AccessArea,
   ModuleType,
   ServiceOrderImportLineStatus,
   UserRole,
@@ -15,8 +16,21 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  areas?: AccessArea[];
+  accessProfileId?: string | null;
   contracts?: Pick<Contract, "id" | "name">[];
   contractIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AccessProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  areas: AccessArea[];
+  userCount: number;
   createdAt?: string;
   updatedAt?: string;
 }

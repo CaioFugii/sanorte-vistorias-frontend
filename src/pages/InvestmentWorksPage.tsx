@@ -37,7 +37,8 @@ import {
   TableViewButton,
 } from "@/components/ui";
 import { PercentBadge } from "@/components/PercentBadge";
-import { Contract, InvestmentWork, InvestmentWorkStatus, PaginatedResponse, Team, UserRole } from "@/domain";
+import { AccessArea, Contract, InvestmentWork, InvestmentWorkStatus, PaginatedResponse, Team, UserRole } from "@/domain";
+import { canAreaAction, canSeeArea } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -100,10 +101,13 @@ export const InvestmentWorksPage = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
-  const { user, hasAnyRole } = useAuthStore();
-  const canAccess = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR, UserRole.FISCAL, UserRole.SUPERVISOR]);
-  const canManage = hasAnyRole([UserRole.ADMIN, UserRole.GESTOR]);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const { user } = useAuthStore();
+  const canAccess = canSeeArea(user, AccessArea.ENGENHARIA_OBRAS);
+  const canManage = canAreaAction(user, AccessArea.ENGENHARIA_OBRAS, [
+    UserRole.ADMIN,
+    UserRole.GESTOR,
+    UserRole.SUPERVISOR,
+  ]);
   const isAdmin = user?.role === UserRole.ADMIN;
 
   const [loading, setLoading] = useState(true);
@@ -350,7 +354,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
                           }
                         }}
                       />
-                      {canManage && !isSupervisor && (
+                      {canManage && (
                         <>
                           <TableEditButton
                             onClick={() => {

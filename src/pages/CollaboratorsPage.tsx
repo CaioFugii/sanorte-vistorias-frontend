@@ -42,7 +42,7 @@ const DEFAULT_LIMIT = 10;
 
 export const CollaboratorsPage = (): JSX.Element => {
   const user = useAuthStore((state) => state.user);
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
+  const canManage = user?.role === UserRole.ADMIN;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PaginatedResponse<Collaborator> | null>(null);
@@ -118,7 +118,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         eyebrow="Administração"
         title="Colaboradores"
         subtitle="Gerencie colaboradores por setor para manter a operação organizada."
-        actions={!isSupervisor ? (
+        actions={canManage ? (
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -191,7 +191,7 @@ export const CollaboratorsPage = (): JSX.Element => {
                 <TableCell>{collaborator.active ? "Ativo" : "Inativo"}</TableCell>
                 <TableActionsCell>
                   <TableActionsGroup>
-                    {!isSupervisor && <TableEditButton
+                    {canManage && <TableEditButton
                     onClick={() => {
                       setEditing(collaborator);
                       setName(collaborator.name);
@@ -201,7 +201,7 @@ export const CollaboratorsPage = (): JSX.Element => {
                       setDialogOpen(true);
                     }}
                     />}
-                    {!isSupervisor && <TableDeleteButton onClick={() => setDeletingCollaborator(collaborator)} />}
+                    {canManage && <TableDeleteButton onClick={() => setDeletingCollaborator(collaborator)} />}
                   </TableActionsGroup>
                 </TableActionsCell>
               </TableRow>
@@ -223,7 +223,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen && !isSupervisor} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen && canManage} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{editing ? "Editar colaborador" : "Novo colaborador"}</DialogTitle>
         <DialogContent>
           <TextField
@@ -278,7 +278,7 @@ export const CollaboratorsPage = (): JSX.Element => {
         </DialogActions>
       </Dialog>
       <ConfirmDialog
-        open={!!deletingCollaborator && !isSupervisor}
+        open={!!deletingCollaborator && canManage}
         title="Excluir colaborador"
         description={`Deseja excluir o colaborador "${deletingCollaborator?.name ?? ""}"?`}
         confirmLabel="Excluir"
