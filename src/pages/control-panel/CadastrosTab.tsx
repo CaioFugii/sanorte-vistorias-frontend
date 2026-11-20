@@ -1,4 +1,5 @@
-import { Alert, Box, Button, FormControl, InputLabel, MenuItem, Select, Typography } from "@mui/material";
+import { CloudUpload } from "@mui/icons-material";
+import { Alert, Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from "@mui/material";
 import { ReactNode, useState } from "react";
 import { Contract, InvestmentWorkImportPreview, InvestmentWorkImportResult } from "@/domain";
 import { appRepository } from "@/repositories/AppRepository";
@@ -30,62 +31,95 @@ export function CadastrosTab({
   const [contractId, setContractId] = useState(obrasContracts.length === 1 ? obrasContracts[0].id : "");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<InvestmentWorkImportPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<InvestmentWorkImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
-    <Box
-      display="grid"
-      gridTemplateColumns={{ xs: "1fr", md: showObras ? "minmax(0, 1fr) minmax(0, 1fr)" : "1fr" }}
-      gap={3}
-    >
-      <Box sx={{ minWidth: 0, overflowX: "auto" }}>{left}</Box>
+    <Stack spacing={4}>
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          Cadastro Global
+        </Typography>
+        {left}
+      </Box>
       {showObras && (
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="h6" gutterBottom>Cadastro Obras Inv</Typography>
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Contrato</InputLabel>
-            <Select value={contractId} label="Contrato" onChange={(event) => setContractId(event.target.value)}>
-              {obrasContracts.map((contract) => (
-                <MenuItem key={contract.id} value={contract.id}>{contract.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button variant="outlined" component="label" disabled={!contractId}>
-            Enviar planilha
-            <input
-              hidden
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(event) => {
-                const next = event.target.files?.[0] ?? null;
-                event.target.value = "";
-                if (!next) return;
-                setFile(next);
-                setError(null);
-                setResult(null);
-                void appRepository.previewInvestmentWorkImport(next).then(setPreview).catch((cause: unknown) => {
-                  setError(errorText(cause, "Não foi possível ler a planilha."));
-                });
-              }}
-            />
-          </Button>
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        <Box>
+          <Typography variant="h6" component="h2" gutterBottom>
+            Cadastro Obras Inv
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
+            Envie a planilha de Obras Inv (.xlsx ou .xls). Escolha o contrato antes. Na tela seguinte, marque as
+            Descrições que devem entrar.
+          </Typography>
+          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap" mb={2}>
+            <FormControl size="small" sx={{ minWidth: 280, flex: "1 1 280px", maxWidth: 420 }}>
+              <InputLabel>Contrato</InputLabel>
+              <Select value={contractId} label="Contrato" onChange={(event) => setContractId(event.target.value)}>
+                {obrasContracts.map((contract) => (
+                  <MenuItem key={contract.id} value={contract.id}>
+                    {contract.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              component="label"
+              startIcon={previewing ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
+              disabled={!contractId || previewing || saving}
+            >
+              {previewing ? "Lendo planilha..." : "Enviar planilha"}
+              <input
+                hidden
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(event) => {
+                  const next = event.target.files?.[0] ?? null;
+                  event.target.value = "";
+                  if (!next) return;
+                  setFile(next);
+                  setError(null);
+                  setResult(null);
+                  setPreviewing(true);
+                  void appRepository
+                    .previewInvestmentWorkImport(next)
+                    .then(setPreview)
+                    .catch((cause: unknown) => {
+                      setFile(null);
+                      setError(errorText(cause, "Não foi possível ler a planilha."));
+                    })
+                    .finally(() => setPreviewing(false));
+                }}
+              />
+            </Button>
+          </Box>
+          {obrasContracts.length === 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Nenhum contrato disponível no seu perfil. Solicite o vínculo de contrato para cadastrar obras.
+            </Alert>
+          )}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           {result && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              Criados: {result.created}. Ignoradas: {result.ignored}. Não selecionadas: {result.notSelected}. Não registradas: {result.notRegistered}.
+            <Alert severity={result.errors.length > 0 || result.notRegistered > 0 ? "warning" : "success"} sx={{ mb: 2 }}>
+              Criados: {result.created}. Ignoradas: {result.ignored}. Não selecionadas: {result.notSelected}. Não
+              registradas: {result.notRegistered}.
               {result.errors.length > 0 && (
                 <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-                  {result.errors.map((item) => <li key={item}>{item}</li>)}
+                  {result.errors.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </Box>
               )}
             </Alert>
           )}
-          <Box sx={{ mt: 3 }}>
-            <InvestmentWorkImportHistory refreshKey={refreshKey} />
-          </Box>
+          <InvestmentWorkImportHistory refreshKey={refreshKey} />
           <InvestmentWorkImportSelectionDialog
             preview={preview}
             saving={saving}
@@ -112,6 +146,6 @@ export function CadastrosTab({
           />
         </Box>
       )}
-    </Box>
+    </Stack>
   );
 }

@@ -51,6 +51,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Aba Cadastros lista Global e Obras Inv em blocos separados, com o histórico de Obras Inv em lançamentos em vez de uma tabela de dez colunas
 - Filtro "Execução" da aba Vistorias usa a data da obra quando a vistoria de Obras Inv não tem OS
 - Acesso com Obras Inv e sem Painel de Controle deixa de ver as obras. O endereço antigo `/investment-works` só abre a aba para quem tem as duas áreas
 - A busca da Nova vistoria chama o campo de "Nome da obra ou número da O.S" e mostra se o cadastro é manual ou de Excel

@@ -10,6 +10,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { InvestmentWorkImportPreview } from "@/domain";
@@ -35,8 +36,18 @@ export function InvestmentWorkImportSelectionDialog({
 
   return (
     <Dialog open={Boolean(preview)} onClose={onCancel} fullWidth maxWidth="sm">
-      <DialogTitle>Descrições da planilha</DialogTitle>
+      <DialogTitle>
+        Descrições da planilha
+        {preview?.fileName && (
+          <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+            {preview.fileName}
+          </Typography>
+        )}
+      </DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Marque as Descrições que devem gerar cadastro. Nenhuma vem marcada.
+        </Typography>
         <Table size="small">
           <TableHead>
             <TableRow>
