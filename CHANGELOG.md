@@ -8,6 +8,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Painel de Controle com quatro abas: Global, Obras Inv, Vistorias e Cadastros. Obras Inv lista as obras do mês, com caixas de Campo e Pós Obra
+- Cadastro em massa de Obras Inv na aba Cadastros, com seleção de Descrições e histórico do lançamento
+- Filtro e coluna Contrato na aba Vistorias; a exportação envia o contrato filtrado e a coluna Contrato
 - Aba **Gestão** em Dados de Qualidade: nota média de coordenadores e supervisores, acima do resultado dos encarregados
 - Histórico de importação: o Admin exclui as ordens de serviço inseridas por um arquivo, com as vistorias ligadas
 - Aba **Fiscais** em Dados de Qualidade: produção diária por fiscal, no mesmo formato de Segurança do Trabalho
@@ -48,6 +51,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Filtro "Execução" da aba Vistorias usa a data da obra quando a vistoria de Obras Inv não tem OS
+- Acesso com Obras Inv e sem Painel de Controle deixa de ver as obras. O endereço antigo `/investment-works` só abre a aba para quem tem as duas áreas
+- A busca da Nova vistoria chama o campo de "Nome da obra ou número da O.S" e mostra se o cadastro é manual ou de Excel
 - Aba **Não conformidades** de Dados – Qualidade volta para Admin, Gestor e Supervisor
 - Pendências: a aba de quem espera aprovação passa a se chamar **Aguardando Aprovação**, e a nova aba **Resolvidas** lista só vistorias `RESOLVIDA`
 - Não conformidades de Qualidade: o filtro de equipe fica acima da lista
