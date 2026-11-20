@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
@@ -169,7 +169,7 @@ export const InvestmentWorksPage = (): JSX.Element => {
   const today = formatDateForInput(new Date());
   const minExpectedEndDate = startDate && startDate > today ? startDate : today;
 
-  const loadReferenceData = async () => {
+  const loadReferenceData = useCallback(async () => {
     const teamsPromise = appRepository.getTeams({ page: 1, limit: 100 });
     if (isAdmin) {
       const [contractsResult, teamsResult] = await Promise.all([
@@ -183,9 +183,9 @@ export const InvestmentWorksPage = (): JSX.Element => {
     setContracts((user?.contracts ?? []).map((contract) => ({ id: contract.id, name: contract.name })));
     const teamsResult = await teamsPromise;
     setTeams(teamsResult.data.filter((item) => item.active));
-  };
+  }, [isAdmin, user?.contracts]);
 
-  const loadInvestmentWorks = async () => {
+  const loadInvestmentWorks = useCallback(async () => {
     setLoading(true);
     try {
       const data = await appRepository.getInvestmentWorks({
@@ -200,17 +200,17 @@ export const InvestmentWorksPage = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, contractId, status, active]);
 
   useEffect(() => {
     if (!canAccess) return;
     void loadReferenceData();
-  }, [canAccess, isAdmin, user?.contracts]);
+  }, [canAccess, loadReferenceData]);
 
   useEffect(() => {
     if (!canAccess) return;
     void loadInvestmentWorks();
-  }, [canAccess, page, limit, search, contractId, status, active]);
+  }, [canAccess, loadInvestmentWorks]);
 
   if (!canAccess) {
     return <Navigate to="/dashboard" replace />;

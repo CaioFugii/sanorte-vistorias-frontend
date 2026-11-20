@@ -17,7 +17,7 @@ import {
   TextField,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PaginatedResponse, Sector } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
@@ -52,7 +52,7 @@ export const SectorsPage = (): JSX.Element => {
   const [name, setName] = useState("");
   const [active, setActive] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       if (!navigator.onLine) {
@@ -67,11 +67,11 @@ export const SectorsPage = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit]);
 
   useEffect(() => {
     load();
-  }, [page, limit]);
+  }, [load]);
 
   const sectors = result?.data ?? [];
   const meta = result?.meta;

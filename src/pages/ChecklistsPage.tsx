@@ -25,7 +25,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Checklist, InspectionScope, PaginatedResponse, Sector } from "@/domain";
 import { ModuleSelect } from "@/components/ModuleSelect";
@@ -124,7 +124,7 @@ export const ChecklistsPage = (): JSX.Element => {
     [sectors, isWorkSafetyChecklistModule]
   );
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       if (!navigator.onLine) {
@@ -148,11 +148,11 @@ export const ChecklistsPage = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, sectorTab]);
 
   useEffect(() => {
     load();
-  }, [page, limit, sectorTab]);
+  }, [load]);
 
   useEffect(() => {
     if (sectorTab === "all") return;

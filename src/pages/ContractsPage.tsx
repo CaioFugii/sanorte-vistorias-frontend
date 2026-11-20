@@ -14,7 +14,7 @@ import {
   TextField,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
@@ -50,17 +50,17 @@ export const ContractsPage = (): JSX.Element => {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
 
-  const loadContracts = async () => {
+  const loadContracts = useCallback(async () => {
     setLoading(true);
     const res = await appRepository.getContracts({ page, limit });
     setResult(res);
     setLoading(false);
-  };
+  }, [page, limit]);
 
   useEffect(() => {
     if (!canAccess) return;
     void loadContracts();
-  }, [canAccess, page, limit]);
+  }, [canAccess, loadContracts]);
 
   if (!canAccess) {
     return <Navigate to="/dashboard" replace />;

@@ -19,7 +19,7 @@ import {
   TextField,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccessProfile, Contract, PaginatedResponse, User } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
@@ -59,7 +59,7 @@ export const UsersPage = (): JSX.Element => {
   const [accessProfileId, setAccessProfileId] = useState("");
   const [filterContractId, setFilterContractId] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const res = await appRepository.getUsers({
       page,
@@ -68,11 +68,11 @@ export const UsersPage = (): JSX.Element => {
     });
     setResult(res);
     setLoading(false);
-  };
+  }, [page, limit, filterContractId]);
 
   useEffect(() => {
     load();
-  }, [page, limit, filterContractId]);
+  }, [load]);
 
   useEffect(() => {
     const loadContracts = async () => {

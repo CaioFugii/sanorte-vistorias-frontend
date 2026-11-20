@@ -24,7 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Edit, PictureAsPdf, ArrowBack, CheckCircle, PhotoLibrary, Event, Assignment, PauseCircleOutline, Delete } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Inspection, InspectionItem } from '@/domain';
@@ -32,7 +32,8 @@ import { ChecklistAnswer, InspectionStatus, InvestmentWorkEvaluationModule, Modu
 import { appRepository } from '@/repositories/AppRepository';
 import { StatusChip } from '@/components/StatusChip';
 import { PercentBadge } from '@/components/PercentBadge';
-import { PhotoFile, PhotoUploader } from '@/components/PhotoUploader';
+import { PhotoUploader } from '@/components/PhotoUploader';
+import type { PhotoFile } from '@/utils/photoFile';
 import { getInvestmentWorkEvaluationModuleLabel, getModuleLabel } from '@/utils/moduleLabel';
 import { generateInspectionPdf } from '@/utils/inspectionPdf';
 import {
@@ -205,7 +206,7 @@ export const InspectionDetailPage = (): JSX.Element => {
   const fromState = (location.state as { from?: string } | null)?.from;
   const backTarget = fromState?.startsWith('/') ? fromState : '/inspections';
 
-  const loadInspection = async () => {
+  const loadInspection = useCallback(async () => {
     if (!externalId) return;
     setLoading(true);
     const forceApi = user?.role !== UserRole.FISCAL;
@@ -216,13 +217,13 @@ export const InspectionDetailPage = (): JSX.Element => {
     }
     setInspection(inspectionData);
     setLoading(false);
-  };
+  }, [externalId, user?.role, navigate, backTarget]);
 
   useEffect(() => {
     if (externalId) {
       loadInspection();
     }
-  }, [externalId, user?.role]);
+  }, [externalId, loadInspection]);
 
   const nonConformItems = inspection ? getNonConformItems(inspection.items) : [];
   const resolvedCount = inspection ? getResolvedCount(inspection.items) : 0;

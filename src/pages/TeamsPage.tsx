@@ -22,7 +22,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useReferenceStore } from '@/stores/referenceStore';
 import { Collaborator, Contract, Foreman, PaginatedResponse, Sector, Team } from '@/domain';
 import { UserRole } from '@/domain/enums';
@@ -92,7 +92,7 @@ export const TeamsPage = (): JSX.Element => {
     return null;
   };
 
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
     setLoading(true);
     const res = await appRepository.getTeams({
       page,
@@ -102,11 +102,11 @@ export const TeamsPage = (): JSX.Element => {
     });
     setResult(res);
     setLoading(false);
-  };
+  }, [page, limit, filterContractId, filterSectorId]);
 
   useEffect(() => {
     loadTeams();
-  }, [page, limit, filterContractId, filterSectorId]);
+  }, [loadTeams]);
 
   useEffect(() => {
     const run = async () => {

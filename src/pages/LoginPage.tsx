@@ -8,6 +8,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { firstVisibleRoute } from "@/domain/rules/access-area";
@@ -47,8 +48,11 @@ export const LoginPage = (): JSX.Element => {
       await loadMe();
       const { user: currentUser } = useAuthStore.getState();
       navigate(getPostLoginPath(currentUser), { replace: true });
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Erro ao fazer login.");
+    } catch (err) {
+      const message = isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message
+        : undefined;
+      setError(message || "Erro ao fazer login.");
     } finally {
       setLoading(false);
     }

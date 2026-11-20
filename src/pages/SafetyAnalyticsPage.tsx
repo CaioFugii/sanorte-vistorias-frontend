@@ -352,7 +352,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     }
   }, [contractsForFilters]);
 
-  const loadData = async (
+  const loadData = useCallback(async (
     period: typeof globalPeriod = globalPeriod,
     contractId: string = selectedContractId
   ) => {
@@ -438,12 +438,12 @@ export function SafetyAnalyticsPage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [globalPeriod, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
     void loadData(globalPeriod, selectedContractId);
-  }, [canAccessAnalytics, globalPeriod, selectedContractId]);
+  }, [canAccessAnalytics, globalPeriod, selectedContractId, loadData]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;

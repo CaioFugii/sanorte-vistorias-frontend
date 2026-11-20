@@ -22,11 +22,8 @@ import { useInspectionStore } from "@/stores/inspectionStore";
 import { useReferenceStore } from "@/stores/referenceStore";
 import { validateFinalize } from "@/domain/rules";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
-import {
-  evidenceToPhotoFile,
-  PhotoFile,
-  PhotoUploader,
-} from "@/components/PhotoUploader";
+import { PhotoUploader } from "@/components/PhotoUploader";
+import { evidenceToPhotoFile, type PhotoFile } from "@/utils/photoFile";
 import { SignaturePad } from "@/components/SignaturePad";
 import { InspectionStatus, InvestmentWorkEvaluationModule, ModuleType, UserRole } from "@/domain/enums";
 import { Checklist, InspectionItem } from "@/domain";

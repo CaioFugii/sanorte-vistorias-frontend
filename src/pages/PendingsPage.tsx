@@ -22,7 +22,7 @@ import {
 import { FilterAltOff, Search } from "@mui/icons-material";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { downloadBlob } from "@/utils/downloadBlob";
-import { MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Contract, InspectionListItem, Team } from "@/domain";
 import { AccessArea, InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
@@ -162,7 +162,7 @@ export const PendingsPage = (): JSX.Element => {
       inspectionTo
   );
 
-  const loadPendings = async () => {
+  const loadPendings = useCallback(async () => {
     setLoading(true);
     const res = await appRepository.getInspections({
       status: listStatus,
@@ -181,7 +181,18 @@ export const PendingsPage = (): JSX.Element => {
     setInspections(res.data);
     setMeta(res.meta);
     setLoading(false);
-  };
+  }, [
+    listStatus,
+    selectedModule,
+    selectedContractId,
+    selectedTeamId,
+    osNumber,
+    service,
+    executionRange,
+    inspectionRange,
+    page,
+    limit,
+  ]);
 
   const handleExportPendings = async () => {
     const { blob, filename } = await appRepository.exportInspectionsExcel({
@@ -293,20 +304,7 @@ export const PendingsPage = (): JSX.Element => {
 
   useEffect(() => {
     loadPendings();
-  }, [
-    page,
-    limit,
-    selectedModule,
-    selectedContractId,
-    selectedTeamId,
-    osNumber,
-    service,
-    executionFrom,
-    executionTo,
-    inspectionFrom,
-    inspectionTo,
-    listStatus,
-  ]);
+  }, [loadPendings]);
 
   const handleClearFilters = () => {
     reset();

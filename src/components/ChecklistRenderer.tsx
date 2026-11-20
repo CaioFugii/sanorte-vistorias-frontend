@@ -12,7 +12,8 @@ import { useEffect, useState } from "react";
 import { Checklist, Evidence, InspectionItem } from "@/domain";
 import { MAX_PHOTOS_PER_CHECKLIST_ITEM } from "@/domain/photoLimits";
 import { ChecklistAnswer } from "@/domain/enums";
-import { evidenceToPhotoFile, PhotoFile, PhotoUploader } from "./PhotoUploader";
+import { PhotoUploader } from "./PhotoUploader";
+import { evidenceToPhotoFile, type PhotoFile } from "@/utils/photoFile";
 import { AnswerRadioGroup } from "./AnswerRadioGroup";
 
 interface ChecklistRendererProps {

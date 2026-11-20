@@ -20,7 +20,7 @@ import {
   TextField,
 } from "@mui/material";
 import { Add } from "@mui/icons-material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Collaborator, Contract, PaginatedResponse, Sector } from "@/domain";
 import { UserRole } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
@@ -60,7 +60,7 @@ export const CollaboratorsPage = (): JSX.Element => {
   const [sectorTab, setSectorTab] = useState("all");
   const [active, setActive] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       if (!navigator.onLine) {
@@ -87,11 +87,11 @@ export const CollaboratorsPage = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, sectorTab]);
 
   useEffect(() => {
     load();
-  }, [page, limit, sectorTab]);
+  }, [load]);
 
   useEffect(() => {
     if (sectorTab === "all") return;

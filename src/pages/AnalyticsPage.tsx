@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { Clear } from "@mui/icons-material";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import { MonthFilter } from "@/components/MonthFilter";
 import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
@@ -425,7 +425,7 @@ export function AnalyticsPage(): JSX.Element {
     }
   }, [contractsForFilters]);
 
-  const loadAnalyticsData = async (contractId?: string, period: { from: string; to: string } = globalPeriod) => {
+  const loadAnalyticsData = useCallback(async (contractId?: string, period: { from: string; to: string } = globalPeriod) => {
     setLoading(true);
     setError(null);
     try {
@@ -505,9 +505,9 @@ export function AnalyticsPage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [globalPeriod]);
 
-  const loadTeamsOptions = async (): Promise<Team[]> => {
+  const loadTeamsOptions = useCallback(async (): Promise<Team[]> => {
     try {
       const contractId = selectedContractId || undefined;
       const pageSize = 100;
@@ -538,7 +538,7 @@ export function AnalyticsPage(): JSX.Element {
       setTeamOptions([]);
       return [];
     }
-  };
+  }, [selectedContractId]);
 
   const loadTeamPerformanceData = async (filters: typeof teamPerformanceFilters): Promise<void> => {
     if (filters.teamIds.length === 0) {
@@ -584,7 +584,7 @@ export function AnalyticsPage(): JSX.Element {
   useEffect(() => {
     if (!canAccessAnalytics) return;
     void loadAnalyticsData(selectedContractId || undefined, globalPeriod);
-  }, [canAccessAnalytics, globalPeriod, selectedContractId]);
+  }, [canAccessAnalytics, globalPeriod, selectedContractId, loadAnalyticsData]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -634,7 +634,7 @@ export function AnalyticsPage(): JSX.Element {
     };
 
     void bootstrapTeamPerformance();
-  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod]);
+  }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod, loadTeamsOptions]);
 
   useEffect(() => {
     if (!canAccessAnalytics || !canSeeNonConformitiesTab) return;
@@ -789,7 +789,7 @@ export function AnalyticsPage(): JSX.Element {
     if (Number.isNaN(parsed.getTime())) return "-";
     return parsed.toLocaleString("pt-BR");
   };
-  const openRankingInspections = async (
+  const openRankingInspections = useCallback(async (
     teamId: string,
     teamName: string,
     metric: DashboardTeamRankingMetric,
@@ -852,7 +852,13 @@ export function AnalyticsPage(): JSX.Element {
     } finally {
       setRankingInspectionsLoading(false);
     }
-  };
+  }, [
+    rankingInspectionsMeta.limit,
+    globalPeriod.from,
+    globalPeriod.to,
+    selectedContractId,
+    setSearchParams,
+  ]);
 
   const closeRankingInspections = () => {
     rankingRequestKeyRef.current = null;
@@ -891,6 +897,7 @@ export function AnalyticsPage(): JSX.Element {
     globalPeriod.from,
     globalPeriod.to,
     selectedContractId,
+    openRankingInspections,
   ]);
 
   if (isAuthenticated && !user) {
