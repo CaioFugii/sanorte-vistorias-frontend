@@ -37,8 +37,8 @@ import {
 import { MonthFilter } from "@/components/MonthFilter";
 import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
-import { AccessArea, Contract, ModuleType, Team, UserRole } from "@/domain";
-import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
+import { AccessTab, Contract, ModuleType, Team, UserRole } from "@/domain";
+import { canSeeScreen, canSeeTab, firstVisibleRoute } from "@/domain/rules/access-area";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { appRepository } from "@/repositories/AppRepository";
 import { PercentBadge } from "@/components/PercentBadge";
@@ -64,15 +64,29 @@ const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#0
 const SAFETY_NC_TOP = 10;
 const SAFETY_TAB_KEYS = [
   "ranking",
+  "overview",
+  "vistorias",
   "teams",
   "fiscais",
   "encarregados",
-  "overview",
   "nonconformities",
-  "vistorias",
 ] as const;
 
 type SafetyTabKey = (typeof SAFETY_TAB_KEYS)[number];
+
+const SAFETY_TAB_ACCESS: Record<SafetyTabKey, AccessTab> = {
+  ranking: AccessTab.SEGURANCA_DADOS_RANKING,
+  overview: AccessTab.SEGURANCA_DADOS_VISAO_GERAL,
+  vistorias: AccessTab.SEGURANCA_DADOS_VISTORIAS,
+  teams: AccessTab.SEGURANCA_DADOS_EQUIPES,
+  fiscais: AccessTab.SEGURANCA_DADOS_FISCAIS,
+  encarregados: AccessTab.SEGURANCA_DADOS_GESTAO,
+  nonconformities: AccessTab.SEGURANCA_DADOS_NAO_CONFORMIDADES,
+};
+
+function skipUnless<T>(enabled: boolean, load: () => Promise<T>): Promise<T | null> {
+  return enabled ? load() : Promise.resolve(null);
+}
 
 const SAFETY_TAB_LABELS: Record<SafetyTabKey, string> = {
   ranking: "Ranking",
@@ -225,7 +239,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, isAuthenticated } = useAuthStore();
-  const canAccessAnalytics = canSeeArea(user, AccessArea.SEGURANCA_DADOS);
+  const canAccessAnalytics = canSeeScreen(user, "seguranca_dados");
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
   const [searchParams, setSearchParams] = useSearchParams();
@@ -280,11 +294,16 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [rankingInspectionsLoading, setRankingInspectionsLoading] = useState(false);
   const [rankingInspectionsError, setRankingInspectionsError] = useState<string | null>(null);
   const [rankingInspectionsItems, setRankingInspectionsItems] = useState<TeamRankingInspectionItem[]>([]);
-  const canSeeInspectionsTab = canSeeArea(user, AccessArea.SEGURANCA_DADOS);
+  const visibleTabsKey = SAFETY_TAB_KEYS.filter((key) => canSeeTab(user, SAFETY_TAB_ACCESS[key])).join(",");
   const visibleTabs = useMemo(
-    () => SAFETY_TAB_KEYS.filter((key) => key !== "vistorias" || canSeeInspectionsTab),
-    [canSeeInspectionsTab]
+    () => (visibleTabsKey ? (visibleTabsKey.split(",") as SafetyTabKey[]) : []),
+    [visibleTabsKey]
   );
+  const showsRanking = visibleTabs.includes("ranking");
+  const showsOverview = visibleTabs.includes("overview");
+  const showsFiscais = visibleTabs.includes("fiscais");
+  const showsForemen = visibleTabs.includes("encarregados");
+  const showsNonConformities = visibleTabs.includes("nonconformities");
   const activeTab = useMemo(() => {
     const tabParam = searchParams.get("tab");
     const index = visibleTabs.indexOf(tabParam as SafetyTabKey);
@@ -375,42 +394,56 @@ export function SafetyAnalyticsPage(): JSX.Element {
             to: period.to,
             contractId: contractId || undefined,
           }),
-          appRepository.getDashboardTeamRankingSafetyWork({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkInspectorsProduction({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkForemenRanking({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkFieldSupervisorsRanking({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkCoordinatorsRanking({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkQualityByService({
-            from: overviewRange.from,
-            to: overviewRange.to,
-            contractId: contractId || undefined,
-          }),
-          appRepository.getDashboardSafetyWorkNonConformitiesByChecklist({
-            from: period.from,
-            to: period.to,
-            contractId: contractId || undefined,
-            limitPerChecklist: SAFETY_NC_TOP,
-          }),
+          skipUnless(showsRanking, () =>
+            appRepository.getDashboardTeamRankingSafetyWork({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsFiscais, () =>
+            appRepository.getDashboardSafetyWorkInspectorsProduction({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsForemen, () =>
+            appRepository.getDashboardSafetyWorkForemenRanking({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsForemen, () =>
+            appRepository.getDashboardSafetyWorkFieldSupervisorsRanking({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsForemen, () =>
+            appRepository.getDashboardSafetyWorkCoordinatorsRanking({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsOverview, () =>
+            appRepository.getDashboardSafetyWorkQualityByService({
+              from: overviewRange.from,
+              to: overviewRange.to,
+              contractId: contractId || undefined,
+            })
+          ),
+          skipUnless(showsNonConformities, () =>
+            appRepository.getDashboardSafetyWorkNonConformitiesByChecklist({
+              from: period.from,
+              to: period.to,
+              contractId: contractId || undefined,
+              limitPerChecklist: SAFETY_NC_TOP,
+            })
+          ),
         ]);
       setSummary(summaryResult);
       setInspectorsProduction(inspectorsResult);
@@ -420,7 +453,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
       setQualityByService(overviewResult);
       setNonConformitiesByChecklist(nonConformitiesResult);
       setTeamRanking(
-        rankingResult.map((item) => ({
+        (rankingResult ?? []).map((item) => ({
           teamId: item.teamId,
           teamName: item.teamName,
           averagePercent: item.averagePercent,
@@ -438,7 +471,15 @@ export function SafetyAnalyticsPage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [globalPeriod, selectedContractId]);
+  }, [
+    globalPeriod,
+    selectedContractId,
+    showsRanking,
+    showsFiscais,
+    showsForemen,
+    showsOverview,
+    showsNonConformities,
+  ]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -526,7 +567,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
   }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod, teamOptions.length]);
 
   useEffect(() => {
-    if (!canAccessAnalytics) return;
+    if (!canAccessAnalytics || !showsNonConformities) return;
     if (!nonConformitiesTeamId) {
       setNonConformitiesByTeam(null);
       setNonConformitiesByTeamError(null);
@@ -560,7 +601,7 @@ export function SafetyAnalyticsPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [canAccessAnalytics, globalPeriod, nonConformitiesTeamId, selectedContractId]);
+  }, [canAccessAnalytics, showsNonConformities, globalPeriod, nonConformitiesTeamId, selectedContractId]);
 
   const sortedTeamRanking = useMemo(
     () =>

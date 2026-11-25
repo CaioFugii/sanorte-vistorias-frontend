@@ -49,10 +49,12 @@ function formatWhen(value?: string | null): string {
 function ImportLineEditor({
   importId,
   line,
+  readOnly,
   onResolved,
 }: {
   importId: string;
   line: ServiceOrderImportLine;
+  readOnly: boolean;
   onResolved: () => void;
 }): JSX.Element {
   const [baseRow, setBaseRow] = useState<Record<string, string>>(line.rawRow ?? {});
@@ -84,7 +86,8 @@ function ImportLineEditor({
   };
 
   const editableKeys = editableImportFieldKeys(reason, baseRow);
-  const fieldIsEditable = (key: string) => editableKeys === null || editableKeys.has(key);
+  const fieldIsEditable = (key: string) =>
+    !readOnly && (editableKeys === null || editableKeys.has(key));
 
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, mb: 2 }}>
@@ -123,9 +126,11 @@ function ImportLineEditor({
           {error}
         </Alert>
       )}
-      <Button variant="contained" sx={{ mt: 1.5 }} onClick={confirm} disabled={saving || !navigator.onLine}>
-        {saving ? "Salvando..." : "Confirmar correção"}
-      </Button>
+      {!readOnly && (
+        <Button variant="contained" sx={{ mt: 1.5 }} onClick={confirm} disabled={saving || !navigator.onLine}>
+          {saving ? "Salvando..." : "Confirmar correção"}
+        </Button>
+      )}
     </Box>
   );
 }
@@ -133,9 +138,11 @@ function ImportLineEditor({
 export function ServiceOrderImportHistory({
   refreshKey,
   canDelete,
+  canEdit,
 }: {
   refreshKey: number;
   canDelete: boolean;
+  canEdit: boolean;
 }): JSX.Element {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
@@ -354,6 +361,7 @@ export function ServiceOrderImportHistory({
                     key={line.id}
                     importId={detail.id}
                     line={line}
+                    readOnly={!canEdit}
                     onResolved={() => {
                       setLocalRefresh((current) => current + 1);
                       openDetail(detail.id);

@@ -41,6 +41,11 @@ import {
   PREPARE_IMAGE_MAX_BYTES_UPLOADS,
 } from '@/utils/prepareImageForUpload';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  canDeleteInspection as canDeleteInspectionRule,
+  canReviewResolution as canReviewResolutionRule,
+  inspectionEditTarget,
+} from '@/domain/rules/inspectionPermissions';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 const MISSING_VALUE = 'Não informado';
@@ -235,21 +240,15 @@ export const InspectionDetailPage = (): JSX.Element => {
         inspection.module === ModuleType.OBRAS_INVESTIMENTO));
   const canResolveInspection = Boolean(canLaunchResolution && allResolved);
   const canReviewResolution =
-    inspection?.status === InspectionStatus.AGUARDANDO_APROVACAO &&
-    (user?.role === UserRole.GESTOR || user?.role === UserRole.ADMIN);
-  const canEditInspection =
-    user?.role === UserRole.ADMIN ||
-    user?.role === UserRole.GESTOR ||
-    inspection?.status === InspectionStatus.RASCUNHO;
+    inspection?.status === InspectionStatus.AGUARDANDO_APROVACAO && canReviewResolutionRule(user);
+  const editTarget = inspectionEditTarget(user, inspection);
   const canEditEvaluationModule =
     inspection?.module === ModuleType.OBRAS_INVESTIMENTO &&
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR);
   const canParalyzeInspection =
     (user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR || user?.role === UserRole.FISCAL) &&
     inspection?.hasParalysisPenalty !== true && inspection?.module === ModuleType.CAMPO;
-  const canDeleteInspection =
-    user?.role === UserRole.ADMIN ||
-    inspection?.status === InspectionStatus.RASCUNHO;
+  const canDeleteInspection = canDeleteInspectionRule(user, inspection);
   const deletingDraft = inspection?.status === InspectionStatus.RASCUNHO;
   const isSupervisor = user?.role === UserRole.SUPERVISOR;
 
@@ -505,7 +504,7 @@ export const InspectionDetailPage = (): JSX.Element => {
               Registrar paralisação
             </Button>
           )}
-          {canDeleteInspection && !isSupervisor && (
+          {canDeleteInspection && (
             <Tooltip
               title={
                 deletingDraft
@@ -526,17 +525,14 @@ export const InspectionDetailPage = (): JSX.Element => {
               </span>
             </Tooltip>
           )}
-          {canEditInspection && !isSupervisor && (
+          {editTarget && (
             <Button
               variant="contained"
               startIcon={<Edit />}
               onClick={() =>
-                navigate(
-                  user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR
-                    ? `/inspections/${inspection.externalId}/manage`
-                    : `/inspections/${inspection.externalId}/fill`,
-                  { state: { from: backTarget } }
-                )
+                navigate(`/inspections/${inspection.externalId}/${editTarget}`, {
+                  state: { from: backTarget },
+                })
               }
             >
               Editar

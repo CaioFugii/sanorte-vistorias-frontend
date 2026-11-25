@@ -34,6 +34,10 @@ import { InspectionListItem, Team } from "@/domain";
 import { InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
+import {
+  canDeleteInspection as canDeleteInspectionRule,
+  inspectionEditTarget,
+} from "@/domain/rules/inspectionPermissions";
 import { useListQueryState } from "@/hooks/useListQueryState";
 import { MonthFilter } from "@/components/MonthFilter";
 import { coerceMonthRange, monthKeyToRange } from "@/domain/rules/monthPeriod";
@@ -120,7 +124,6 @@ export const InspectionsPage = ({
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user, hasRole } = useAuthStore();
-  const isSupervisor = user?.role === UserRole.SUPERVISOR;
   const assignedContracts = user?.contracts ?? [];
   const [contractOptions, setContractOptions] = useState<Array<{ id: string; name: string }>>(
     assignedContracts
@@ -434,10 +437,8 @@ export const InspectionsPage = ({
   }
 
   const isAdmin = user?.role === UserRole.ADMIN;
-  const isAdminOrManager =
-    isAdmin || user?.role === UserRole.GESTOR;
   const canDeleteInspection = (inspection: InspectionListItem): boolean =>
-    isAdmin || inspection.status === InspectionStatus.RASCUNHO;
+    canDeleteInspectionRule(user, inspection);
   const showBulkTeam = allowBulkTeamChange && isAdmin;
   const selectedIds = Object.keys(selectedInspections);
   const pageIds = inspections.map((inspection) => inspection.externalId);
@@ -649,19 +650,17 @@ export const InspectionsPage = ({
                       })
                     }
                     />
-                    {!isSupervisor && (isAdminOrManager || inspection.status === InspectionStatus.RASCUNHO) && (
+                    {inspectionEditTarget(user, inspection) && (
                       <TableEditButton
                       onClick={() =>
                         navigate(
-                          isAdminOrManager
-                            ? `/inspections/${inspection.externalId}/manage`
-                            : `/inspections/${inspection.externalId}/fill`,
+                          `/inspections/${inspection.externalId}/${inspectionEditTarget(user, inspection)}`,
                           { state: { from: detailFrom } }
                         )
                       }
                       />
                     )}
-                    {!isSupervisor && canDeleteInspection(inspection) && (
+                    {canDeleteInspection(inspection) && (
                       <Tooltip
                         title={
                           inspection.status === InspectionStatus.RASCUNHO

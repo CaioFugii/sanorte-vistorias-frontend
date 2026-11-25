@@ -19,8 +19,13 @@ import {
 } from "@mui/material";
 import { Add, ContentCopy } from "@mui/icons-material";
 import { useEffect, useState } from "react";
-import { AccessArea } from "@/domain/enums";
-import { ACCESS_AREA_GROUPS, ACCESS_AREA_LABELS } from "@/domain/rules/access-area";
+import { ACCESS_ACTION_TAB, AccessAction, AccessTab } from "@/domain/enums";
+import {
+  ACCESS_ACTION_LABELS,
+  ACCESS_CATALOG,
+  ACCESS_TAB_LABELS,
+  actionsOfTab,
+} from "@/domain/rules/access-area";
 import type { AccessProfile, PaginatedResponse } from "@/domain/types";
 import { appRepository } from "@/repositories/AppRepository";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -54,7 +59,8 @@ export const AccessProfilesPage = (): JSX.Element => {
   const [editing, setEditing] = useState<AccessProfile | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [areas, setAreas] = useState<AccessArea[]>([]);
+  const [areas, setAreas] = useState<AccessTab[]>([]);
+  const [actions, setActions] = useState<AccessAction[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [duplicateOf, setDuplicateOf] = useState<AccessProfile | null>(null);
   const [duplicateName, setDuplicateName] = useState("");
@@ -81,6 +87,7 @@ export const AccessProfilesPage = (): JSX.Element => {
     setName("");
     setDescription("");
     setAreas([]);
+    setActions([]);
     setFormError(null);
     setDialogOpen(true);
   };
@@ -90,13 +97,51 @@ export const AccessProfilesPage = (): JSX.Element => {
     setName(profile.name);
     setDescription(profile.description ?? "");
     setAreas(profile.areas);
+    setActions(profile.actions ?? []);
     setFormError(null);
     setDialogOpen(true);
   };
 
-  const toggleArea = (area: AccessArea) => {
-    setAreas((current) =>
-      current.includes(area) ? current.filter((item) => item !== area) : [...current, area]
+  const toggleTab = (tab: AccessTab) => {
+    if (areas.includes(tab)) {
+      setAreas((current) => current.filter((item) => item !== tab));
+      setActions((current) => current.filter((action) => ACCESS_ACTION_TAB[action] !== tab));
+      return;
+    }
+    setAreas((current) => [...current, tab]);
+  };
+
+  const toggleAction = (action: AccessAction) => {
+    setActions((current) =>
+      current.includes(action) ? current.filter((item) => item !== action) : [...current, action]
+    );
+  };
+
+  const renderTab = (tab: AccessTab, label = ACCESS_TAB_LABELS[tab]) => {
+    const tabActions = actionsOfTab(tab);
+    const tabChecked = areas.includes(tab);
+    return (
+      <Box key={tab} display="flex" alignItems="center" flexWrap="wrap" columnGap={1}>
+        <FormControlLabel
+          sx={{ minWidth: 200 }}
+          control={<Checkbox checked={tabChecked} onChange={() => toggleTab(tab)} />}
+          label={label}
+        />
+        {tabActions.map((action) => (
+          <FormControlLabel
+            key={action}
+            disabled={!tabChecked}
+            control={
+              <Checkbox
+                size="small"
+                checked={tabChecked && actions.includes(action)}
+                onChange={() => toggleAction(action)}
+              />
+            }
+            label={<Typography variant="body2">{ACCESS_ACTION_LABELS[action]}</Typography>}
+          />
+        ))}
+      </Box>
     );
   };
 
@@ -104,7 +149,12 @@ export const AccessProfilesPage = (): JSX.Element => {
     setSaving(true);
     setFormError(null);
     try {
-      const input = { name: name.trim(), description: description.trim(), areas };
+      const input = {
+        name: name.trim(),
+        description: description.trim(),
+        areas,
+        actions: actions.filter((action) => areas.includes(ACCESS_ACTION_TAB[action])),
+      };
       if (editing) {
         await appRepository.updateAccessProfile(editing.id, input);
       } else {
@@ -144,7 +194,7 @@ export const AccessProfilesPage = (): JSX.Element => {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Descrição</TableCell>
-              <TableCell>Áreas</TableCell>
+              <TableCell>Abas</TableCell>
               <TableCell>Pessoas</TableCell>
               <TableActionsHeaderCell />
             </TableRow>
@@ -210,7 +260,7 @@ export const AccessProfilesPage = (): JSX.Element => {
         )}
       </SectionTable>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editing ? "Editar acesso" : "Novo acesso"}</DialogTitle>
         <DialogContent>
           {editing && (
@@ -232,23 +282,21 @@ export const AccessProfilesPage = (): JSX.Element => {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
-          {ACCESS_AREA_GROUPS.map((group) => (
-            <Box key={group.label} sx={{ mt: 1 }}>
+          {ACCESS_CATALOG.map((group) => (
+            <Box key={group.label} sx={{ mt: 2 }}>
               <Typography variant="subtitle2">{group.label}</Typography>
-              <FormGroup>
-                {group.areas.map((area) => (
-                  <FormControlLabel
-                    key={area}
-                    control={
-                      <Checkbox
-                        checked={areas.includes(area)}
-                        onChange={() => toggleArea(area)}
-                      />
-                    }
-                    label={ACCESS_AREA_LABELS[area]}
-                  />
-                ))}
-              </FormGroup>
+              {group.screens.map((screen) =>
+                screen.tabs.length === 1 ? (
+                  <FormGroup key={screen.label}>{renderTab(screen.tabs[0], screen.label)}</FormGroup>
+                ) : (
+                  <Box key={screen.label} sx={{ mt: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {screen.label}
+                    </Typography>
+                    <FormGroup sx={{ pl: 2 }}>{screen.tabs.map((tab) => renderTab(tab))}</FormGroup>
+                  </Box>
+                )
+              )}
             </Box>
           ))}
           {formError && (

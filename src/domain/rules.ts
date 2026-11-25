@@ -1,7 +1,9 @@
 export {
-  canAreaAction,
+  canAct,
   canOpenPath,
-  canSeeArea,
+  canSeeAnyTab,
+  canSeeScreen,
+  canSeeTab,
   firstVisibleRoute,
 } from "./rules/access-area";
 export { validateFinalize } from "./rules/validateFinalize";

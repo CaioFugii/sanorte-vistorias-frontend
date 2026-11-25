@@ -20,6 +20,5 @@ export { NewInspectionPage } from './NewInspectionPage';
 export { InspectionDetailPage } from './InspectionDetailPage';
 export { FillInspectionPage } from './FillInspectionPage';
 export { ManageInspectionPage } from './ManageInspectionPage';
-export { PendingsPage } from './PendingsPage';
 export { ReportTypesPage } from './ReportTypesPage';
 export { ReportFormPage } from './ReportFormPage';

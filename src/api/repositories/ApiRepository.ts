@@ -1,5 +1,6 @@
 import {
-  AccessArea,
+  AccessAction,
+  AccessTab,
   AccessProfile,
   AuthLoginResponse,
   Checklist,
@@ -229,7 +230,8 @@ export class ApiRepository {
   async createAccessProfile(input: {
     name: string;
     description?: string;
-    areas: AccessArea[];
+    areas: AccessTab[];
+    actions: AccessAction[];
   }): Promise<AccessProfile> {
     const response = await apiClient.post<AccessProfile>("/access-profiles", input);
     return response.data;
@@ -237,7 +239,7 @@ export class ApiRepository {
 
   async updateAccessProfile(
     id: string,
-    input: { name: string; description?: string; areas: AccessArea[] }
+    input: { name: string; description?: string; areas: AccessTab[]; actions: AccessAction[] }
   ): Promise<AccessProfile> {
     const response = await apiClient.put<AccessProfile>(`/access-profiles/${id}`, input);
     return response.data;

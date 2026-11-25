@@ -1,5 +1,6 @@
 import {
-  AccessArea,
+  AccessAction,
+  AccessTab,
   AccessProfile,
   Checklist,
   ChecklistItem,
@@ -97,11 +98,12 @@ export interface IAppRepository {
   createAccessProfile(input: {
     name: string;
     description?: string;
-    areas: AccessArea[];
+    areas: AccessTab[];
+    actions: AccessAction[];
   }): Promise<AccessProfile>;
   updateAccessProfile(
     id: string,
-    input: { name: string; description?: string; areas: AccessArea[] }
+    input: { name: string; description?: string; areas: AccessTab[]; actions: AccessAction[] }
   ): Promise<AccessProfile>;
   duplicateAccessProfile(id: string, name: string): Promise<AccessProfile>;
   deleteAccessProfile(id: string): Promise<void>;

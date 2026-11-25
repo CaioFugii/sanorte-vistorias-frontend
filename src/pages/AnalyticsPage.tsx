@@ -20,8 +20,8 @@ import { PageHeader } from "@/components/ui";
 import { MonthFilter } from "@/components/MonthFilter";
 import { currentMonthKey, monthKeyToRange, resolveMonthKey } from "@/domain/rules/monthPeriod";
 import { useAuthStore } from "@/stores/authStore";
-import { AccessArea, Contract, Team, UserRole, ModuleType } from "@/domain";
-import { canSeeArea, firstVisibleRoute } from "@/domain/rules/access-area";
+import { AccessTab, Contract, Team, UserRole, ModuleType } from "@/domain";
+import { canSeeScreen, canSeeTab, firstVisibleRoute } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import { QualityKpiStrip } from "@/pages/analytics/components/QualityKpiStrip";
@@ -112,6 +112,20 @@ const QUALITY_TAB_KEYS = [
 ] as const;
 
 type QualityTabKey = (typeof QUALITY_TAB_KEYS)[number];
+
+const QUALITY_TAB_ACCESS: Record<QualityTabKey, AccessTab> = {
+  ranking: AccessTab.QUALIDADE_DADOS_RANKING,
+  overview: AccessTab.QUALIDADE_DADOS_VISAO_GERAL,
+  services: AccessTab.QUALIDADE_DADOS_SERVICOS,
+  teams: AccessTab.QUALIDADE_DADOS_EQUIPES,
+  fiscais: AccessTab.QUALIDADE_DADOS_FISCAIS,
+  encarregados: AccessTab.QUALIDADE_DADOS_GESTAO,
+  nonconformities: AccessTab.QUALIDADE_DADOS_NAO_CONFORMIDADES,
+};
+
+function skipUnless<T>(enabled: boolean, load: () => Promise<T>): Promise<T | null> {
+  return enabled ? load() : Promise.resolve(null);
+}
 
 const QUALITY_TAB_LABELS: Record<QualityTabKey, string> = {
   ranking: "Ranking",
@@ -305,7 +319,7 @@ function mergeQualityByServiceResponses(
 
 export function AnalyticsPage(): JSX.Element {
   const { user, isAuthenticated } = useAuthStore();
-  const canAccessAnalytics = canSeeArea(user, AccessArea.QUALIDADE_DADOS);
+  const canAccessAnalytics = canSeeScreen(user, "qualidade_dados");
   const isAdmin = user?.role === UserRole.ADMIN;
   const availableContracts = user?.contracts ?? [];
   const [searchParams, setSearchParams] = useSearchParams();
@@ -320,6 +334,7 @@ export function AnalyticsPage(): JSX.Element {
     };
   }, []);
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceResponse | null>(null);
   const [currentMonthByService, setCurrentMonthByService] = useState<CurrentMonthByServiceResponse | null>(null);
@@ -384,14 +399,17 @@ export function AnalyticsPage(): JSX.Element {
   });
   const rankingRequestKeyRef = useRef<string | null>(null);
   const rankingDialogFromUrl = useMemo(() => parseRankingDialogParams(searchParams), [searchParams]);
-  const canSeeNonConformitiesTab =
-    user?.role === UserRole.ADMIN ||
-    user?.role === UserRole.GESTOR ||
-    user?.role === UserRole.SUPERVISOR;
+  const visibleTabsKey = QUALITY_TAB_KEYS.filter((key) => canSeeTab(user, QUALITY_TAB_ACCESS[key])).join(",");
   const visibleTabs = useMemo(
-    () => QUALITY_TAB_KEYS.filter((key) => key !== "nonconformities" || canSeeNonConformitiesTab),
-    [canSeeNonConformitiesTab]
+    () => (visibleTabsKey ? (visibleTabsKey.split(",") as QualityTabKey[]) : []),
+    [visibleTabsKey]
   );
+  const showsRanking = visibleTabs.includes("ranking");
+  const showsQualityByService = visibleTabs.includes("overview") || visibleTabs.includes("services");
+  const showsServices = visibleTabs.includes("services");
+  const showsFiscais = visibleTabs.includes("fiscais");
+  const showsForemen = visibleTabs.includes("encarregados");
+  const showsNonConformities = visibleTabs.includes("nonconformities");
   const activeTab = useMemo(() => {
     const tabParam = searchParams.get("tab");
     const index = visibleTabs.indexOf(tabParam as QualityTabKey);
@@ -431,18 +449,22 @@ export function AnalyticsPage(): JSX.Element {
     try {
       const qualityRange = getFixedQualityRange();
       const [qualityResponses, currentResponse, summaryResponse] = await Promise.all([
-        Promise.all(
-          QUALITY_MODULES.map((module) =>
-            appRepository.getDashboardQualityByService({
-              ...qualityRange,
-              contractId: contractId || undefined,
-              module,
-            })
+        skipUnless(showsQualityByService, () =>
+          Promise.all(
+            QUALITY_MODULES.map((module) =>
+              appRepository.getDashboardQualityByService({
+                ...qualityRange,
+                contractId: contractId || undefined,
+                module,
+              })
+            )
           )
         ),
-        appRepository.getDashboardCurrentMonthByService({
-          contractId: contractId || undefined,
-        }),
+        skipUnless(showsServices, () =>
+          appRepository.getDashboardCurrentMonthByService({
+            contractId: contractId || undefined,
+          })
+        ),
         appRepository.getDashboardQualitySummary({
           from: period.from,
           to: period.to,
@@ -451,29 +473,38 @@ export function AnalyticsPage(): JSX.Element {
       ]);
       const [teamRanking, foremenRankingResult, supervisorsRankingResult, coordinatorsRankingResult] =
         await Promise.all([
-        appRepository.getDashboardTeamRanking({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardQualityForemenRanking({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardQualityFieldSupervisorsRanking({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
-        appRepository.getDashboardQualityCoordinatorsRanking({
-          from: period.from,
-          to: period.to,
-          contractId: contractId || undefined,
-        }),
+        skipUnless(showsRanking, () =>
+          appRepository.getDashboardTeamRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          })
+        ),
+        skipUnless(showsForemen, () =>
+          appRepository.getDashboardQualityForemenRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          })
+        ),
+        skipUnless(showsForemen, () =>
+          appRepository.getDashboardQualityFieldSupervisorsRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          })
+        ),
+        skipUnless(showsForemen, () =>
+          appRepository.getDashboardQualityCoordinatorsRanking({
+            from: period.from,
+            to: period.to,
+            contractId: contractId || undefined,
+          })
+        ),
       ]);
-      const qualityRes =
-        qualityResponses.length > 1
+      const qualityRes = !qualityResponses
+        ? null
+        : qualityResponses.length > 1
           ? mergeQualityByServiceResponses(qualityResponses)
           : qualityResponses[0];
       setQualityByService(qualityRes ?? null);
@@ -483,7 +514,7 @@ export function AnalyticsPage(): JSX.Element {
       setSupervisorsRanking(supervisorsRankingResult);
       setCoordinatorsRanking(coordinatorsRankingResult);
       setTeamRankingQuality(
-        teamRanking.map((item) => ({
+        (teamRanking ?? []).map((item) => ({
           teamId: item.teamId,
           teamName: item.teamName,
           averagePercent: item.averagePercent,
@@ -495,6 +526,7 @@ export function AnalyticsPage(): JSX.Element {
           investmentWorksPercent: item.investmentWorksPercent,
         }))
       );
+      setDataLoaded(true);
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const message =
@@ -505,7 +537,7 @@ export function AnalyticsPage(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  }, [globalPeriod]);
+  }, [globalPeriod, showsForemen, showsQualityByService, showsRanking, showsServices]);
 
   const loadTeamsOptions = useCallback(async (): Promise<Team[]> => {
     try {
@@ -587,7 +619,7 @@ export function AnalyticsPage(): JSX.Element {
   }, [canAccessAnalytics, globalPeriod, selectedContractId, loadAnalyticsData]);
 
   useEffect(() => {
-    if (!canAccessAnalytics) return;
+    if (!canAccessAnalytics || !showsFiscais) return;
     let cancelled = false;
     setInspectorsLoading(true);
     setInspectorsError(null);
@@ -613,7 +645,7 @@ export function AnalyticsPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [canAccessAnalytics, globalPeriod, inspectorsModule, selectedContractId]);
+  }, [canAccessAnalytics, showsFiscais, globalPeriod, inspectorsModule, selectedContractId]);
 
   useEffect(() => {
     if (!canAccessAnalytics) return;
@@ -637,7 +669,7 @@ export function AnalyticsPage(): JSX.Element {
   }, [canAccessAnalytics, initialTeamPerformanceFilters, selectedContractId, globalPeriod, loadTeamsOptions]);
 
   useEffect(() => {
-    if (!canAccessAnalytics || !canSeeNonConformitiesTab) return;
+    if (!canAccessAnalytics || !showsNonConformities) return;
     let cancelled = false;
     const loadQualityNonConformities = async () => {
       setQualityNonConformitiesLoading(true);
@@ -666,14 +698,14 @@ export function AnalyticsPage(): JSX.Element {
     };
   }, [
     canAccessAnalytics,
-    canSeeNonConformitiesTab,
+    showsNonConformities,
     globalPeriod,
     nonConformitiesTeamId,
     selectedContractId,
   ]);
 
   useEffect(() => {
-    if (!canAccessAnalytics || !rankingInspectionsOpen || !rankingInspectionsMeta.teamId) {
+    if (!canAccessAnalytics || !showsRanking || !rankingInspectionsOpen || !rankingInspectionsMeta.teamId) {
       setRankingNonConformities(null);
       setRankingNonConformitiesError(null);
       setRankingNonConformitiesLoading(false);
@@ -707,6 +739,7 @@ export function AnalyticsPage(): JSX.Element {
     };
   }, [
     canAccessAnalytics,
+    showsRanking,
     globalPeriod,
     rankingInspectionsMeta.teamId,
     rankingInspectionsOpen,
@@ -867,7 +900,7 @@ export function AnalyticsPage(): JSX.Element {
   };
 
   useEffect(() => {
-    if (!canAccessAnalytics) return;
+    if (!canAccessAnalytics || !showsRanking) return;
     if (!rankingDialogFromUrl) {
       rankingRequestKeyRef.current = null;
       setRankingInspectionsOpen(false);
@@ -893,6 +926,7 @@ export function AnalyticsPage(): JSX.Element {
     );
   }, [
     canAccessAnalytics,
+    showsRanking,
     rankingDialogFromUrl,
     globalPeriod.from,
     globalPeriod.to,
@@ -928,7 +962,7 @@ export function AnalyticsPage(): JSX.Element {
       { replace: true }
     );
   };
-  const hasCoreAnalyticsData = Boolean(qualityByService && currentMonthByService);
+  const hasCoreAnalyticsData = dataLoaded;
   const isDateFiltered = Boolean(globalPeriod.from && globalPeriod.to);
   const dateFilterLabel = `${formatDateLabel(globalPeriod.from)} a ${formatDateLabel(globalPeriod.to)}`;
   const fixedQualityRange = getFixedQualityRange();

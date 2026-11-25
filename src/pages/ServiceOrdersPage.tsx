@@ -30,8 +30,19 @@ import { CadastrosTab } from "@/pages/control-panel/CadastrosTab";
 import { InvestmentWorksTab } from "@/pages/control-panel/InvestmentWorksTab";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
-import { AccessArea, Contract, PaginatedResponse, ServiceOrder, ServiceOrderImportResult, ServiceOrderStageSummary, UserRole } from "@/domain";
-import { canAreaAction, canSeeObrasInvTab } from "@/domain/rules/access-area";
+import {
+  AccessAction,
+  AccessTab,
+  Contract,
+  PENDENCIAS_TABS,
+  PaginatedResponse,
+  ServiceOrder,
+  ServiceOrderImportResult,
+  ServiceOrderStageSummary,
+  UserRole,
+} from "@/domain";
+import { canAct, canSeeAnyTab, canSeeTab, resolveVisibleTab } from "@/domain/rules/access-area";
+import { PendingsTab } from "@/pages/control-panel/PendingsTab";
 import { ServiceOrderImportHistory } from "@/pages/ServiceOrderImportHistory";
 import { ListPagination } from "@/components/ListPagination";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -717,9 +728,10 @@ interface ImportacaoTabProps {
   contracts: Array<{ id: string; name: string }>;
   canUpload: boolean;
   canDelete: boolean;
+  canEdit: boolean;
 }
 
-function ImportacaoTab({ contracts, canUpload, canDelete }: ImportacaoTabProps): JSX.Element {
+function ImportacaoTab({ contracts, canUpload, canDelete, canEdit }: ImportacaoTabProps): JSX.Element {
   const [importing, setImporting] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState("");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -830,61 +842,60 @@ function ImportacaoTab({ contracts, canUpload, canDelete }: ImportacaoTabProps):
           )}
         </Alert>
       )}
-      <ServiceOrderImportHistory refreshKey={historyRefresh} canDelete={canDelete} />
+      <ServiceOrderImportHistory refreshKey={historyRefresh} canDelete={canDelete} canEdit={canEdit} />
     </Box>
   );
 }
 
-type PanelTab = "todos" | "obras" | "vistorias" | "historico";
+type PanelTab = "todos" | "obras" | "vistorias" | "historico" | "pendencias";
 
-function panelTabFromSearch(
-  requested: string | null,
-  canSeeInspections: boolean,
-  canViewHistory: boolean,
-  canSeeObras: boolean
-): PanelTab {
-  if ((requested === "todos" || requested === "global" || !requested) && true) return "todos";
-  if (requested === "obras" && canSeeObras) return "obras";
-  if (requested === "vistorias" && canSeeInspections) return "vistorias";
-  if ((requested === "historico" || requested === "cadastros") && canViewHistory) return "historico";
-  return "todos";
+const PANEL_TABS_IN_ORDER: readonly PanelTab[] = ["todos", "obras", "vistorias", "historico", "pendencias"];
+
+const PANEL_TAB_ACCESS: Record<PanelTab, readonly AccessTab[]> = {
+  todos: [AccessTab.PAINEL_GLOBAL],
+  obras: [AccessTab.PAINEL_OBRAS],
+  vistorias: [AccessTab.PAINEL_VISTORIAS],
+  historico: [AccessTab.PAINEL_CADASTROS],
+  pendencias: PENDENCIAS_TABS,
+};
+
+const PANEL_TAB_LABELS: Record<PanelTab, string> = {
+  todos: "Global",
+  obras: "Obras Inv",
+  vistorias: "Vistorias",
+  historico: "Cadastros",
+  pendencias: "Pendências",
+};
+
+const PANEL_TAB_ALIASES: Record<string, PanelTab> = { global: "todos", cadastros: "historico" };
+
+function panelTabSearch(tab: PanelTab): URLSearchParams {
+  const params = new URLSearchParams();
+  if (tab !== "todos") params.set("tab", tab);
+  return params;
 }
 
 export const ServiceOrdersPage = (): JSX.Element => {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
   const isAdmin = user?.role === UserRole.ADMIN;
-  const canImport = canAreaAction(user, AccessArea.QUALIDADE_PAINEL, [
-    UserRole.ADMIN,
-    UserRole.GESTOR,
-    UserRole.SUPERVISOR,
-  ]);
-  const canDeleteOrders = canAreaAction(user, AccessArea.QUALIDADE_PAINEL, [UserRole.ADMIN]);
-  const canViewHistory = isAdmin || canImport;
-  const canSeeInspections = isAdmin || canImport;
-  const canSeeObras = canSeeObrasInvTab(user);
-  const tab = panelTabFromSearch(
-    searchParams.get("tab"),
-    canSeeInspections,
-    canViewHistory,
-    canSeeObras
+  const canImport = canAct(user, AccessAction.PAINEL_CADASTROS_IMPORTAR);
+  const canDeleteImported = canAct(user, AccessAction.PAINEL_CADASTROS_EXCLUIR);
+  const canReprocess = canAct(user, AccessAction.PAINEL_CADASTROS_EDITAR);
+  const canDeleteOrders = canAct(user, AccessAction.PAINEL_GLOBAL_EXCLUIR);
+  const canSeeObras = canSeeTab(user, AccessTab.PAINEL_OBRAS);
+  const visibleTabs = PANEL_TABS_IN_ORDER.filter((candidate) =>
+    canSeeAnyTab(user, PANEL_TAB_ACCESS[candidate])
   );
+  const rawTab = searchParams.get("tab") ?? "todos";
+  const requestedTab = PANEL_TAB_ALIASES[rawTab] ?? rawTab;
+  const tab = resolveVisibleTab(requestedTab, visibleTabs);
   const [allContracts, setAllContracts] = useState<Contract[]>([]);
   const availableContracts = user?.contracts ?? [];
   const contractsForFilters = isAdmin ? allContracts : availableContracts;
 
   const selectTab = (next: PanelTab) => {
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.delete("page");
-        params.delete("limit");
-        if (next === "todos") params.delete("tab");
-        else params.set("tab", next);
-        return params;
-      },
-      { replace: true }
-    );
+    setSearchParams(panelTabSearch(next), { replace: true });
   };
 
   useEffect(() => {
@@ -908,25 +919,9 @@ export const ServiceOrdersPage = (): JSX.Element => {
   }, [isAdmin]);
 
   useEffect(() => {
-    const requested = searchParams.get("tab");
-    const allowed =
-      requested === "vistorias"
-        ? canSeeInspections
-        : requested === "historico" || requested === "cadastros"
-          ? canViewHistory
-          : requested === "obras"
-            ? canSeeObras
-            : true;
-    if (!requested || allowed) return;
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.delete("tab");
-        return params;
-      },
-      { replace: true }
-    );
-  }, [canSeeInspections, canSeeObras, canViewHistory, searchParams, setSearchParams]);
+    if (!tab || tab === requestedTab) return;
+    setSearchParams(panelTabSearch(tab), { replace: true });
+  }, [requestedTab, setSearchParams, tab]);
 
   return (
     <Box>
@@ -943,71 +938,45 @@ export const ServiceOrdersPage = (): JSX.Element => {
       )}
 
       <DataCard>
-        <Tabs value={tab} onChange={(_, value: PanelTab) => selectTab(value)} sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}>
-          <Tab label="Global" value="todos" id="service-orders-tab-todos" aria-controls="service-orders-panel-todos" />
-          {canSeeObras && (
-            <Tab label="Obras Inv" value="obras" id="service-orders-tab-obras" aria-controls="service-orders-panel-obras" />
-          )}
-          {canSeeInspections && (
+        <Tabs
+          value={tab ?? false}
+          onChange={(_, value: PanelTab) => selectTab(value)}
+          sx={{ borderBottom: 1, borderColor: "divider", px: 1 }}
+        >
+          {visibleTabs.map((value) => (
             <Tab
-              label="Vistorias"
-              value="vistorias"
-              id="service-orders-tab-vistorias"
-              aria-controls="service-orders-panel-vistorias"
+              key={value}
+              label={PANEL_TAB_LABELS[value]}
+              value={value}
+              id={`service-orders-tab-${value}`}
+              aria-controls={`service-orders-panel-${value}`}
             />
-          )}
-          {canViewHistory && (
-            <Tab
-              label="Cadastros"
-              value="historico"
-              id="service-orders-tab-historico"
-              aria-controls="service-orders-panel-historico"
-            />
-          )}
+          ))}
         </Tabs>
 
         <Box sx={{ p: 2 }}>
-          <div role="tabpanel" hidden={tab !== "todos"} id="service-orders-panel-todos" aria-labelledby="service-orders-tab-todos">
-            {tab === "todos" && (
-              <ListagemTab contracts={contractsForFilters} isAdmin={canDeleteOrders} />
-            )}
-          </div>
-          {canSeeObras && (
-            <div role="tabpanel" hidden={tab !== "obras"} id="service-orders-panel-obras" aria-labelledby="service-orders-tab-obras">
+          {tab && (
+            <div role="tabpanel" id={`service-orders-panel-${tab}`} aria-labelledby={`service-orders-tab-${tab}`}>
+              {tab === "todos" && <ListagemTab contracts={contractsForFilters} isAdmin={canDeleteOrders} />}
               {tab === "obras" && <InvestmentWorksTab contracts={contractsForFilters} />}
-            </div>
-          )}
-          {canSeeInspections && (
-            <div
-              role="tabpanel"
-              hidden={tab !== "vistorias"}
-              id="service-orders-panel-vistorias"
-              aria-labelledby="service-orders-tab-vistorias"
-            >
               {tab === "vistorias" && <QualityInspectionsTab />}
-            </div>
-          )}
-          {canViewHistory && (
-            <div
-              role="tabpanel"
-              hidden={tab !== "historico"}
-              id="service-orders-panel-historico"
-              aria-labelledby="service-orders-tab-historico"
-            >
               {tab === "historico" && (
                 <CadastrosTab
                   contracts={availableContracts}
                   obrasContracts={contractsForFilters}
                   showObras={canSeeObras}
+                  canUpload={canImport}
                   left={
                     <ImportacaoTab
                       contracts={availableContracts}
                       canUpload={canImport}
-                      canDelete={canDeleteOrders}
+                      canDelete={canDeleteImported}
+                      canEdit={canReprocess}
                     />
                   }
                 />
               )}
+              {tab === "pendencias" && <PendingsTab />}
             </div>
           )}
         </Box>

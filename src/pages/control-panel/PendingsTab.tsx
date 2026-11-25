@@ -25,8 +25,8 @@ import { downloadBlob } from "@/utils/downloadBlob";
 import { MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Contract, InspectionListItem, Team } from "@/domain";
-import { AccessArea, InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
-import { canAreaAction } from "@/domain/rules/access-area";
+import { AccessTab, InspectionStatus, ModuleType, UserRole, InspectionExcelLayout } from "@/domain/enums";
+import { canSeeTab, resolveVisibleTab } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { useListQueryState } from "@/hooks/useListQueryState";
@@ -37,7 +37,6 @@ import { PercentBadge } from "@/components/PercentBadge";
 import { ListPagination } from "@/components/ListPagination";
 import { getInspectionModuleDisplayLabel, getModuleLabel } from "@/utils/moduleLabel";
 import {
-  PageHeader,
   SectionTable,
   TableActionsCell,
   TableActionsGroup,
@@ -54,7 +53,36 @@ const MODULE_OPTIONS: ModuleType[] = [
   ModuleType.SEGURANCA_TRABALHO,
 ];
 
+type PendingSubTab = "ativas" | "aprovacao" | "resolvidas";
+
+const PENDING_SUB_TABS: ReadonlyArray<{
+  value: PendingSubTab;
+  label: string;
+  access: AccessTab;
+  status: InspectionStatus;
+}> = [
+  {
+    value: "ativas",
+    label: "Pendências ativas",
+    access: AccessTab.PAINEL_PENDENCIAS_ATIVAS,
+    status: InspectionStatus.PENDENTE_AJUSTE,
+  },
+  {
+    value: "aprovacao",
+    label: "Aguardando Aprovação",
+    access: AccessTab.PAINEL_PENDENCIAS_APROVACAO,
+    status: InspectionStatus.AGUARDANDO_APROVACAO,
+  },
+  {
+    value: "resolvidas",
+    label: "Resolvidas",
+    access: AccessTab.PAINEL_PENDENCIAS_RESOLVIDAS,
+    status: InspectionStatus.RESOLVIDA,
+  },
+];
+
 const PENDINGS_LIST_QUERY = {
+  sub: "",
   page: "1",
   limit: String(DEFAULT_LIMIT),
   module: "",
@@ -68,28 +96,25 @@ const PENDINGS_LIST_QUERY = {
   inspectionTo: "",
 };
 
-export const PendingsPage = (): JSX.Element => {
+export const PendingsTab = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const detailFrom = `${location.pathname}${location.search}`;
   const { user } = useAuthStore();
   const isAdmin = user?.role === UserRole.ADMIN;
-  const canReviewResolutions = canAreaAction(user, AccessArea.QUALIDADE_PENDENCIAS, [
-    UserRole.GESTOR,
-    UserRole.ADMIN,
-  ]);
-  const [pendingTab, setPendingTab] = useState<"ativas" | "aprovacao" | "resolvidas">("ativas");
-  const listStatus =
-    canReviewResolutions && pendingTab === "aprovacao"
-      ? InspectionStatus.AGUARDANDO_APROVACAO
-      : canReviewResolutions && pendingTab === "resolvidas"
-        ? InspectionStatus.RESOLVIDA
-        : InspectionStatus.PENDENTE_AJUSTE;
+  const visibleSubTabs = PENDING_SUB_TABS.filter((sub) => canSeeTab(user, sub.access));
   const availableContracts = user?.contracts ?? [];
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
   const contractsForFilters = isAdmin ? adminContracts : availableContracts;
   const { values, setFilter, setValues, reset, page, limit, setPage, setLimit } =
     useListQueryState(PENDINGS_LIST_QUERY);
+  const pendingTab =
+    resolveVisibleTab(
+      values.sub,
+      visibleSubTabs.map((sub) => sub.value)
+    ) ?? "ativas";
+  const listStatus =
+    PENDING_SUB_TABS.find((sub) => sub.value === pendingTab)?.status ?? InspectionStatus.PENDENTE_AJUSTE;
   const selectedModule = (values.module as ModuleType | "") || "";
   const selectedContractId = values.contractId;
   const selectedTeamId = values.teamId;
@@ -308,6 +333,7 @@ export const PendingsPage = (): JSX.Element => {
 
   const handleClearFilters = () => {
     reset();
+    setValues({ sub: pendingTab });
   };
 
   if (loading && !meta) {
@@ -320,12 +346,6 @@ export const PendingsPage = (): JSX.Element => {
 
   return (
     <Box>
-      <PageHeader
-        eyebrow="Controle de qualidade"
-        title="Pendências de Ajuste"
-        subtitle="Resolva os itens não conformes nas vistorias para concluir o ciclo de qualidade."
-      />
-
       <Box display="flex" gap={2} alignItems="center" mb={2} flexWrap="wrap">
         <TextField
           size="small"
@@ -441,29 +461,22 @@ export const PendingsPage = (): JSX.Element => {
         <ExportExcelButton onExport={handleExportPendings} disabled={loading} />
       </Box>
 
-      {canReviewResolutions && (
+      {visibleSubTabs.length > 1 && (
         <Tabs
           value={pendingTab}
-          onChange={(_event, value: "ativas" | "aprovacao" | "resolvidas") => {
-            setPendingTab(value);
-            setPage(1);
+          onChange={(_event, value: PendingSubTab) => {
+            setValues({ sub: value, page: "1" });
           }}
           sx={{ mb: 2 }}
         >
-          <Tab value="ativas" label="Pendências ativas" />
-          <Tab value="aprovacao" label="Aguardando Aprovação" />
-          <Tab value="resolvidas" label="Resolvidas" />
+          {visibleSubTabs.map((sub) => (
+            <Tab key={sub.value} value={sub.value} label={sub.label} />
+          ))}
         </Tabs>
       )}
 
       <SectionTable
-        title={
-          pendingTab === "aprovacao" && canReviewResolutions
-            ? "Aguardando Aprovação"
-            : pendingTab === "resolvidas" && canReviewResolutions
-              ? "Resolvidas"
-              : "Pendências ativas"
-        }
+        title={PENDING_SUB_TABS.find((sub) => sub.value === pendingTab)?.label ?? "Pendências ativas"}
       >
         <Table>
           <TableHead>
@@ -575,7 +588,7 @@ export const PendingsPage = (): JSX.Element => {
                       <TableActionsGroup>
                         <TableViewButton
                           label={
-                            pendingTab === "aprovacao" && canReviewResolutions
+                            pendingTab === "aprovacao"
                               ? "Ver retorno"
                               : user?.role === UserRole.SUPERVISOR
                                 ? "Ver e resolver"

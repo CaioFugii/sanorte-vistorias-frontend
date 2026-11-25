@@ -18,7 +18,9 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChecklistRenderer } from "@/components/ChecklistRenderer";
 import { Checklist, Evidence, Inspection, InspectionItem, Signature, Team } from "@/domain";
-import { UserRole } from "@/domain/enums";
+import { AccessAction, UserRole } from "@/domain/enums";
+import { canAct } from "@/domain/rules/access-area";
+import { inspectionEditTarget } from "@/domain/rules/inspectionPermissions";
 import { MAX_GENERAL_INSPECTION_PHOTOS } from "@/domain/photoLimits";
 import { appRepository } from "@/repositories/AppRepository";
 import { prepareImageForUpload } from "@/utils/prepareImageForUpload";
@@ -71,12 +73,18 @@ export const ManageInspectionPage = (): JSX.Element => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAllowed =
-    user?.role === UserRole.ADMIN || user?.role === UserRole.GESTOR;
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.GESTOR ||
+    canAct(user, AccessAction.PAINEL_VISTORIAS_EDITAR);
+
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
+    const detailPath = `/inspections/${externalId}`;
     const run = async () => {
       if (!isAllowed) {
-        navigate("/inspections");
+        navigate(detailPath, { replace: true, state: { from: detailBackTarget } });
         return;
       }
       setLoading(true);
@@ -88,6 +96,10 @@ export const ManageInspectionPage = (): JSX.Element => {
         setTeams(loadedTeams);
         if (!data) {
           navigate("/inspections");
+          return;
+        }
+        if (inspectionEditTarget(userRef.current, data) !== "manage") {
+          navigate(detailPath, { replace: true, state: { from: detailBackTarget } });
           return;
         }
         setInspection(data);
@@ -109,7 +121,7 @@ export const ManageInspectionPage = (): JSX.Element => {
       }
     };
     run();
-  }, [externalId, isAllowed, navigate]);
+  }, [externalId, isAllowed, navigate, detailBackTarget]);
 
   const loadInspection = async () => {
     if (!externalId || !isAllowed) return;

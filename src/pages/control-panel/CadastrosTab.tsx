@@ -21,11 +21,13 @@ export function CadastrosTab({
   contracts,
   obrasContracts = contracts,
   showObras,
+  canUpload,
   left,
 }: {
   contracts: Array<Pick<Contract, "id" | "name">>;
   obrasContracts?: Array<Pick<Contract, "id" | "name">>;
   showObras: boolean;
+  canUpload: boolean;
   left: ReactNode;
 }): JSX.Element {
   const [contractId, setContractId] = useState(obrasContracts.length === 1 ? obrasContracts[0].id : "");
@@ -50,56 +52,60 @@ export function CadastrosTab({
           <Typography variant="h6" component="h2" gutterBottom>
             Cadastro Obras Inv
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
-            Envie a planilha de Obras Inv (.xlsx ou .xls). Escolha o contrato antes. Na tela seguinte, marque as
-            Descrições que devem entrar.
-          </Typography>
-          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap" mb={2}>
-            <FormControl size="small" sx={{ minWidth: 280, flex: "1 1 280px", maxWidth: 420 }}>
-              <InputLabel>Contrato</InputLabel>
-              <Select value={contractId} label="Contrato" onChange={(event) => setContractId(event.target.value)}>
-                {obrasContracts.map((contract) => (
-                  <MenuItem key={contract.id} value={contract.id}>
-                    {contract.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              component="label"
-              startIcon={previewing ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
-              disabled={!contractId || previewing || saving}
-            >
-              {previewing ? "Lendo planilha..." : "Enviar planilha"}
-              <input
-                hidden
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(event) => {
-                  const next = event.target.files?.[0] ?? null;
-                  event.target.value = "";
-                  if (!next) return;
-                  setFile(next);
-                  setError(null);
-                  setResult(null);
-                  setPreviewing(true);
-                  void appRepository
-                    .previewInvestmentWorkImport(next)
-                    .then(setPreview)
-                    .catch((cause: unknown) => {
-                      setFile(null);
-                      setError(errorText(cause, "Não foi possível ler a planilha."));
-                    })
-                    .finally(() => setPreviewing(false));
-                }}
-              />
-            </Button>
-          </Box>
-          {obrasContracts.length === 0 && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Nenhum contrato disponível no seu perfil. Solicite o vínculo de contrato para cadastrar obras.
-            </Alert>
+          {canUpload && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
+                Envie a planilha de Obras Inv (.xlsx ou .xls). Escolha o contrato antes. Na tela seguinte, marque as
+                Descrições que devem entrar.
+              </Typography>
+              <Box display="flex" gap={2} alignItems="center" flexWrap="wrap" mb={2}>
+                <FormControl size="small" sx={{ minWidth: 280, flex: "1 1 280px", maxWidth: 420 }}>
+                  <InputLabel>Contrato</InputLabel>
+                  <Select value={contractId} label="Contrato" onChange={(event) => setContractId(event.target.value)}>
+                    {obrasContracts.map((contract) => (
+                      <MenuItem key={contract.id} value={contract.id}>
+                        {contract.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  component="label"
+                  startIcon={previewing ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
+                  disabled={!contractId || previewing || saving}
+                >
+                  {previewing ? "Lendo planilha..." : "Enviar planilha"}
+                  <input
+                    hidden
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(event) => {
+                      const next = event.target.files?.[0] ?? null;
+                      event.target.value = "";
+                      if (!next) return;
+                      setFile(next);
+                      setError(null);
+                      setResult(null);
+                      setPreviewing(true);
+                      void appRepository
+                        .previewInvestmentWorkImport(next)
+                        .then(setPreview)
+                        .catch((cause: unknown) => {
+                          setFile(null);
+                          setError(errorText(cause, "Não foi possível ler a planilha."));
+                        })
+                        .finally(() => setPreviewing(false));
+                    }}
+                  />
+                </Button>
+              </Box>
+              {obrasContracts.length === 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Nenhum contrato disponível no seu perfil. Solicite o vínculo de contrato para cadastrar obras.
+                </Alert>
+              )}
+            </>
           )}
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>

@@ -19,8 +19,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ListPagination } from "@/components/ListPagination";
 import { SectionTable, TableActionsCell, TableActionsGroup, TableActionsHeaderCell, TableDeleteButton, TableEditButton, TableViewButton } from "@/components/ui";
 import { useListQueryState } from "@/hooks/useListQueryState";
-import { AccessArea, Contract, InvestmentWork, InvestmentWorkOrigin, InvestmentWorkSummary, UserRole } from "@/domain";
-import { canAreaAction } from "@/domain/rules/access-area";
+import { AccessAction, Contract, InvestmentWork, InvestmentWorkOrigin, InvestmentWorkSummary } from "@/domain";
+import { canAct } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
 import { useAuthStore } from "@/stores/authStore";
 import { InvestmentWorkFormDialog } from "./InvestmentWorkFormDialog";
@@ -82,11 +82,9 @@ export function InvestmentWorksTab({
 }): JSX.Element {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const canManage = canAreaAction(user, AccessArea.ENGENHARIA_OBRAS, [
-    UserRole.ADMIN,
-    UserRole.GESTOR,
-    UserRole.SUPERVISOR,
-  ]);
+  const canCreate = canAct(user, AccessAction.PAINEL_OBRAS_CRIAR);
+  const canEdit = canAct(user, AccessAction.PAINEL_OBRAS_EDITAR);
+  const canDelete = canAct(user, AccessAction.PAINEL_OBRAS_EXCLUIR);
   const currentMonth = saoPauloMonth();
   const defaultContract = contracts.length === 1 ? contracts[0].id : "";
   const defaults = useMemo(
@@ -199,7 +197,7 @@ export function InvestmentWorksTab({
           </Select>
         </FormControl>
         <Button onClick={() => { setAddress(""); setDistrict(""); setPdaTeam(""); reset(); }}>Limpar filtros</Button>
-        {canManage && (
+        {canCreate && (
           <Button variant="contained" startIcon={<Add />} onClick={() => { setEditing(null); setFormOpen(true); }}>
             Nova Obra
           </Button>
@@ -240,8 +238,8 @@ export function InvestmentWorksTab({
                   <TableActionsCell>
                     <TableActionsGroup>
                       <TableViewButton label="Acompanhar" onClick={() => setMonitoringId(row.id)} />
-                      {canManage && <TableEditButton label="Editar" onClick={() => { setEditing(row); setFormOpen(true); }} />}
-                      {canManage && <TableDeleteButton label="Excluir" onClick={() => setDeleting(row)} />}
+                      {canEdit && <TableEditButton label="Editar" onClick={() => { setEditing(row); setFormOpen(true); }} />}
+                      {canDelete && <TableDeleteButton label="Excluir" onClick={() => setDeleting(row)} />}
                     </TableActionsGroup>
                   </TableActionsCell>
                 </TableRow>

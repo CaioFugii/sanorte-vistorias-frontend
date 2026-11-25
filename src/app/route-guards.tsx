@@ -1,9 +1,9 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import { useAuthStore } from "@/stores/authStore";
-import { AccessArea, UserRole } from "@/domain/enums";
+import { AccessTab, UserRole } from "@/domain/enums";
 import { User } from "@/domain/types";
-import { canSeeArea, canSeeObrasInvTab, firstVisibleRoute } from "@/domain/rules/access-area";
+import { canSeeAnyTab, firstVisibleRoute } from "@/domain/rules/access-area";
 
 function homeForCurrentUser(): string {
   return firstVisibleRoute(useAuthStore.getState().user) ?? "/dashboard";
@@ -33,35 +33,15 @@ export function ProtectedLayout(): JSX.Element {
   );
 }
 
-export function RequireArea({
+export function RequireAnyTab({
   children,
-  area,
+  tabs,
 }: {
   children: JSX.Element;
-  area: AccessArea;
+  tabs: readonly AccessTab[];
 }): JSX.Element | null {
   const user = useAuthStore((state) => state.user);
-  return guard(user, (current) => canSeeArea(current, area), children);
-}
-
-export function RequireObrasInvTab({
-  children,
-}: {
-  children: JSX.Element;
-}): JSX.Element | null {
-  const user = useAuthStore((state) => state.user);
-  return guard(user, (current) => canSeeObrasInvTab(current), children);
-}
-
-export function RequireAnyArea({
-  children,
-  areas,
-}: {
-  children: JSX.Element;
-  areas: AccessArea[];
-}): JSX.Element | null {
-  const user = useAuthStore((state) => state.user);
-  return guard(user, (current) => areas.some((area) => canSeeArea(current, area)), children);
+  return guard(user, (current) => canSeeAnyTab(current, tabs), children);
 }
 
 export function RequireAdmin({ children }: { children: JSX.Element }): JSX.Element | null {
@@ -85,4 +65,12 @@ export function RoleAwareHomeRedirect(): JSX.Element | null {
   const target = firstVisibleRoute(user);
   if (!user?.role || !target) return null;
   return <Navigate to={target} replace />;
+}
+
+export function PendingsRedirect(): JSX.Element {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.delete("sub");
+  params.set("tab", "pendencias");
+  return <Navigate to={`/service-orders?${params.toString()}`} replace />;
 }

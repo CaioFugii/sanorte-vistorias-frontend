@@ -38,8 +38,8 @@ import {
 } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AccessArea, UserRole } from "@/domain/enums";
-import { canSeeArea } from "@/domain/rules/access-area";
+import { UserRole } from "@/domain/enums";
+import { AccessScreen, canSeeScreen } from "@/domain/rules/access-area";
 import type { User } from "@/domain/types";
 import { InspectionNoticeHost } from "@/components/InspectionNoticeHost";
 import { useAuthStore } from "@/stores/authStore";
@@ -55,7 +55,7 @@ interface MenuLeaf {
   path: string;
   label: string;
   icon: JSX.Element;
-  area?: AccessArea;
+  screen?: AccessScreen;
   adminOnly?: boolean;
 }
 
@@ -66,42 +66,41 @@ interface MenuGroup {
   path?: string;
 }
 
-const menuBlueprint: Array<MenuGroup & { area?: AccessArea }> = [
-    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard", area: AccessArea.GESTAO },
+const menuBlueprint: Array<MenuGroup & { screen?: AccessScreen }> = [
+    { label: "Gestão", icon: <Dashboard fontSize="small" />, path: "/dashboard", screen: "gestao" },
     {
       label: "Qualidade",
       icon: <Checklist fontSize="small" />,
       items: [
-        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" />, area: AccessArea.QUALIDADE_DADOS },
-        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" />, area: AccessArea.QUALIDADE_PAINEL },
-        { path: "/pendings", label: "Pendências", icon: <Warning fontSize="small" />, area: AccessArea.QUALIDADE_PENDENCIAS },
+        { path: "/quality/analytics", label: "Dados", icon: <BarChart fontSize="small" />, screen: "qualidade_dados" },
+        { path: "/service-orders", label: "Painel de Controle", icon: <Assignment fontSize="small" />, screen: "painel" },
       ],
     },
     {
       label: "Segurança do Trabalho",
       icon: <Warning fontSize="small" />,
       items: [
-        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" />, area: AccessArea.SEGURANCA_DADOS },
+        { path: "/safety/analytics", label: "Dados", icon: <BarChart fontSize="small" />, screen: "seguranca_dados" },
       ],
     },
     {
       label: "Engenharia",
       icon: <Engineering fontSize="small" />,
       items: [
-        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" />, area: AccessArea.ENGENHARIA_RELATORIOS },
+        { path: "/reports/new", label: "Relatórios", icon: <Description fontSize="small" />, screen: "relatorios" },
       ],
     },
     {
       label: "Minhas Vistorias",
       icon: <Assignment fontSize="small" />,
       path: "/inspections/mine",
-      area: AccessArea.CAMPO_MINHAS,
+      screen: "campo_minhas",
     },
     {
       label: "Nova Vistoria",
       icon: <Assignment fontSize="small" />,
       path: "/inspections/new",
-      area: AccessArea.CAMPO_NOVA,
+      screen: "campo_nova",
     },
     {
       label: "Administração",
@@ -121,7 +120,7 @@ const menuBlueprint: Array<MenuGroup & { area?: AccessArea }> = [
 
 function leafVisible(user: User, item: MenuLeaf): boolean {
   if (item.adminOnly) return user.role === UserRole.ADMIN;
-  return item.area ? canSeeArea(user, item.area) : false;
+  return item.screen ? canSeeScreen(user, item.screen) : false;
 }
 
 function menuForUser(user: User | null): MenuGroup[] {

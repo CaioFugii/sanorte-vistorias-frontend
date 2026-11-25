@@ -1,7 +1,8 @@
 import { ApiRepository } from "@/api/repositories/ApiRepository";
 import { DashboardTeamRankingMetric } from "@/api/repositories/ApiRepository";
 import {
-  AccessArea,
+  AccessAction,
+  AccessTab,
   AccessProfile,
   Checklist,
   ChecklistItem,
@@ -218,14 +219,15 @@ export class AppRepository implements IAppRepository {
   async createAccessProfile(input: {
     name: string;
     description?: string;
-    areas: AccessArea[];
+    areas: AccessTab[];
+    actions: AccessAction[];
   }): Promise<AccessProfile> {
     return this.apiRepository.createAccessProfile(input);
   }
 
   async updateAccessProfile(
     id: string,
-    input: { name: string; description?: string; areas: AccessArea[] }
+    input: { name: string; description?: string; areas: AccessTab[]; actions: AccessAction[] }
   ): Promise<AccessProfile> {
     return this.apiRepository.updateAccessProfile(id, input);
   }

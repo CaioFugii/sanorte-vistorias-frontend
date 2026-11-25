@@ -1,10 +1,9 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
 import {
+  PendingsRedirect,
   ProtectedLayout,
   RequireAdmin,
-  RequireAnyArea,
-  RequireArea,
-  RequireObrasInvTab,
+  RequireAnyTab,
   RequireRoles,
   RoleAwareHomeRedirect,
 } from "./route-guards";
@@ -20,7 +19,6 @@ import {
   LoginPage,
   ManageInspectionPage,
   NewInspectionPage,
-  PendingsPage,
   QualityAnalyticsPage,
   ReportFormPage,
   ReportTypesPage,
@@ -31,7 +29,15 @@ import {
   FieldHierarchyPage,
   UsersPage,
 } from "@/pages";
-import { AccessArea, UserRole } from "@/domain/enums";
+import {
+  AccessTab,
+  PAINEL_TABS,
+  PENDENCIAS_TABS,
+  QUALIDADE_DADOS_TABS,
+  SEGURANCA_DADOS_TABS,
+  UserRole,
+} from "@/domain/enums";
+import { INSPECTION_DETAIL_TABS } from "@/domain/rules/access-area";
 import { AccessProfilesPage } from "@/pages/AccessProfilesPage";
 
 export const router = createBrowserRouter([
@@ -49,25 +55,25 @@ export const router = createBrowserRouter([
       {
         path: "/dashboard",
         element: (
-          <RequireArea area={AccessArea.GESTAO}>
+          <RequireAnyTab tabs={[AccessTab.GESTAO]}>
             <DashboardPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/quality/analytics",
         element: (
-          <RequireArea area={AccessArea.QUALIDADE_DADOS}>
+          <RequireAnyTab tabs={QUALIDADE_DADOS_TABS}>
             <QualityAnalyticsPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/safety/analytics",
         element: (
-          <RequireArea area={AccessArea.SEGURANCA_DADOS}>
+          <RequireAnyTab tabs={SEGURANCA_DADOS_TABS}>
             <SafetyAnalyticsPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
@@ -157,19 +163,17 @@ export const router = createBrowserRouter([
       {
         path: "/service-orders",
         element: (
-          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
+          <RequireAnyTab tabs={PAINEL_TABS}>
             <ServiceOrdersPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/investment-works",
         element: (
-          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
-            <RequireObrasInvTab>
-              <Navigate to="/service-orders?tab=obras" replace />
-            </RequireObrasInvTab>
-          </RequireArea>
+          <RequireAnyTab tabs={[AccessTab.PAINEL_OBRAS]}>
+            <Navigate to="/service-orders?tab=obras" replace />
+          </RequireAnyTab>
         ),
       },
       {
@@ -185,95 +189,81 @@ export const router = createBrowserRouter([
       {
         path: "/quality/inspections",
         element: (
-          <RequireArea area={AccessArea.QUALIDADE_PAINEL}>
+          <RequireAnyTab tabs={[AccessTab.PAINEL_VISTORIAS]}>
             <Navigate to="/service-orders?tab=vistorias" replace />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/safety/inspections",
         element: (
-          <RequireArea area={AccessArea.SEGURANCA_DADOS}>
+          <RequireAnyTab tabs={[AccessTab.SEGURANCA_DADOS_VISTORIAS]}>
             <Navigate to="/safety/analytics?tab=vistorias" replace />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/inspections/mine",
         element: (
-          <RequireArea area={AccessArea.CAMPO_MINHAS}>
+          <RequireAnyTab tabs={[AccessTab.CAMPO_MINHAS]}>
             <InspectionsPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/inspections/new",
         element: (
-          <RequireArea area={AccessArea.CAMPO_NOVA}>
+          <RequireAnyTab tabs={[AccessTab.CAMPO_NOVA]}>
             <NewInspectionPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/inspections/:externalId",
         element: (
-          <RequireAnyArea
-            areas={[
-              AccessArea.QUALIDADE_PAINEL,
-              AccessArea.QUALIDADE_PENDENCIAS,
-              AccessArea.SEGURANCA_DADOS,
-              AccessArea.CAMPO_MINHAS,
-            ]}
-          >
+          <RequireAnyTab tabs={INSPECTION_DETAIL_TABS}>
             <InspectionDetailPage />
-          </RequireAnyArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/inspections/:externalId/fill",
         element: (
-          <RequireArea area={AccessArea.CAMPO_MINHAS}>
+          <RequireAnyTab tabs={[AccessTab.CAMPO_MINHAS]}>
             <FillInspectionPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/inspections/:externalId/manage",
         element: (
-          <RequireAnyArea
-            areas={[
-              AccessArea.QUALIDADE_PAINEL,
-              AccessArea.QUALIDADE_PENDENCIAS,
-              AccessArea.SEGURANCA_DADOS,
-              AccessArea.CAMPO_MINHAS,
-            ]}
-          >
+          <RequireAnyTab tabs={INSPECTION_DETAIL_TABS}>
             <ManageInspectionPage />
-          </RequireAnyArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/pendings",
         element: (
-          <RequireArea area={AccessArea.QUALIDADE_PENDENCIAS}>
-            <PendingsPage />
-          </RequireArea>
+          <RequireAnyTab tabs={PENDENCIAS_TABS}>
+            <PendingsRedirect />
+          </RequireAnyTab>
         ),
       },
       {
         path: "/reports/new",
         element: (
-          <RequireArea area={AccessArea.ENGENHARIA_RELATORIOS}>
+          <RequireAnyTab tabs={[AccessTab.ENGENHARIA_RELATORIOS]}>
             <ReportTypesPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
       {
         path: "/reports/new/:code",
         element: (
-          <RequireArea area={AccessArea.ENGENHARIA_RELATORIOS}>
+          <RequireAnyTab tabs={[AccessTab.ENGENHARIA_RELATORIOS]}>
             <ReportFormPage />
-          </RequireArea>
+          </RequireAnyTab>
         ),
       },
     ],
