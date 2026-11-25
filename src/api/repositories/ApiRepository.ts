@@ -706,6 +706,20 @@ export class ApiRepository {
     return response.data;
   }
 
+  async exportInvestmentWorksExcel(
+    params?: Omit<InvestmentWorksParams, "page" | "limit">
+  ): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>("/investment-works/export", {
+      params,
+      responseType: "blob",
+      timeout: 60000,
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "obras-inv.xlsx";
+    return { blob: response.data, filename };
+  }
+
   async getInvestmentWorks(
     params?: InvestmentWorksParams
   ): Promise<PaginatedResponse<InvestmentWork>> {

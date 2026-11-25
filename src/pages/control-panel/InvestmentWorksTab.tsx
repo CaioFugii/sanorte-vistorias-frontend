@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   FormControl,
@@ -16,12 +17,15 @@ import { Add } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { ListPagination } from "@/components/ListPagination";
+import { MonthFilter } from "@/components/MonthFilter";
 import { SectionTable, TableActionsCell, TableActionsGroup, TableActionsHeaderCell, TableDeleteButton, TableEditButton, TableViewButton } from "@/components/ui";
 import { useListQueryState } from "@/hooks/useListQueryState";
 import { AccessAction, Contract, InvestmentWork, InvestmentWorkOrigin, InvestmentWorkSummary } from "@/domain";
 import { canAct } from "@/domain/rules/access-area";
 import { appRepository } from "@/repositories/AppRepository";
+import { downloadBlob } from "@/utils/downloadBlob";
 import { useAuthStore } from "@/stores/authStore";
 import { InvestmentWorkFormDialog } from "./InvestmentWorkFormDialog";
 import { InvestmentWorkMonitorDialog } from "./InvestmentWorkMonitorDialog";
@@ -41,17 +45,6 @@ function monthRange(month: string): { from: string; to: string } {
   };
 }
 
-function monthOptions(current: string): string[] {
-  const [year, month] = current.split("-").map(Number);
-  const options: string[] = [];
-  for (let cursor = 2024 * 12; cursor <= year * 12 + month - 1; cursor += 1) {
-    const cursorYear = Math.floor(cursor / 12);
-    const cursorMonth = String((cursor % 12) + 1).padStart(2, "0");
-    options.push(`${cursorYear}-${cursorMonth}`);
-  }
-  return options.reverse();
-}
-
 function searchable(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed.length >= 3 ? trimmed : undefined;
@@ -59,6 +52,18 @@ function searchable(value: string): string | undefined {
 
 function appliedSearch(value: string): string {
   return searchable(value) ?? "";
+}
+
+function errorText(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "response" in error) {
+    const data = (error as { response?: { data?: unknown } }).response?.data;
+    if (data instanceof Blob) return fallback;
+    const message = (data as { message?: string | string[] } | undefined)?.message;
+    if (Array.isArray(message)) return message.join(" ");
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
 }
 
 function quantity(count: number | undefined, hidden: boolean): string {
@@ -116,7 +121,20 @@ export function InvestmentWorksTab({
   const [monitoringId, setMonitoringId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<InvestmentWork | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
   const range = monthRange(values.obrasMonth || currentMonth);
+  const filters = useMemo(
+    () => ({
+      contractId: values.obrasContract || undefined,
+      from: range.from,
+      to: range.to,
+      address: searchable(values.obrasAddress),
+      district: searchable(values.obrasDistrict),
+      pdaTeam: searchable(values.obrasTeam),
+      postWork: values.obrasPostWork === "" ? undefined : values.obrasPostWork === "true",
+    }),
+    [range.from, range.to, values.obrasAddress, values.obrasContract, values.obrasDistrict, values.obrasPostWork, values.obrasTeam]
+  );
 
   useEffect(() => {
     if (appliedSearch(debouncedAddress) !== appliedSearch(values.obrasAddress)) {
@@ -136,15 +154,6 @@ export function InvestmentWorksTab({
 
   useEffect(() => {
     let cancelled = false;
-    const filters = {
-      contractId: values.obrasContract || undefined,
-      from: range.from,
-      to: range.to,
-      address: searchable(values.obrasAddress),
-      district: searchable(values.obrasDistrict),
-      pdaTeam: searchable(values.obrasTeam),
-      postWork: values.obrasPostWork === "" ? undefined : values.obrasPostWork === "true",
-    };
     setLoading(true);
     void Promise.all([
       appRepository.getInvestmentWorks({ ...filters, page, limit }),
@@ -162,7 +171,7 @@ export function InvestmentWorksTab({
     return () => {
       cancelled = true;
     };
-  }, [limit, page, range.from, range.to, reloadKey, values]);
+  }, [filters, limit, page, reloadKey]);
 
   return (
     <Box>
@@ -177,14 +186,12 @@ export function InvestmentWorksTab({
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Mês</InputLabel>
-          <Select value={values.obrasMonth} label="Mês" onChange={(event) => setFilter("obrasMonth", event.target.value)}>
-            {monthOptions(currentMonth).map((month) => (
-              <MenuItem key={month} value={month}>{month}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <MonthFilter
+          value={values.obrasMonth || currentMonth}
+          onChange={(month) => {
+            if (month) setFilter("obrasMonth", month);
+          }}
+        />
         <TextField size="small" label="Endereço" value={address} onChange={(event) => setAddress(event.target.value)} />
         <TextField size="small" label="Bairro" value={district} onChange={(event) => setDistrict(event.target.value)} />
         <TextField size="small" label="Equipe PDA" value={pdaTeam} onChange={(event) => setPdaTeam(event.target.value)} />
@@ -196,13 +203,41 @@ export function InvestmentWorksTab({
             <MenuItem value="false">Sem pós-obra</MenuItem>
           </Select>
         </FormControl>
-        <Button onClick={() => { setAddress(""); setDistrict(""); setPdaTeam(""); reset(); }}>Limpar filtros</Button>
+        <Button onClick={() => { setAddress(""); setDistrict(""); setPdaTeam(""); setExportError(null); reset(); }}>Limpar filtros</Button>
+        <ExportExcelButton
+          disabled={loading || !navigator.onLine}
+          onExport={async () => {
+            setExportError(null);
+            try {
+              const file = await appRepository.exportInvestmentWorksExcel(filters);
+              downloadBlob(file.blob, file.filename);
+            } catch (error) {
+              let message = errorText(error, "Não foi possível exportar a lista.");
+              const data = (error as { response?: { data?: Blob } })?.response?.data;
+              if (data instanceof Blob) {
+                try {
+                  const parsed = JSON.parse(await data.text()) as { message?: string | string[] };
+                  if (Array.isArray(parsed.message)) message = parsed.message.join(" ");
+                  else if (parsed.message) message = parsed.message;
+                } catch {
+                  message = "Não foi possível exportar a lista.";
+                }
+              }
+              setExportError(message);
+            }
+          }}
+        />
         {canCreate && (
           <Button variant="contained" startIcon={<Add />} onClick={() => { setEditing(null); setFormOpen(true); }}>
             Nova Obra
           </Button>
         )}
       </Box>
+      {exportError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+          {exportError}
+        </Alert>
+      )}
       <SectionTable>
         <Table size="small">
           <TableHead>

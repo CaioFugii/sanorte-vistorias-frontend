@@ -319,6 +319,19 @@ export interface IAppRepository {
     equipe?: string;
     resultado?: string;
   }): Promise<ServiceOrderStageSummary>;
+  exportInvestmentWorksExcel(params?: {
+    status?: InvestmentWorkStatus;
+    contractId?: string;
+    search?: string;
+    active?: boolean;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+    origin?: "MANUAL" | "IMPORT";
+  }): Promise<{ blob: Blob; filename: string }>;
   getInvestmentWorks(params?: {
     page?: number;
     limit?: number;

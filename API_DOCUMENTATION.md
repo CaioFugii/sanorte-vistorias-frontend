@@ -1573,7 +1573,7 @@ Response 200:
 
 ## Investment Works (Obras de Investimento)
 
-`GET /investment-works` e `GET /investment-works/:id` continuam por papel (ADMIN, GESTOR, SUPERVISOR ou FISCAL). O resumo exige a aba `painel_obras`. Criar, editar e excluir exigem a ação correspondente. O histórico de lançamentos exige `painel_cadastros` e `painel_obras`.
+`GET /investment-works`, `GET /investment-works/export` e `GET /investment-works/:id` continuam por papel (ADMIN, GESTOR, SUPERVISOR ou FISCAL). O resumo exige a aba `painel_obras`. Criar, editar e excluir exigem a ação correspondente. O histórico de lançamentos exige `painel_cadastros` e `painel_obras`.
 
 ### GET /investment-works
 
@@ -1592,6 +1592,14 @@ Response 200:
   - as contagens ignoram rascunho. `fieldInspectionCount` conta `evaluationModule = CAMPO`; `postWorkInspectionCount` conta `POS_OBRA`. Vistoria sem obra não entra
   - com `from` ou `to`, a ordem é `expectedEndDate`, `workName`; sem eles, `createdAt` decrescente
 - Escopo: `ADMIN` vê todos; `GESTOR`/`SUPERVISOR`/`FISCAL` ficam limitados aos contratos vinculados
+
+### GET /investment-works/export
+
+- Auth: JWT + ADMIN ou GESTOR ou SUPERVISOR ou FISCAL
+- Query: os mesmos filtros de `GET /investment-works`, sem `page` e `limit`. O arquivo traz todas as obras do recorte, não só a página atual
+- Response 200: arquivo `.xlsx` (`Content-Disposition: attachment`). Aba `Obras Inv`, com as colunas da lista: Número de O.S/Obra, Contrato, Endereço, Bairro, Equipe PDA, Data de Execução, Campo, Pós Obra, Status e Ativa. Campo fica vazio no cadastro por Excel. Pós Obra e Campo manual mostram a quantidade ou `Não`
+- Erros:
+  - `400`: o recorte passa de 5000 obras
 
 ### GET /investment-works/summary
 

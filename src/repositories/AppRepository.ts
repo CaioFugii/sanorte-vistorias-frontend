@@ -574,6 +574,22 @@ export class AppRepository implements IAppRepository {
     return this.apiRepository.getServiceOrderSummary(params);
   }
 
+  async exportInvestmentWorksExcel(params?: {
+    status?: InvestmentWorkStatus;
+    contractId?: string;
+    search?: string;
+    active?: boolean;
+    from?: string;
+    to?: string;
+    address?: string;
+    district?: string;
+    pdaTeam?: string;
+    postWork?: boolean;
+    origin?: "MANUAL" | "IMPORT";
+  }): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.exportInvestmentWorksExcel(params);
+  }
+
   async getInvestmentWorks(params?: {
     page?: number;
     limit?: number;
