@@ -673,7 +673,8 @@ Response 200:
     "name": "Fiscal",
     "email": "fiscal@sanorte.com",
     "role": "FISCAL",
-    "areas": ["campo_minhas", "campo_nova", "engenharia_relatorios"],
+    "areas": ["engenharia_relatorios", "campo_minhas", "campo_nova"],
+    "actions": [],
     "contracts": [
       { "id": "uuid", "name": "CONTRATO_NORTE" }
     ]
@@ -697,26 +698,47 @@ Response 200:
   "name": "Fiscal",
   "email": "fiscal@sanorte.com",
   "role": "FISCAL",
-  "areas": ["campo_minhas", "campo_nova", "engenharia_relatorios"],
+  "areas": ["engenharia_relatorios", "campo_minhas", "campo_nova"],
+  "actions": [],
   "contracts": [
     { "id": "uuid", "name": "CONTRATO_NORTE" }
   ]
 }
 ```
 
-O token não carrega `areas`. Administrador recebe 7 chaves: todas menos `campo_minhas` e `campo_nova`, porque não executa vistorias. Por isso `POST /inspections` e `GET /inspections/mine` respondem `403` para o Administrador. Os demais recebem só as áreas do Acesso.
+O token não carrega `areas` nem `actions`. `areas` lista as abas visíveis e `actions` as ações liberadas, as duas na ordem do catálogo. Administrador recebe todas as abas menos `campo_minhas` e `campo_nova`, porque não executa vistorias, e todas as ações. Por isso `POST /inspections` e `GET /inspections/mine` respondem `403` para o Administrador. Os demais recebem só as abas e ações do Acesso. Ação cuja aba não está no Acesso não é devolvida.
 
 ## Access Profiles (ADMIN)
 
-A tela de Acessos não faz parte do catálogo de áreas. Só o Administrador lê e grava.
+A tela de Acessos não faz parte do catálogo. Só o Administrador lê e grava.
 
-Áreas aceitas em `areas`: `gestao`, `qualidade_dados`, `qualidade_painel`, `qualidade_pendencias`, `seguranca_dados`, `engenharia_obras`, `engenharia_relatorios`, `campo_minhas` e `campo_nova`. Administração (usuários, equipes, hierarquia de campo, contratos, setores, colaboradores e checklists) não entra no Acesso e fica só com o Administrador.
+O Acesso libera abas (`areas`) e ações (`actions`). Administração (usuários, equipes, hierarquia de campo, contratos, setores, colaboradores e checklists) não entra no Acesso e fica só com o Administrador.
+
+Abas aceitas em `areas`:
+
+| Tela | Abas |
+|------|------|
+| Gestão | `gestao` |
+| Dados de Qualidade | `qualidade_dados_ranking`, `qualidade_dados_visao_geral`, `qualidade_dados_servicos`, `qualidade_dados_equipes`, `qualidade_dados_fiscais`, `qualidade_dados_gestao`, `qualidade_dados_nao_conformidades` |
+| Painel de Controle | `painel_global`, `painel_obras`, `painel_vistorias`, `painel_cadastros` (Histórico de Lançamentos), `painel_pendencias_ativas`, `painel_pendencias_aprovacao`, `painel_pendencias_resolvidas` |
+| Dados de Segurança | `seguranca_dados_ranking`, `seguranca_dados_visao_geral`, `seguranca_dados_vistorias`, `seguranca_dados_equipes`, `seguranca_dados_fiscais`, `seguranca_dados_gestao`, `seguranca_dados_nao_conformidades` |
+| Relatórios | `engenharia_relatorios` |
+| Campo | `campo_minhas`, `campo_nova` |
+
+Ações aceitas em `actions`, cada uma presa a uma aba:
+
+| Aba | Ações |
+|-----|-------|
+| `painel_global` | `painel_global_excluir` |
+| `painel_obras` | `painel_obras_criar`, `painel_obras_editar`, `painel_obras_excluir` |
+| `painel_vistorias` | `painel_vistorias_editar`, `painel_vistorias_excluir` |
+| `painel_cadastros` | `painel_cadastros_importar`, `painel_cadastros_editar`, `painel_cadastros_excluir` |
 
 ### GET /access-profiles
 
 - Auth: JWT + ADMIN
 - Query: `page`, `limit`
-- Response: paginação de Acesso (`id`, `name`, `description`, `isSystem`, `areas`, `userCount`)
+- Response: paginação de Acesso (`id`, `name`, `description`, `isSystem`, `areas`, `actions`, `userCount`)
 
 ### GET /access-profiles/:id
 
@@ -731,11 +753,13 @@ A tela de Acessos não faz parte do catálogo de áreas. Só o Administrador lê
 {
   "name": "Qualidade",
   "description": "Só os dados de qualidade",
-  "areas": ["qualidade_dados"]
+  "areas": ["qualidade_dados_ranking", "painel_obras"],
+  "actions": ["painel_obras_editar"]
 }
 ```
 
-- `400` sem área ou com área fora da lista, inclusive qualquer `admin_*`. `409` quando o nome já existe.
+- `actions` é opcional. Omitido, o Acesso fica sem ações.
+- `400` sem aba, com aba ou ação fora da lista (inclusive qualquer `admin_*`), ou com ação cuja aba não foi marcada (`Ação marcada sem a aba dela`). `409` quando o nome já existe.
 
 ### PUT /access-profiles/:id
 
@@ -746,7 +770,7 @@ A tela de Acessos não faz parte do catálogo de áreas. Só o Administrador lê
 
 - Auth: JWT + ADMIN
 - Body: `{ "name": "Qualidade cópia" }`
-- Copia descrição e áreas. O novo Acesso não é de partida.
+- Copia descrição, abas e ações. O novo Acesso não é de partida.
 
 ### DELETE /access-profiles/:id
 
@@ -1451,7 +1475,7 @@ Response 200:
 
 ### POST /service-orders/import
 
-- Auth: JWT + ADMIN ou GESTOR ou SUPERVISOR
+- Auth: JWT + ação `painel_cadastros_importar`
 - Body: multipart/form-data com campos:
   - `file` (arquivo Excel `.xlsx` ou `.xls`, até 5MB)
   - `contractId` (UUID, obrigatório)
@@ -1459,7 +1483,7 @@ Response 200:
 - Regra: uma importação aplica apenas 1 contrato (o `contractId` informado) para todas as OS processadas
 - Regra: a OS é única por contrato, número, setor e resultado. A mesma combinação no arquivo fica em `notRegistered`. Resultado diferente no mesmo número e setor grava outra OS
 - Campos adicionais em cada registro: `field`, `remote`, `postWork` (boolean, default `false`)
-- Regra de escopo: `GESTOR`/`SUPERVISOR` só pode importar para contratos aos quais já está vinculado
+- Regra de escopo: quem não é Administrador só importa para contratos aos quais já está vinculado
 
 O upload grava o arquivo, o contrato, o usuário, os totais e as linhas. `errors` traz a lista completa do que não foi registrado, sem corte. Família `VISTORIA` entra só em `skipped`. OS repetida no arquivo entra em `errors` e em `notRegistered`. OS já existente é atualizada, conta em `inserted` e aparece nas linhas que entraram. Quando uma linha não registrada passa a entrar, `insertedCount` sobe 1 e `notRegisteredCount` desce 1.
 
@@ -1478,26 +1502,26 @@ Response 200:
 
 ### GET /service-orders/imports
 
-- Auth: JWT + GESTOR ou ADMIN
+- Auth: JWT + aba `painel_cadastros`
 - Query: `page`, `limit`
-- Gestor vê os lançamentos dos próprios contratos. Admin vê todos. Supervisor não acessa.
+- Quem não é Administrador vê os lançamentos dos próprios contratos. Admin vê todos.
 - Response 200: paginação de lançamentos com `originalFileName`, totais (`insertedCount`, `skippedCount`, `deletedCount`, `notRegisteredCount`), `contract` e `user` (`id`, `name`)
 
 ### GET /service-orders/imports/:id
 
-- Auth: JWT + GESTOR ou ADMIN
+- Auth: JWT + aba `painel_cadastros`
 - Response 200: o lançamento e `lines` (`lineNumber`, `status` `entered` ou `not_registered`, `osNumber`, `sectorName`, `resultado`, `reason`, `rawRow`, `resolvedAt`)
-- Gestor fora do contrato: `403`
+- Fora do contrato: `403`
 
 ### GET /service-orders/imports/:id/file
 
-- Auth: JWT + GESTOR ou ADMIN
+- Auth: JWT + aba `painel_cadastros`
 - Response: arquivo original da planilha
-- Gestor fora do contrato: `403`
+- Fora do contrato: `403`
 
 ### GET /service-orders/imports/:id/inserted
 
-- Auth: JWT + ADMIN
+- Auth: JWT + ação `painel_cadastros_excluir`
 - Conta as ordens de serviço que este arquivo inseriu e que ainda estão no banco, e as vistorias ligadas a elas. Ordem que o arquivo só atualizou não entra.
 - Lançamento anterior a este registro, sem a marca de inserção, considera inserida a ordem da primeira planilha que a fez entrar.
 - Response 200:
@@ -1506,40 +1530,40 @@ Response 200:
 { "serviceOrderCount": 12, "inspectionCount": 3 }
 ```
 
-- Gestor, supervisor e fiscal: `403`. Lançamento inexistente: `404`.
+- Sem a ação: `403`. Lançamento inexistente: `404`.
 
 ### DELETE /service-orders/imports/:id/inserted
 
-- Auth: JWT + ADMIN
+- Auth: JWT + ação `painel_cadastros_excluir`
 - Apaga as ordens de serviço que este arquivo inseriu. Cada vistoria ligada, em qualquer status, sai antes da OS, pelo mesmo caminho de `POST /service-orders/bulk-delete`: arquivo de storage, foto, assinatura, nota e pendência.
 - Ordem que o arquivo só atualizou permanece. O lançamento e o arquivo da planilha permanecem no histórico.
 - Uma segunda chamada não apaga ordem criada depois, ainda que o número seja o mesmo.
 - Se a remoção de um arquivo falha, nada deste pedido é apagado e a resposta nomeia a OS que parou.
-- Gestor, supervisor e fiscal: `403`
+- Sem a ação: `403`
 - Response 204: vazio
 
 ### POST /service-orders/imports/:id/lines/:lineId/reprocess
 
-- Auth: JWT + GESTOR ou ADMIN
+- Auth: JWT + ação `painel_cadastros_editar`
 - Body: `{ "row": { "Número OS": "", "Família": "", "Status da OS": "", "Endereço": "", "Número": "", "Bairro": "", "Resultado": "" } }`
 - A linha corrigida passa pelas mesmas regras da importação, no contrato do lançamento. Totais do upload não são reescritos.
-- Linha já registrada: `400`. Gestor fora do contrato: `403`.
+- Linha já registrada: `400`. Fora do contrato: `403`.
 - Response 200: a linha atualizada. `status` `entered` quando passou; `not_registered` com o motivo novo quando continuou recusada.
 
 ### POST /service-orders/bulk-delete
 
-- Auth: JWT + ADMIN
+- Auth: JWT + ação `painel_global_excluir`
 - Body: `{ "ids": ["uuid"] }`
 - Lista vazia: `400`
 - Apaga só as OS informadas. Cada vistoria ligada, em qualquer status, sai antes da OS: o arquivo de storage sai antes da linha. Foto, assinatura, nota e pendência saem com a vistoria.
 - Tudo ou nada. Se algum id não existe, nada é apagado e a resposta é `404`.
 - Se a remoção de um arquivo falha, a transação não confirma e a resposta nomeia a OS que parou o lote: `A exclusão parou na OS {número}.`
-- Gestor, supervisor e fiscal: `403`
+- Sem a ação: `403`
 - Response 204: vazio
 
 ### DELETE /service-orders/:id
 
-- Auth: JWT + ADMIN
+- Auth: JWT + ação `painel_global_excluir`
 - Path: `id` (UUID da ordem de serviço)
 - Usa a mesma rotina de `POST /service-orders/bulk-delete` para uma OS. Vistorias ligadas são apagadas junto, em qualquer status.
 - Response 204: vazio
@@ -1549,7 +1573,7 @@ Response 200:
 
 ## Investment Works (Obras de Investimento)
 
-A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_obras` juntas. `GET /investment-works` e `GET /investment-works/:id` continuam por papel (ADMIN, GESTOR, SUPERVISOR ou FISCAL). O resumo e o histórico exigem as duas áreas.
+`GET /investment-works` e `GET /investment-works/:id` continuam por papel (ADMIN, GESTOR, SUPERVISOR ou FISCAL). O resumo exige a aba `painel_obras`. Criar, editar e excluir exigem a ação correspondente. O histórico de lançamentos exige `painel_cadastros` e `painel_obras`.
 
 ### GET /investment-works
 
@@ -1571,7 +1595,7 @@ A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_ob
 
 ### GET /investment-works/summary
 
-- Auth: JWT + ADMIN, GESTOR, SUPERVISOR ou FISCAL, com as áreas `qualidade_painel` e `engenharia_obras`. Sem uma das duas: 403
+- Auth: JWT + ADMIN, GESTOR, SUPERVISOR ou FISCAL, com a aba `painel_obras`. Sem ela: 403
 - Query: `contractId`, `from`, `to`, `address`, `district`, `pdaTeam`, `postWork` (mesmas regras da listagem). O mês de referência sai de `from`/`to` em `America/Sao_Paulo`; mês futuro cai no mês atual
 - Response 200:
 
@@ -1600,7 +1624,7 @@ A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_ob
 
 ### POST /investment-works
 
-- Auth: JWT + área `engenharia_obras` + ADMIN ou GESTOR ou SUPERVISOR
+- Auth: JWT + ação `painel_obras_criar`
 - A obra nasce com `origin = MANUAL`
 - Validações:
   - `workName`, `startDate`, `expectedEndDate`, `address`, `district`, `service`, `teamId`, `contractId` obrigatórios
@@ -1612,7 +1636,7 @@ A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_ob
 
 ### PUT /investment-works/:id
 
-- Auth: JWT + área `engenharia_obras` + ADMIN ou GESTOR ou SUPERVISOR
+- Auth: JWT + ação `painel_obras_editar`
 - Atualização parcial (PATCH-like por `PUT`)
 - Cadastro `MANUAL`: omitir `basin`, `materialNetwork` ou `singularities` preserva o valor já gravado. As validações de contrato, equipe e datas seguem quando os campos relevantes forem enviados
 - Cadastro `IMPORT`: só `address`, `district`, `pdaTeamName`, `expectedEndDate`, `status` e `active`. Qualquer outro campo responde 400 `Campo não editável em cadastro por Excel: {campo}`
@@ -1620,7 +1644,7 @@ A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_ob
 
 ### DELETE /investment-works/:id
 
-- Auth: JWT + área `engenharia_obras` + ADMIN ou GESTOR ou SUPERVISOR
+- Auth: JWT + ação `painel_obras_excluir`
 - Cadastro `IMPORT` excluído sem vistoria mantém as Descrições, com `investment_work_id` nulo. A mesma planilha não recria o cadastro
 - Regra: bloqueia exclusão quando houver inspeções vinculadas e retorna:
 
@@ -1634,7 +1658,7 @@ A tela do Painel de Controle exige as áreas `qualidade_painel` e `engenharia_ob
 
 ### POST /investment-works/imports/preview
 
-- Auth: JWT + área `qualidade_painel` (ADMIN, GESTOR ou SUPERVISOR) e área `engenharia_obras`. Sem Obras Inv: 403
+- Auth: JWT + ação `painel_cadastros_importar` e aba `painel_obras`. Sem uma das duas: 403
 - Body: `multipart/form-data` com `file` (`.xlsx` ou `.xls`, até 5 MB). Fora disso: 400 `Arquivo inválido. Envie um Excel (.xlsx ou .xls) de até 5 MB.`
 - Não grava obra, lançamento nem arquivo
 - Colunas obrigatórias, nesta ordem de nome: `O.S`, `data`, `Descrição`, `Endereço`, `Bairro`, `Equipe PDA`. Cabeçalho sem acento ou com caixa diferente é aceito. Coluna ausente: 400 `Colunas ausentes: {nomes}`
@@ -1652,7 +1676,7 @@ As Descrições saem na ordem da primeira aparição. `key` é a Descrição nor
 
 ### POST /investment-works/imports
 
-- Auth: igual à prévia. GESTOR ou SUPERVISOR fora do contrato: 403 `Você não tem acesso ao contrato selecionado para importação.`
+- Auth: igual à prévia. Quem não é Administrador e está fora do contrato: 403 `Você não tem acesso ao contrato selecionado para importação.`
 - Body: `multipart/form-data` com `file`, `contractId` (UUID v4) e `descriptions` (string JSON com as chaves marcadas)
 - `descriptions` vazio: 400 `Selecione ao menos uma Descrição`. Chave desconhecida: 400 `Descrição desconhecida: {key}`
 - Sem o setor `REPOSICAO`: 400 `Setor REPOSICAO não encontrado`
@@ -1673,10 +1697,10 @@ Cada cadastro criado nasce `IMPORT`, ativo, `EM_ANDAMENTO`, setor `REPOSICAO`, `
 
 ### GET /investment-works/imports
 
-- Auth: JWT + ADMIN ou GESTOR, com `qualidade_painel` e `engenharia_obras`
+- Auth: JWT + abas `painel_cadastros` e `painel_obras`
 - Query: `page`, `limit`
 - Response 200: paginação com `originalFileName`, `createdAt`, `selectedDescriptions`, `createdCount`, `ignoredCount`, `notSelectedCount`, `notRegisteredCount`, `contract` e `user`
-- GESTOR vê só os contratos dele
+- Quem não é Administrador vê só os contratos dele
 
 ### GET /investment-works/imports/:id
 
@@ -1735,7 +1759,7 @@ Observação: imagens de referência dos itens ficam no `GET /checklists/:id` (`
 
 ### GET /inspections
 
-- Auth: JWT + GESTOR ou SUPERVISOR ou ADMIN
+- Auth: JWT + uma das abas `painel_obras`, `painel_vistorias`, `painel_pendencias_ativas`, `painel_pendencias_aprovacao`, `painel_pendencias_resolvidas` ou `seguranca_dados_vistorias`
 - Query:
   - `periodFrom` (`YYYY-MM-DD`)
   - `periodTo` (`YYYY-MM-DD`)
@@ -1759,7 +1783,7 @@ Observação: imagens de referência dos itens ficam no `GET /checklists/:id` (`
 
 ### GET /inspections/export
 
-- Auth: JWT + GESTOR ou SUPERVISOR ou ADMIN
+- Auth: igual à listagem: uma das abas `painel_obras`, `painel_vistorias`, `painel_pendencias_ativas`, `painel_pendencias_aprovacao`, `painel_pendencias_resolvidas` ou `seguranca_dados_vistorias`
 - Query: os mesmos filtros de `GET /inspections` (`periodFrom`, `periodTo`, `module`, `modules` (CSV ou repetido), `inspectionScope`, `teamId`, `createdByUserId`, `contractId`, `status`, `osNumber`, `service`, `executionFrom`/`executionTo`, `inspectionFrom`/`inspectionTo`, `investmentWorkId`). `page` e `limit` são ignorados.
 - Query extra:
   - `layout` (`avaliacoes` | `pendencias`) — define nome do arquivo, aba e colunas. Default `avaliacoes`.
@@ -1948,7 +1972,9 @@ Exemplo (truncado):
 - Auth: JWT
 - Regra:
   - FISCAL só atualiza se `status = RASCUNHO`
-  - GESTOR/SUPERVISOR/ADMIN podem atualizar sempre
+  - Vistoria de qualidade (módulo diferente de `SEGURANCA_TRABALHO`) fora de `RASCUNHO`: GESTOR/SUPERVISOR precisam da ação `painel_vistorias_editar`. Sem ela: `403`. ADMIN atualiza sempre
+  - Corpo só com `evaluationModule` e/ou `updatedAt` não conta como edição e não exige a ação
+  - Vistoria de Segurança: GESTOR/SUPERVISOR/ADMIN atualizam sempre
   - Quando `teamId` for enviado, a equipe informada deve existir; caso contrário, retorna `400` com `Equipe não encontrada`
   - `evaluationModule` (`CAMPO` ou `POS_OBRA`) só pode ser enviado por ADMIN ou GESTOR, e somente se a vistoria for `module = OBRAS_INVESTIMENTO`. SUPERVISOR e FISCAL recebem `403`. Outro módulo ou valor inválido retorna `400`. Omitir o campo não altera o valor gravado.
 
@@ -1995,7 +2021,9 @@ Regras:
 - Response: `204` sem corpo
 - Regra:
   - `RASCUNHO` pode ser excluída pelos papéis acima
-  - qualquer outro status só o ADMIN exclui. Os demais papéis recebem `400` com `Só é possível excluir vistoria com status RASCUNHO`
+  - vistoria de qualidade (módulo diferente de `SEGURANCA_TRABALHO`) em outro status: exige a ação `painel_vistorias_excluir`. ADMIN tem a ação
+  - vistoria de Segurança em outro status: só o ADMIN exclui
+  - sem permissão: `400` com `Só é possível excluir vistoria com status RASCUNHO`
   - evidências e assinatura saem do storage antes da linha. Itens, evidências, assinatura, pendências e avisos saem em cascata
   - a OS não é apagada
   - se o módulo é `CAMPO`, `REMOTO` ou `POS_OBRA` e a vistoria tinha OS, `field`, `remote` ou `postWork` permanece verdadeiro só quando ainda existe outra vistoria do mesmo módulo nessa OS
@@ -2006,7 +2034,7 @@ Regras:
 - Auth: JWT + FISCAL ou GESTOR ou SUPERVISOR ou ADMIN
 - Regra:
   - FISCAL só atualiza itens se `status = RASCUNHO`
-  - GESTOR/SUPERVISOR/ADMIN podem atualizar itens em qualquer status
+  - GESTOR/SUPERVISOR/ADMIN podem atualizar itens em qualquer status. Em vistoria de qualidade fora de `RASCUNHO`, GESTOR/SUPERVISOR precisam da ação `painel_vistorias_editar` (`403` sem ela)
   - A nota (`scorePercent`) é recalculada automaticamente a cada atualização de itens
   - Se `paralysisPenaltyPercent` estiver preenchido, a nota final recebe essa penalidade (35 nas paralisações novas, 25 nas antigas)
   - Para GESTOR/SUPERVISOR/ADMIN, se a vistoria estiver em `FINALIZADA` ou `PENDENTE_AJUSTE`, o status é reavaliado automaticamente (`FINALIZADA ↔ PENDENTE_AJUSTE`) com base nos itens
@@ -2274,6 +2302,8 @@ Observação:
 - Pode ser URL (`http/https`) ou base64 (faz upload e salva URL).
 - Se o item já estiver resolvido, a mesma chamada ajusta as notas. Sem `resolutionEvidence`, a foto anterior permanece.
 - `POST /inspections/:id/reject-resolution` devolve a vistoria para `PENDENTE_AJUSTE` e reabre os itens não conformes (`resolvedAt` nulo). Notas e foto anteriores permanecem para o novo lançamento. Quem lançou resolve os itens de novo e chama `POST /inspections/:id/resolve`. O ciclo segue até a aprovação.
+- `POST /inspections/:id/approve-resolution` e `POST /inspections/:id/reject-resolution` exigem a aba `painel_pendencias_aprovacao`. Sem ela: `403`.
+- O aviso de resolução enviada vai para os Administradores e para quem, no contrato da vistoria, tem a aba `painel_pendencias_aprovacao`.
 
 Response 200:
 
@@ -2520,6 +2550,15 @@ Response 200:
 ## Dashboards
 
 Em todas as rotas abaixo, o query param opcional **`contractId`** (`uuid`) restringe os dados às vistorias vinculadas a esse contrato (via `inspection.contractId`). A regra de escopo por perfil (`ADMIN` vs `GESTOR`/`SUPERVISOR`) permanece; ver `Guia rápido` → Escopo por contrato.
+
+Cada rota exige ao menos uma aba de Dados de Qualidade ou de Dados de Segurança. Sem nenhuma das abas da rota: `403`.
+
+- Resumos (`summary`, `quality/summary`): qualquer aba de Dados de Qualidade. `safety-work/summary`, `safety-work/checklists/:checklistId/inspections` e `safety-work/low-score-collaborators`: qualquer aba de Dados de Segurança.
+- `overview`: aba `gestao`. O bloco `quality` só volta com alguma aba de Dados de Qualidade, e `safetyWork` com alguma aba de Dados de Segurança.
+- Ranking (`ranking/teams`, export e vistorias da equipe): `qualidade_dados_ranking`. `ranking/teams/safety-work` e `safety-work/ranking/teams/:teamId/inspections`: `seguranca_dados_ranking`.
+- `quality-by-service`: `qualidade_dados_visao_geral` ou `qualidade_dados_servicos`. `current-month-by-service`: `qualidade_dados_servicos`. Em Segurança, os dois exigem `seguranca_dados_visao_geral`.
+- `team-performance-by-teams` e `teams/:teamId`: aba Equipes da tela. `inspectors-production`: aba Fiscais. Rankings de encarregados, supervisores e coordenadores: aba Gestão da tela.
+- `non-conformities/by-checklist` e `by-team`: aba Não conformidades da tela. `quality/non-conformities/list`: `qualidade_dados_ranking` ou `qualidade_dados_nao_conformidades`.
 
 Regras de consistência aplicadas aos dashboards de qualidade:
 
