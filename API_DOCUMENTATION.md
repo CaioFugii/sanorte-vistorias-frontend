@@ -2558,7 +2558,7 @@ Cada rota exige ao menos uma aba de Dados de Qualidade ou de Dados de Segurança
 - Ranking (`ranking/teams`, export e vistorias da equipe): `qualidade_dados_ranking`. `ranking/teams/safety-work` e `safety-work/ranking/teams/:teamId/inspections`: `seguranca_dados_ranking`.
 - `quality-by-service`: `qualidade_dados_visao_geral` ou `qualidade_dados_servicos`. `current-month-by-service`: `qualidade_dados_servicos`. Em Segurança, os dois exigem `seguranca_dados_visao_geral`.
 - `team-performance-by-teams` e `teams/:teamId`: aba Equipes da tela. `inspectors-production`: aba Fiscais. Rankings de encarregados, supervisores e coordenadores: aba Gestão da tela.
-- `non-conformities/by-checklist` e `by-team`: aba Não conformidades da tela. `quality/non-conformities/list`: `qualidade_dados_ranking` ou `qualidade_dados_nao_conformidades`.
+- `non-conformities/by-checklist` e `by-team`: aba Não conformidades da tela. `quality/non-conformities/list`: `qualidade_dados_ranking` ou `qualidade_dados_nao_conformidades`. `safety-work/non-conformities/list`: `seguranca_dados_nao_conformidades`.
 
 Regras de consistência aplicadas aos dashboards de qualidade:
 
@@ -3378,6 +3378,15 @@ Response 200 (estrutura simplificada):
 - Agrupa por módulo efetivo, setor e checklist. `module`: `REMOTO`, `POS_OBRA`, `CAMPO` ou `OBRA_SEM_TIPO`, nessa ordem. Módulo sem não conformidade não volta.
 - `OBRAS_INVESTIMENTO` entra em Campo ou Pós-obra pelo `evaluationModule`. Sem `evaluationModule`, cai em `OBRA_SEM_TIPO`.
 - Cada checklist traz `totalNonConformities` e até `limitPerChecklist` perguntas (`nonConformitiesCount`, `answersCount`, `nonConformityRatePercent`).
+
+### GET /dashboards/safety-work/non-conformities/list
+
+- Auth: JWT
+- Aba `seguranca_dados_nao_conformidades`.
+- Query: `from`, `to`, `teamId`, `contractId`, `limitPerChecklist` (padrão 5, máximo 20).
+- Só o módulo `SEGURANCA_TRABALHO`. Agrupa por setor e checklist, dentro de um único bloco `module`: `SEGURANCA_TRABALHO`. Setor sem não conformidade não volta. Setores em ordem alfabética (`pt-BR`); checklists do setor também.
+- Cada checklist traz `totalNonConformities` e até `limitPerChecklist` perguntas (`nonConformitiesCount`, `answersCount`, `nonConformityRatePercent`).
+- Período por `inspection.createdAt`, o mesmo recorte de `GET /dashboards/quality/non-conformities/list`.
 
 ### GET /dashboards/non-conformities/by-checklist
 

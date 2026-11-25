@@ -793,6 +793,36 @@ export interface IAppRepository {
       }>;
     }>;
   }>;
+  getDashboardSafetyWorkNonConformitiesList(params: {
+    from: string;
+    to: string;
+    teamId?: string;
+    contractId?: string;
+    limitPerChecklist?: number;
+  }): Promise<{
+    from: string;
+    to: string;
+    teamId?: string;
+    limitPerChecklist: number;
+    modules: Array<{
+      module: "SEGURANCA_TRABALHO";
+      sectors: Array<{
+        sectorName: string;
+        checklists: Array<{
+          checklistId: string;
+          checklistName: string;
+          totalNonConformities: number;
+          questions: Array<{
+            checklistItemId: string;
+            checklistItemTitle: string;
+            nonConformitiesCount: number;
+            answersCount: number;
+            nonConformityRatePercent: number;
+          }>;
+        }>;
+      }>;
+    }>;
+  }>;
   getDashboardSafetyWorkNonConformitiesByChecklist(params: {
     from: string;
     to: string;

@@ -16,7 +16,7 @@ export type QualityNonConformitiesListData = {
   teamId?: string;
   limitPerChecklist: number;
   modules: Array<{
-    module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO";
+    module: "REMOTO" | "POS_OBRA" | "CAMPO" | "OBRA_SEM_TIPO" | "SEGURANCA_TRABALHO";
     sectors: Array<{
       sectorName: string;
       checklists: Array<{
@@ -40,6 +40,7 @@ const MODULE_LABELS: Record<QualityNonConformitiesListData["modules"][number]["m
   POS_OBRA: "Pós-obra",
   CAMPO: "Campo",
   OBRA_SEM_TIPO: "Obra de investimento sem tipo",
+  SEGURANCA_TRABALHO: "Segurança do Trabalho",
 };
 
 const SECTOR_LABELS: Record<string, string> = {

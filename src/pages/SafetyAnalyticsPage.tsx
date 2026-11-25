@@ -48,7 +48,7 @@ import { DateFilterHint } from "@/pages/analytics/components/DateFilterHint";
 import { SafetyFiscaisTab } from "@/pages/analytics/components/SafetyFiscaisTab";
 import { SafetyInspectionsTab } from "@/pages/analytics/components/SafetyInspectionsTab";
 import { QualityOverviewTab } from "@/pages/analytics/components/QualityOverviewTab";
-import { QualityNonConformitiesTab } from "@/pages/analytics/components/QualityNonConformitiesTab";
+import { QualityNonConformitiesList } from "@/pages/analytics/components/QualityNonConformitiesList";
 import { QualityForemenTab } from "@/pages/analytics/components/QualityForemenTab";
 import { QualityTeamsTab } from "@/pages/analytics/components/QualityTeamsTab";
 import {
@@ -61,7 +61,6 @@ import {
 } from "@/pages/analytics/components/models";
 
 const MONTH_COLORS = ["#ef6c00", "#1976d2", "#fbc02d", "#2e7d32", "#8e24aa", "#00897b"];
-const SAFETY_NC_TOP = 10;
 const SAFETY_TAB_KEYS = [
   "ranking",
   "overview",
@@ -279,15 +278,12 @@ export function SafetyAnalyticsPage(): JSX.Element {
   const [supervisorsRanking, setSupervisorsRanking] = useState<FieldSupervisorsRankingData | null>(null);
   const [coordinatorsRanking, setCoordinatorsRanking] = useState<CoordinatorsRankingData | null>(null);
   const [qualityByService, setQualityByService] = useState<QualityByServiceData | null>(null);
-  const [nonConformitiesByChecklist, setNonConformitiesByChecklist] = useState<Awaited<
-    ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByChecklist>
+  const [nonConformities, setNonConformities] = useState<Awaited<
+    ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesList>
   > | null>(null);
-  const [nonConformitiesByTeam, setNonConformitiesByTeam] = useState<Awaited<
-    ReturnType<typeof appRepository.getDashboardSafetyWorkNonConformitiesByTeam>
-  > | null>(null);
+  const [nonConformitiesLoading, setNonConformitiesLoading] = useState(false);
+  const [nonConformitiesError, setNonConformitiesError] = useState<string | null>(null);
   const [nonConformitiesTeamId, setNonConformitiesTeamId] = useState("");
-  const [nonConformitiesByTeamLoading, setNonConformitiesByTeamLoading] = useState(false);
-  const [nonConformitiesByTeamError, setNonConformitiesByTeamError] = useState<string | null>(null);
   const [teamOptions, setTeamOptions] = useState<Team[]>([]);
   const [rankingOrder, setRankingOrder] = useState<"asc" | "desc">("desc");
   const [rankingInspectionsOpen, setRankingInspectionsOpen] = useState(false);
@@ -387,7 +383,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
         supervisorsResult,
         coordinatorsResult,
         overviewResult,
-        nonConformitiesResult,
       ] = await Promise.all([
           appRepository.getDashboardSafetyWorkSummary({
             from: period.from,
@@ -436,14 +431,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
               contractId: contractId || undefined,
             })
           ),
-          skipUnless(showsNonConformities, () =>
-            appRepository.getDashboardSafetyWorkNonConformitiesByChecklist({
-              from: period.from,
-              to: period.to,
-              contractId: contractId || undefined,
-              limitPerChecklist: SAFETY_NC_TOP,
-            })
-          ),
         ]);
       setSummary(summaryResult);
       setInspectorsProduction(inspectorsResult);
@@ -451,7 +438,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
       setSupervisorsRanking(supervisorsResult);
       setCoordinatorsRanking(coordinatorsResult);
       setQualityByService(overviewResult);
-      setNonConformitiesByChecklist(nonConformitiesResult);
       setTeamRanking(
         (rankingResult ?? []).map((item) => ({
           teamId: item.teamId,
@@ -478,7 +464,6 @@ export function SafetyAnalyticsPage(): JSX.Element {
     showsFiscais,
     showsForemen,
     showsOverview,
-    showsNonConformities,
   ]);
 
   useEffect(() => {
@@ -568,40 +553,39 @@ export function SafetyAnalyticsPage(): JSX.Element {
 
   useEffect(() => {
     if (!canAccessAnalytics || !showsNonConformities) return;
-    if (!nonConformitiesTeamId) {
-      setNonConformitiesByTeam(null);
-      setNonConformitiesByTeamError(null);
-      return;
-    }
-
     let cancelled = false;
-    const loadNonConformitiesByTeam = async () => {
-      setNonConformitiesByTeamLoading(true);
-      setNonConformitiesByTeamError(null);
+    const loadNonConformities = async () => {
+      setNonConformitiesLoading(true);
+      setNonConformitiesError(null);
       try {
-        const response = await appRepository.getDashboardSafetyWorkNonConformitiesByTeam({
+        const response = await appRepository.getDashboardSafetyWorkNonConformitiesList({
           from: globalPeriod.from,
           to: globalPeriod.to,
-          teamId: nonConformitiesTeamId,
           contractId: selectedContractId || undefined,
-          limit: SAFETY_NC_TOP,
+          limitPerChecklist: 5,
+          ...(nonConformitiesTeamId ? { teamId: nonConformitiesTeamId } : {}),
         });
-        if (!cancelled) setNonConformitiesByTeam(response);
+        if (!cancelled) setNonConformities(response);
       } catch {
         if (!cancelled) {
-          setNonConformitiesByTeam(null);
-          setNonConformitiesByTeamError("Falha ao carregar o top de não conformidades da equipe.");
+          setNonConformities(null);
+          setNonConformitiesError("Falha ao carregar as não conformidades.");
         }
       } finally {
-        if (!cancelled) setNonConformitiesByTeamLoading(false);
+        if (!cancelled) setNonConformitiesLoading(false);
       }
     };
-
-    void loadNonConformitiesByTeam();
+    void loadNonConformities();
     return () => {
       cancelled = true;
     };
-  }, [canAccessAnalytics, showsNonConformities, globalPeriod, nonConformitiesTeamId, selectedContractId]);
+  }, [
+    canAccessAnalytics,
+    showsNonConformities,
+    globalPeriod,
+    nonConformitiesTeamId,
+    selectedContractId,
+  ]);
 
   const sortedTeamRanking = useMemo(
     () =>
@@ -993,17 +977,14 @@ export function SafetyAnalyticsPage(): JSX.Element {
         ))}
 
       {activeTabKey === "nonconformities" && (
-        <QualityNonConformitiesTab
-          checklistTitle="Perguntas com mais não conformidades por checklist (Top 10)"
-          teamTitle="Não conformidades da equipe selecionada por checklist (Top 10)"
-          topLimit={SAFETY_NC_TOP}
-          byChecklist={nonConformitiesByChecklist}
-          byTeam={nonConformitiesByTeam}
+        <QualityNonConformitiesList
+          data={nonConformities}
+          loading={nonConformitiesLoading}
+          error={nonConformitiesError}
+          showTeamFilter
           teamOptions={teamOptions.map((team) => ({ id: team.id, name: team.name }))}
           selectedTeamId={nonConformitiesTeamId}
           onSelectedTeamIdChange={setNonConformitiesTeamId}
-          byTeamLoading={nonConformitiesByTeamLoading}
-          byTeamError={nonConformitiesByTeamError}
           dateFilterHint={<DateFilterHint label={dateFilterLabel} isFiltered={isDateFiltered} />}
         />
       )}
