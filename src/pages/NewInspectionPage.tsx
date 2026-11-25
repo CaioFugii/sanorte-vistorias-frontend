@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChecklistSelect } from "@/components/ChecklistSelect";
 import { SectorSelect } from "@/components/SectorSelect";
 import { appRepository } from "@/repositories/AppRepository";
@@ -32,8 +32,53 @@ import { appendServiceDescriptionOption, serviceDescriptionIncludesOption } from
 import { UserRole } from "@/domain/enums";
 import { ModuleSelect } from "@/components/ModuleSelect";
 
+function claimedModuleOf(value: string | null): ModuleType | null {
+  if (
+    value === ModuleType.REMOTO ||
+    value === ModuleType.POS_OBRA ||
+    value === ModuleType.OBRAS_INVESTIMENTO
+  ) {
+    return value;
+  }
+  return null;
+}
+
 export const NewInspectionPage = (): JSX.Element => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const claimedFromToDo = searchParams.get("from") === "a-realizar";
+  const claimedModule = claimedFromToDo ? claimedModuleOf(searchParams.get("module")) : null;
+  const claimedContractId = searchParams.get("contractId") ?? "";
+  const claimedOsNumber = searchParams.get("osNumber") ?? "";
+  const claimedAddress = searchParams.get("address") ?? "";
+  const claimedSectorName = searchParams.get("sectorName") ?? "";
+  const claimedServiceOrderId = searchParams.get("serviceOrderId");
+  const claimedWorkId = searchParams.get("investmentWorkId");
+  const claimedServiceOrder: ServiceOrder | null =
+    claimedFromToDo && claimedServiceOrderId
+      ? ({
+          id: claimedServiceOrderId,
+          osNumber: claimedOsNumber,
+          contractId: claimedContractId || undefined,
+          address: claimedAddress,
+          sector: claimedSectorName
+            ? { id: "", name: claimedSectorName, active: true }
+            : undefined,
+        } as ServiceOrder)
+      : null;
+  const claimedWork: InvestmentWork | null =
+    claimedFromToDo && claimedWorkId
+      ? ({
+          id: claimedWorkId,
+          contractId: claimedContractId,
+          workName: claimedOsNumber,
+          name: claimedOsNumber,
+          address: claimedAddress,
+          startDate: "",
+          expectedEndDate: "",
+          district: "",
+        } as InvestmentWork)
+      : null;
   const user = useAuthStore((state) => state.user);
   const sectors = useReferenceStore((state) => state.sectors);
   const sectorsLoading = useReferenceStore((state) => state.sectorsLoading);
@@ -42,9 +87,11 @@ export const NewInspectionPage = (): JSX.Element => {
   const reloadSectors = useReferenceStore((state) => state.reloadSectors);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [osSearchLoading, setOsSearchLoading] = useState(false);
-  const [module, setModule] = useState<ModuleType>(ModuleType.CAMPO);
+  const [module, setModule] = useState<ModuleType>(claimedModule ?? ModuleType.CAMPO);
   const [evaluationModule, setEvaluationModule] = useState<InvestmentWorkEvaluationModule>(
-    InvestmentWorkEvaluationModule.CAMPO
+    searchParams.get("evaluationModule") === InvestmentWorkEvaluationModule.POS_OBRA
+      ? InvestmentWorkEvaluationModule.POS_OBRA
+      : InvestmentWorkEvaluationModule.CAMPO
   );
   const [sectorId, setSectorId] = useState("");
   const [checklistId, setChecklistId] = useState("");
@@ -59,15 +106,17 @@ export const NewInspectionPage = (): JSX.Element => {
   const [selectedCollaborator, setSelectedCollaborator] = useState<Collaborator | null>(null);
   const [collaboratorSearchInput, setCollaboratorSearchInput] = useState("");
   const [selectedCollaboratorId, setSelectedCollaboratorId] = useState("");
-  const [osNumberInput, setOsNumberInput] = useState("");
-  const [selectedServiceOrder, setSelectedServiceOrder] = useState<ServiceOrder | null>(null);
+  const [osNumberInput, setOsNumberInput] = useState(claimedServiceOrder?.osNumber ?? "");
+  const [selectedServiceOrder, setSelectedServiceOrder] = useState<ServiceOrder | null>(claimedServiceOrder);
   const [serviceOrderOptions, setServiceOrderOptions] = useState<ServiceOrder[]>([]);
-  const [investmentWorkSearchInput, setInvestmentWorkSearchInput] = useState("");
-  const [selectedInvestmentWork, setSelectedInvestmentWork] = useState<InvestmentWork | null>(null);
+  const [investmentWorkSearchInput, setInvestmentWorkSearchInput] = useState(claimedWork?.workName ?? "");
+  const [selectedInvestmentWork, setSelectedInvestmentWork] = useState<InvestmentWork | null>(claimedWork);
   const [investmentWorkOptions, setInvestmentWorkOptions] = useState<InvestmentWork[]>([]);
   const [investmentWorkSearchLoading, setInvestmentWorkSearchLoading] = useState(false);
   const [adminContracts, setAdminContracts] = useState<Array<Pick<Contract, "id" | "name">>>([]);
-  const [selectedContractId, setSelectedContractId] = useState("");
+  const [selectedContractId, setSelectedContractId] = useState(
+    claimedWork ? claimedContractId : ""
+  );
   const [serviceDescription, setServiceDescription] = useState("");
   const [serviceDescriptionSuggestions, setServiceDescriptionSuggestions] = useState<string[]>([]);
   const [locationDescription, setLocationDescription] = useState("");
@@ -168,10 +217,18 @@ export const NewInspectionPage = (): JSX.Element => {
   }, [contractsForSelection]);
 
   useEffect(() => {
+    if (claimedFromToDo) return;
     if (!contractsForSelection.some((contract) => contract.id === selectedContractId)) {
       setSelectedContractId(contractsForSelection.length === 1 ? contractsForSelection[0].id : "");
     }
-  }, [contractsForSelection, selectedContractId]);
+  }, [claimedFromToDo, contractsForSelection, selectedContractId]);
+
+  useEffect(() => {
+    if (!claimedFromToDo || sectorId || !claimedSectorName) return;
+    const wanted = claimedSectorName.trim();
+    const match = sectors.find((sector) => sector.name.trim() === wanted);
+    if (match) setSectorId(match.id);
+  }, [claimedFromToDo, claimedSectorName, sectorId, sectors]);
 
   useEffect(() => {
     if (selectedServiceOrder) {
@@ -501,6 +558,7 @@ export const NewInspectionPage = (): JSX.Element => {
         serviceDescription: normalizedServiceDescription,
         locationDescription,
         createdByUserId: user.id,
+        ...(claimedFromToDo ? { claimPendingStage: true } : {}),
       });
       createdInspectionExternalId = inspection.externalId;
     } catch (error) {
@@ -551,6 +609,7 @@ export const NewInspectionPage = (): JSX.Element => {
           <form onSubmit={handleSubmit}>
             <ModuleSelect
               value={module}
+              disabled={claimedFromToDo}
               onChange={(value) => {
                 setModule(value);
                 setEvaluationModule(InvestmentWorkEvaluationModule.CAMPO);
@@ -588,6 +647,7 @@ export const NewInspectionPage = (): JSX.Element => {
                     exclusive
                     fullWidth
                     color="primary"
+                    disabled={claimedFromToDo}
                     aria-labelledby="investment-work-evaluation-label"
                     value={evaluationModule}
                     onChange={(_, value: InvestmentWorkEvaluationModule | null) => {
@@ -609,6 +669,7 @@ export const NewInspectionPage = (): JSX.Element => {
                 <Autocomplete
                   options={serviceOrderOptions}
                   value={selectedServiceOrder}
+                  disabled={claimedFromToDo}
                   inputValue={osNumberInput}
                   onChange={(_, value) => {
                     setSelectedServiceOrder(value);
@@ -700,7 +761,7 @@ export const NewInspectionPage = (): JSX.Element => {
                         setInvestmentWorkSearchInput("");
                       }
                     }}
-                    disabled={Boolean(selectedServiceOrder)}
+                    disabled={claimedFromToDo || Boolean(selectedServiceOrder)}
                   >
                     <MenuItem value="">
                       <em>{selectedServiceOrder ? "Contrato definido pela OS" : "Selecione"}</em>
@@ -719,6 +780,7 @@ export const NewInspectionPage = (): JSX.Element => {
                 <Autocomplete
                   options={investmentWorkOptions}
                   value={selectedInvestmentWork}
+                  disabled={claimedFromToDo}
                   inputValue={investmentWorkSearchInput}
                   onChange={(_, value) => {
                     setSelectedInvestmentWork(value);

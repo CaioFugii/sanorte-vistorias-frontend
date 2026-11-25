@@ -1473,6 +1473,26 @@ Response 200:
 - Aba: `O.S`
 - Cabeçalho: `ORDENS DE SERVIÇOS CADASTRADAS` e linha `PERÍODO: DD/MM/YYYY A DD/MM/YYYY    CONTRATO: {nome|TODOS}`
 
+### GET /service-orders/to-do
+
+- Auth: JWT + aba `painel_a_realizar`. O Administrador passa. Sem a aba, `403`.
+- Query: `month` (`YYYY-MM`; ausente ou futuro cai no mês atual), `page`, `limit`, `osNumber`, `equipe`, `resultado` (mínimo 3 caracteres), `sectorId`, `contractId`, `field`, `remote`, `postWork`.
+- Uma linha por OS ou obra e etapa (`REMOTO` ou `POS_OBRA`). `total` conta linhas. Rascunho tira a linha.
+- Remoto usa o mês de referência (no mês atual, do dia 1 até hoje). Pós-obra da OS e a obra usam o mês anterior inteiro. Obra inativa ou cancelada fica de fora. Campo da obra não tira a Pós-obra.
+- `postWork=true` devolve vazio. `remote=false` só Remoto. `postWork=false` só Pós-obra. `field` ou `remote` definido tira a obra.
+- A linha traz `source`, `stage`, `serviceOrderId` ou `investmentWorkId`, `contractId`, `osNumber`, `sectorName`, `address`, `field`, `remote`, `postWork`, `postWorkRequired`, `status`, `equipe`, `fimExecucao`, `tempoExecucaoEfetivo`, `resultado`, `updatedAt` e os ids de vistoria dos chips. Obra devolve `field` e `remote` `null`, `postWork` `false` e `resultado` `null`.
+
+### GET /service-orders/to-do/summary
+
+- Auth e filtros iguais à lista, sem `page` e `limit`.
+- Response: `{ "remote": { "count": 0, "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" }, "postWork": { "count": 0, "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } }`.
+- A soma dos dois `count` é o `total` da lista. Não devolve Total nem Feitas.
+
+### GET /service-orders/to-do/export
+
+- Auth e filtros iguais à lista, sem paginação. Máximo de 5000 linhas, sem aviso.
+- Arquivo `a-realizar-YYYY-MM-DD.xlsx`, com a coluna Etapa logo depois de Número da OS. Célula vazia onde a linha traz `null`.
+
 ### POST /service-orders/import
 
 - Auth: JWT + ação `painel_cadastros_importar`
@@ -1730,7 +1750,8 @@ Cada cadastro criado nasce `IMPORT`, ativo, `EM_ANDAMENTO`, setor `REPOSICAO`, `
   - `serviceOrderId` é obrigatório para módulos diferentes de `CAMPO`, `SEGURANCA_TRABALHO` e `OBRAS_INVESTIMENTO`.
   - para `CAMPO`, `SEGURANCA_TRABALHO` e `OBRAS_INVESTIMENTO`, `serviceOrderId` é opcional. Em Campo, `teamId` continua obrigatório.
   - `POS_OBRA` exige OS cujo resultado está na lista fixa de pós-obra. Fora da lista, a API responde 400.
-  - uma OS aceita uma vistoria por módulo. Se já existir vistoria daquele módulo, inclusive rascunho, a API responde 400 `Esta ordem de serviço já tem vistoria de {módulo}.` Outro módulo na mesma OS continua permitido. A mesma trava vale na edição e no sync.
+  - uma OS aceita uma vistoria por módulo. Se já existir vistoria daquele módulo, inclusive rascunho, a API responde 400. Em `REMOTO` e `POS_OBRA` a mensagem é `Esta etapa já está em vistoria.` Nos demais módulos, inclusive Campo, permanece `Esta ordem de serviço já tem vistoria de {módulo}.` Outro módulo na mesma OS continua permitido. A mesma trava vale na edição e no sync.
+  - `claimPendingStage` é opcional. Sem ele, o corpo de hoje continua válido. O sync não envia o campo. Com `true` em Pós-obra de obra, a segunda vistoria dessa etapa responde 400 `Esta etapa já está em vistoria.`. Sem o flag, a segunda Pós-obra da obra continua permitida.
   - quando `serviceOrderId` não for enviado, `contractId` é obrigatório.
   - quando `serviceOrderId` for enviado, o backend usa automaticamente o `contractId` da OS.
   - `teamId` é obrigatório para módulos diferentes de `SEGURANCA_TRABALHO`.

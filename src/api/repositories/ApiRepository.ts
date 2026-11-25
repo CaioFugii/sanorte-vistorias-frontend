@@ -36,6 +36,9 @@ import {
   ServiceOrderImportResult,
   ServiceOrderImportSummary,
   ServiceOrderStageSummary,
+  ToDoLine,
+  ToDoQuery,
+  ToDoSummary,
   Team,
   User,
   ReportType,
@@ -706,6 +709,32 @@ export class ApiRepository {
     return response.data;
   }
 
+  async getToDo(params?: ToDoQuery): Promise<PaginatedResponse<ToDoLine>> {
+    const response = await apiClient.get<PaginatedResponse<ToDoLine>>("/service-orders/to-do", {
+      params,
+    });
+    return response.data;
+  }
+
+  async getToDoSummary(params?: Omit<ToDoQuery, "page" | "limit">): Promise<ToDoSummary> {
+    const response = await apiClient.get<ToDoSummary>("/service-orders/to-do/summary", { params });
+    return response.data;
+  }
+
+  async exportToDoExcel(
+    params?: Omit<ToDoQuery, "page" | "limit">
+  ): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiClient.get<Blob>("/service-orders/to-do/export", {
+      params,
+      responseType: "blob",
+      timeout: 60000,
+    });
+    const filename =
+      parseContentDispositionFilename(response.headers["content-disposition"]) ??
+      "a-realizar.xlsx";
+    return { blob: response.data, filename };
+  }
+
   async exportInvestmentWorksExcel(
     params?: Omit<InvestmentWorksParams, "page" | "limit">
   ): Promise<{ blob: Blob; filename: string }> {
@@ -1054,6 +1083,7 @@ export class ApiRepository {
     serviceDescription: string;
     locationDescription?: string;
     collaboratorIds?: string[];
+    claimPendingStage?: boolean;
     externalId?: string;
     createdOffline?: boolean;
     syncedAt?: string;
@@ -1074,6 +1104,7 @@ export class ApiRepository {
     if (input.externalId) payload.externalId = input.externalId;
     if (input.createdOffline !== undefined) payload.createdOffline = input.createdOffline;
     if (input.syncedAt) payload.syncedAt = input.syncedAt;
+    if (input.claimPendingStage) payload.claimPendingStage = true;
     const response = await apiClient.post<Inspection>("/inspections", payload);
     return response.data;
   }

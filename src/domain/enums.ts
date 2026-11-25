@@ -30,6 +30,7 @@ export enum AccessTab {
   QUALIDADE_DADOS_NAO_CONFORMIDADES = "qualidade_dados_nao_conformidades",
   PAINEL_GLOBAL = "painel_global",
   PAINEL_OBRAS = "painel_obras",
+  PAINEL_A_REALIZAR = "painel_a_realizar",
   PAINEL_VISTORIAS = "painel_vistorias",
   PAINEL_CADASTROS = "painel_cadastros",
   PAINEL_PENDENCIAS_ATIVAS = "painel_pendencias_ativas",
@@ -78,9 +79,10 @@ export const PENDENCIAS_TABS: readonly AccessTab[] = [
 export const PAINEL_TABS: readonly AccessTab[] = [
   AccessTab.PAINEL_GLOBAL,
   AccessTab.PAINEL_OBRAS,
+  AccessTab.PAINEL_A_REALIZAR,
   AccessTab.PAINEL_VISTORIAS,
-  AccessTab.PAINEL_CADASTROS,
   ...PENDENCIAS_TABS,
+  AccessTab.PAINEL_CADASTROS,
 ];
 
 export const SEGURANCA_DADOS_TABS: readonly AccessTab[] = [

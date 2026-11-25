@@ -38,6 +38,9 @@ import {
   ServiceOrderImportResult,
   ServiceOrderImportSummary,
   ServiceOrderStageSummary,
+  ToDoLine,
+  ToDoQuery,
+  ToDoSummary,
   Signature,
   Team,
   User,
@@ -572,6 +575,20 @@ export class AppRepository implements IAppRepository {
     resultado?: string;
   }): Promise<ServiceOrderStageSummary> {
     return this.apiRepository.getServiceOrderSummary(params);
+  }
+
+  async getToDo(params?: ToDoQuery): Promise<PaginatedResponse<ToDoLine>> {
+    return this.apiRepository.getToDo(params);
+  }
+
+  async getToDoSummary(params?: Omit<ToDoQuery, "page" | "limit">): Promise<ToDoSummary> {
+    return this.apiRepository.getToDoSummary(params);
+  }
+
+  async exportToDoExcel(
+    params?: Omit<ToDoQuery, "page" | "limit">
+  ): Promise<{ blob: Blob; filename: string }> {
+    return this.apiRepository.exportToDoExcel(params);
   }
 
   async exportInvestmentWorksExcel(params?: {
@@ -1557,6 +1574,7 @@ export class AppRepository implements IAppRepository {
     serviceDescription: string;
     locationDescription: string;
     createdByUserId: string;
+    claimPendingStage?: boolean;
   }): Promise<Inspection> {
     const created = await this.apiRepository.createInspection({
       module: input.module,
@@ -1570,6 +1588,7 @@ export class AppRepository implements IAppRepository {
       collaboratorIds: input.collaboratorIds,
       serviceDescription: input.serviceDescription,
       locationDescription: input.locationDescription,
+      ...(input.claimPendingStage ? { claimPendingStage: true } : {}),
     });
     const createdWithId = created as Partial<Inspection> & { id?: string };
     const routeId = createdWithId.externalId ?? createdWithId.id;

@@ -24,10 +24,11 @@ import { CloudUpload, FilterAltOff, Search } from "@mui/icons-material";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { downloadBlob } from "@/utils/downloadBlob";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { QualityInspectionsTab } from "@/pages/analytics/components/QualityInspectionsTab";
 import { CadastrosTab } from "@/pages/control-panel/CadastrosTab";
 import { InvestmentWorksTab } from "@/pages/control-panel/InvestmentWorksTab";
+import { ToDoTab } from "@/pages/control-panel/ToDoTab";
 import { appRepository } from "@/repositories/AppRepository";
 import { useReferenceStore } from "@/stores/referenceStore";
 import {
@@ -41,7 +42,7 @@ import {
   ServiceOrderStageSummary,
   UserRole,
 } from "@/domain";
-import { canAct, canSeeAnyTab, canSeeTab, resolveVisibleTab } from "@/domain/rules/access-area";
+import { canAct, canSeeAnyTab, canSeeTab, onlyToDoPanel, resolveVisibleTab } from "@/domain/rules/access-area";
 import { PendingsTab } from "@/pages/control-panel/PendingsTab";
 import { ServiceOrderImportHistory } from "@/pages/ServiceOrderImportHistory";
 import { ListPagination } from "@/components/ListPagination";
@@ -847,13 +848,21 @@ function ImportacaoTab({ contracts, canUpload, canDelete, canEdit }: ImportacaoT
   );
 }
 
-type PanelTab = "todos" | "obras" | "vistorias" | "historico" | "pendencias";
+type PanelTab = "todos" | "obras" | "a-realizar" | "vistorias" | "pendencias" | "historico";
 
-const PANEL_TABS_IN_ORDER: readonly PanelTab[] = ["todos", "obras", "vistorias", "historico", "pendencias"];
+const PANEL_TABS_IN_ORDER: readonly PanelTab[] = [
+  "todos",
+  "obras",
+  "a-realizar",
+  "vistorias",
+  "pendencias",
+  "historico",
+];
 
 const PANEL_TAB_ACCESS: Record<PanelTab, readonly AccessTab[]> = {
   todos: [AccessTab.PAINEL_GLOBAL],
   obras: [AccessTab.PAINEL_OBRAS],
+  "a-realizar": [AccessTab.PAINEL_A_REALIZAR],
   vistorias: [AccessTab.PAINEL_VISTORIAS],
   historico: [AccessTab.PAINEL_CADASTROS],
   pendencias: PENDENCIAS_TABS,
@@ -862,6 +871,7 @@ const PANEL_TAB_ACCESS: Record<PanelTab, readonly AccessTab[]> = {
 const PANEL_TAB_LABELS: Record<PanelTab, string> = {
   todos: "Global",
   obras: "Obras Inv",
+  "a-realizar": "À Realizar",
   vistorias: "Vistorias",
   historico: "Cadastros",
   pendencias: "Pendências",
@@ -923,6 +933,10 @@ export const ServiceOrdersPage = (): JSX.Element => {
     setSearchParams(panelTabSearch(tab), { replace: true });
   }, [requestedTab, setSearchParams, tab]);
 
+  if (onlyToDoPanel(user)) {
+    return <Navigate to="/a-realizar" replace />;
+  }
+
   return (
     <Box>
       <PageHeader
@@ -959,6 +973,7 @@ export const ServiceOrdersPage = (): JSX.Element => {
             <div role="tabpanel" id={`service-orders-panel-${tab}`} aria-labelledby={`service-orders-tab-${tab}`}>
               {tab === "todos" && <ListagemTab contracts={contractsForFilters} isAdmin={canDeleteOrders} />}
               {tab === "obras" && <InvestmentWorksTab contracts={contractsForFilters} />}
+              {tab === "a-realizar" && <ToDoTab contracts={contractsForFilters} />}
               {tab === "vistorias" && <QualityInspectionsTab />}
               {tab === "historico" && (
                 <CadastrosTab

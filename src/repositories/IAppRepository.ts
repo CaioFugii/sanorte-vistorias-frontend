@@ -36,6 +36,9 @@ import {
   ServiceOrderImportResult,
   ServiceOrderImportSummary,
   ServiceOrderStageSummary,
+  ToDoLine,
+  ToDoQuery,
+  ToDoSummary,
   Signature,
   Team,
   User,
@@ -319,6 +322,9 @@ export interface IAppRepository {
     equipe?: string;
     resultado?: string;
   }): Promise<ServiceOrderStageSummary>;
+  getToDo(params?: ToDoQuery): Promise<PaginatedResponse<ToDoLine>>;
+  getToDoSummary(params?: Omit<ToDoQuery, "page" | "limit">): Promise<ToDoSummary>;
+  exportToDoExcel(params?: Omit<ToDoQuery, "page" | "limit">): Promise<{ blob: Blob; filename: string }>;
   exportInvestmentWorksExcel(params?: {
     status?: InvestmentWorkStatus;
     contractId?: string;
@@ -1120,6 +1126,7 @@ export interface IAppRepository {
     serviceDescription: string;
     locationDescription: string;
     createdByUserId: string;
+    claimPendingStage?: boolean;
   }): Promise<Inspection>;
   getInspection(externalId: string, forceApi?: boolean): Promise<Inspection | null>;
   deleteInspection(externalId: string): Promise<void>;

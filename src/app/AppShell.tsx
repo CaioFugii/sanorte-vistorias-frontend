@@ -39,7 +39,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { UserRole } from "@/domain/enums";
-import { AccessScreen, canSeeScreen } from "@/domain/rules/access-area";
+import { AccessScreen, canSeeScreen, onlyToDoPanel } from "@/domain/rules/access-area";
 import type { User } from "@/domain/types";
 import { InspectionNoticeHost } from "@/components/InspectionNoticeHost";
 import { useAuthStore } from "@/stores/authStore";
@@ -125,11 +125,18 @@ function leafVisible(user: User, item: MenuLeaf): boolean {
 
 function menuForUser(user: User | null): MenuGroup[] {
   if (!user) return [];
+  const toDoOnly = onlyToDoPanel(user);
   return menuBlueprint.flatMap((group) => {
     if (group.path) {
       return leafVisible(user, group as MenuLeaf) ? [group] : [];
     }
-    const items = (group.items ?? []).filter((item) => leafVisible(user, item));
+    const items = (group.items ?? []).flatMap((item) => {
+      if (!leafVisible(user, item)) return [];
+      if (item.screen === "painel" && toDoOnly) {
+        return [{ ...item, path: "/a-realizar", label: "À Realizar" }];
+      }
+      return [item];
+    });
     return items.length > 0 ? [{ ...group, items }] : [];
   });
 }

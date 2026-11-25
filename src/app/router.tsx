@@ -25,6 +25,7 @@ import {
   SafetyAnalyticsPage,
   SectorsPage,
   ServiceOrdersPage,
+  ToDoPage,
   TeamsPage,
   FieldHierarchyPage,
   UsersPage,
@@ -165,6 +166,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAnyTab tabs={PAINEL_TABS}>
             <ServiceOrdersPage />
+          </RequireAnyTab>
+        ),
+      },
+      {
+        path: "/a-realizar",
+        element: (
+          <RequireAnyTab tabs={[AccessTab.PAINEL_A_REALIZAR]}>
+            <ToDoPage />
           </RequireAnyTab>
         ),
       },

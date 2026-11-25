@@ -14,6 +14,7 @@ export { UsersPage } from './UsersPage';
 export { ChecklistsPage } from './ChecklistsPage';
 export { ChecklistEditorPage } from './ChecklistEditorPage';
 export { ServiceOrdersPage } from './ServiceOrdersPage';
+export { ToDoPage } from './control-panel/ToDoTab';
 export { InspectionsPage } from './InspectionsPage';
 export { SafetyInspectionsPage } from './SafetyInspectionsPage';
 export { NewInspectionPage } from './NewInspectionPage';

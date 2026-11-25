@@ -155,6 +155,49 @@ export interface ServiceOrderStageSummary {
   postWork: { total: number; done: number };
 }
 
+export interface ToDoLine {
+  source: "SERVICE_ORDER" | "INVESTMENT_WORK";
+  stage: "REMOTO" | "POS_OBRA";
+  serviceOrderId: string | null;
+  investmentWorkId: string | null;
+  contractId: string | null;
+  osNumber: string;
+  sectorName: string | null;
+  address: string | null;
+  field: boolean | null;
+  remote: boolean | null;
+  postWork: boolean | null;
+  postWorkRequired: boolean;
+  status: string | null;
+  equipe: string | null;
+  fimExecucao: string | null;
+  tempoExecucaoEfetivo: string | null;
+  resultado: string | null;
+  updatedAt: string;
+  fieldInspectionId: string | null;
+  remoteInspectionId: string | null;
+  postWorkInspectionId: string | null;
+}
+
+export interface ToDoSummary {
+  remote: { count: number; from: string; to: string };
+  postWork: { count: number; from: string; to: string };
+}
+
+export interface ToDoQuery {
+  month?: string;
+  page?: number;
+  limit?: number;
+  osNumber?: string;
+  sectorId?: string;
+  contractId?: string;
+  field?: boolean;
+  remote?: boolean;
+  postWork?: boolean;
+  equipe?: string;
+  resultado?: string;
+}
+
 export interface ServiceOrder {
   id: string;
   osNumber: string;

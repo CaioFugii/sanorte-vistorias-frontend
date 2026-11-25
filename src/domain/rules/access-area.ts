@@ -68,6 +68,7 @@ export const ACCESS_TAB_LABELS: Record<AccessTab, string> = {
   [AccessTab.QUALIDADE_DADOS_NAO_CONFORMIDADES]: "Não Conformidades",
   [AccessTab.PAINEL_GLOBAL]: "Global",
   [AccessTab.PAINEL_OBRAS]: "Obras Inv",
+  [AccessTab.PAINEL_A_REALIZAR]: "À Realizar",
   [AccessTab.PAINEL_VISTORIAS]: "Vistorias",
   [AccessTab.PAINEL_CADASTROS]: "Cadastros",
   [AccessTab.PAINEL_PENDENCIAS_ATIVAS]: "Pendências ativas",
@@ -167,10 +168,21 @@ export function resolveVisibleTab<K extends string>(
   return visible[0] ?? null;
 }
 
+export function visiblePanelTabs(user: AccessSubject | null | undefined): AccessTab[] {
+  return PAINEL_TABS.filter((tab) => canSeeTab(user, tab));
+}
+
+export function onlyToDoPanel(user: AccessSubject | null | undefined): boolean {
+  const tabs = visiblePanelTabs(user);
+  return tabs.length === 1 && tabs[0] === AccessTab.PAINEL_A_REALIZAR;
+}
+
 export function firstVisibleRoute(user: AccessSubject | null | undefined): string | null {
   if (!user?.role) return null;
   const screen = SCREENS_IN_ORDER.find((candidate) => canSeeScreen(user, candidate));
-  return screen ? SCREEN_ROUTE[screen] : null;
+  if (!screen) return null;
+  if (screen === "painel" && onlyToDoPanel(user)) return "/a-realizar";
+  return SCREEN_ROUTE[screen];
 }
 
 const ADMIN_ONLY_PATHS = [
@@ -197,6 +209,7 @@ export function canOpenPath(user: User | null | undefined, pathname: string): bo
   if (pathname === "/inspections") {
     return [UserRole.ADMIN, UserRole.GESTOR, UserRole.SUPERVISOR].includes(user.role);
   }
+  if (pathname === "/a-realizar") return canSeeTab(user, AccessTab.PAINEL_A_REALIZAR);
   if (pathname === "/inspections/mine") return canSeeTab(user, AccessTab.CAMPO_MINHAS);
   if (pathname === "/inspections/new") return canSeeTab(user, AccessTab.CAMPO_NOVA);
   if (/^\/inspections\/[^/]+\/fill$/.test(pathname)) {

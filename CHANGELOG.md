@@ -8,6 +8,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Added
 
+- Aba **À Realizar** no Painel: serviços de Remoto e Pós-obra ainda sem vistoria, com as caixas só da quantidade a realizar e exportação Excel
 - Painel de Controle com quatro abas: Global, Obras Inv, Vistorias e Cadastros. Obras Inv lista as obras do mês, com caixas de Campo e Pós Obra
 - Cadastro em massa de Obras Inv na aba Cadastros, com seleção de Descrições e histórico do lançamento
 - Filtro e coluna Contrato na aba Vistorias; a exportação envia o contrato filtrado e a coluna Contrato
@@ -51,6 +52,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Changed
 
+- Quem só tem À Realizar no Painel entra em `/a-realizar`, sem a barra de abas. O Fiscal de partida cai nessa tela. Vistoriar abre a Nova vistoria já preenchida, inclusive o setor, e só grava o rascunho ao salvar
+- Ordem das abas do Painel: Global, Obras Inv, À Realizar, Vistorias, Pendências e Cadastros
 - Aba Obras Inv troca o mês pelas setas e exporta a lista filtrada em Excel
 - Aba Cadastros lista Global e Obras Inv em blocos separados, com o histórico de Obras Inv em lançamentos em vez de uma tabela de dez colunas
 - Filtro "Execução" da aba Vistorias usa a data da obra quando a vistoria de Obras Inv não tem OS
